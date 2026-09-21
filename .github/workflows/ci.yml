@@ -84,9 +84,9 @@ jobs:
       matrix:
         include:
           - name: "PySpark 3.5 + Delta (DBR 15.4/16.4 line)"
-            packages: "pyspark>=3.5.2,<3.6 delta-spark>=3.2,<3.4"
+            packages: "'pyspark>=3.5.2,<3.6' 'delta-spark>=3.2,<3.4'"
           - name: "PySpark 4.0 (DBR 17.3 line)"
-            packages: "pyspark>=4.0,<4.1"
+            packages: "'pyspark>=4.0,<4.1'"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
