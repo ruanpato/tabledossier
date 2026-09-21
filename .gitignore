@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv*/
+venv/
+build/
+dist/
+wheelhouse/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Spark / local test artefacts
+spark-warehouse/
+metastore_db/
+derby.log
+*.crc
+
+# TableDossier: real results, local configuration and credentials must never be committed.
+# Only synthetic examples under examples/ are versioned.
+results/
+downloaded/
+docs/generated/
+*.local.json
+profile.config.json
+annotations.local.json
+.env
+.env.*
+*.pem
+*.key
+.databrickscfg
+
+# Local planning notes (kept on disk, not published)
+docs/reference/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

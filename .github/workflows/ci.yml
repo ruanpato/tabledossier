@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install locked development tools
+        run: |
+          python -m pip install uv
+          uv sync --locked --group dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  unit:
+    name: Unit tests (Python ${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          - os: windows-latest
+            python: "3.12"
+          - os: macos-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build and install the wheel (no Spark, no network after install)
+        shell: bash
+        run: |
+          python -m pip install build pytest
+          python -m build
+          python -m pip install dist/*.whl
+      - name: Unit tests against the installed wheel
+        run: python -m pytest tests/unit
+      - name: Quickstart smoke test
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/qs" && cd "$RUNNER_TEMP/qs"
+          tabledossier init --output profile.config.json
+          tabledossier validate --config profile.config.json
+          tabledossier generate --config profile.config.json --output dist/profile_databricks.py
+          tabledossier render --input "$GITHUB_WORKSPACE/examples/demo/output/run/profile.json" --output docs/generated
+          python -c "import sys; import tabledossier.cli; assert 'pyspark' not in sys.modules"
+      - name: Wheel contents
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          for required in ("tabledossier/py.typed", "tabledossier/schemas/profile.schema.json",
+                           "tabledossier-0.1.0.dist-info/licenses/LICENSE",
+                           "tabledossier-0.1.0.dist-info/licenses/NOTICE"):
+              assert any(n.endswith(required.split("/", 1)[1]) for n in names), required
+          PY
+
+  spark:
+    name: Spark integration (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "PySpark 3.5 + Delta (DBR 15.4/16.4 line)"
+            packages: "pyspark>=3.5.2,<3.6 delta-spark>=3.2,<3.4"
+          - name: "PySpark 4.0 (DBR 17.3 line)"
+            packages: "pyspark>=4.0,<4.1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install
+        run: python -m pip install -e . pytest ${{ matrix.packages }}
+      - name: Integration tests (real local Spark, synthetic data, no credentials)
+        run: python -m pytest tests/integration -ra

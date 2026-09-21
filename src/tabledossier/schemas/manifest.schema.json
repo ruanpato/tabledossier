@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tabledossier:schema:manifest:1.0",
+  "title": "TableDossier manifests",
+  "description": "A generation manifest describes a notebook produced locally (it never contains metrics). A run manifest describes the result package written by an execution.",
+  "oneOf": [
+    {"$ref": "#/$defs/generationManifest"},
+    {"$ref": "#/$defs/runManifest"}
+  ],
+  "$defs": {
+    "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "generationManifest": {
+      "type": "object",
+      "required": ["kind", "manifest_version", "tool_version", "generation_id", "contains_results", "notebook", "config_fingerprint", "embedded_modules", "embedded_schemas", "target_runtimes", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"const": "tabledossier.generation_manifest"},
+        "manifest_version": {"const": "1.0"},
+        "tool_version": {"type": "string"},
+        "generation_id": {"$ref": "#/$defs/fingerprint"},
+        "contains_results": {"const": false},
+        "notebook": {
+          "type": "object",
+          "required": ["file_name", "format", "sha256", "cells"],
+          "additionalProperties": false,
+          "properties": {
+            "file_name": {"type": "string"},
+            "format": {"const": "databricks_source_python"},
+            "sha256": {"$ref": "#/$defs/fingerprint"},
+            "cells": {"type": "integer", "minimum": 1}
+          }
+        },
+        "config_fingerprint": {"$ref": "#/$defs/fingerprint"},
+        "embedded_modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["module", "source_path", "sha256"],
+            "additionalProperties": false,
+            "properties": {
+              "module": {"type": "string"},
+              "source_path": {"type": "string"},
+              "sha256": {"$ref": "#/$defs/fingerprint"}
+            }
+          }
+        },
+        "embedded_schemas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "sha256"],
+            "additionalProperties": false,
+            "properties": {"name": {"type": "string"}, "sha256": {"$ref": "#/$defs/fingerprint"}}
+          }
+        },
+        "target_runtimes": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "runManifest": {
+      "type": "object",
+      "required": ["kind", "manifest_version", "run_id", "status", "tool_version", "profile_schema_version", "started_at", "finished_at", "generation_id", "files", "profile_validation", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"const": "tabledossier.run_manifest"},
+        "manifest_version": {"const": "1.0"},
+        "run_id": {"type": "string"},
+        "status": {"enum": ["running", "succeeded", "partial", "failed"]},
+        "tool_version": {"type": "string"},
+        "profile_schema_version": {"type": "string"},
+        "started_at": {"type": "string"},
+        "finished_at": {"type": ["string", "null"]},
+        "generation_id": {"type": ["string", "null"]},
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256", "bytes"],
+            "additionalProperties": false,
+            "properties": {
+              "path": {"type": "string"},
+              "sha256": {"$ref": "#/$defs/fingerprint"},
+              "bytes": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "profile_validation": {
+          "type": "object",
+          "required": ["checked", "valid", "errors"],
+          "additionalProperties": false,
+          "properties": {
+            "checked": {"type": "boolean"},
+            "valid": {"type": ["boolean", "null"]},
+            "errors": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

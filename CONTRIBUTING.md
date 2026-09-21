@@ -1,0 +1,58 @@
+# Contributing to TableDossier
+
+Thank you for helping. This project favours small, verifiable changes over broad abstractions.
+
+## Ground rules
+
+- Use **synthetic data only** in examples, tests and issues. Never paste real table names, values, paths,
+  credentials or profiles from a private environment.
+- Keep the MVP scope: see [roadmap](docs/roadmap.md) for what is planned and out of scope.
+- Do not claim support you have not tested. Update [compatibility](docs/compatibility.md) with evidence.
+- Do not copy code or rule catalogs from other projects without reviewing their license and attribution needs.
+
+## Development setup
+
+```bash
+uv sync --group dev                     # or: python -m pip install -e . pytest ruff mypy types-jsonschema build
+uv run pytest tests/unit
+uv run ruff check . && uv run ruff format --check . && uv run mypy
+```
+
+Spark integration tests need Java 17, PySpark and delta-spark (whose JARs are fetched from Maven Central the first
+time a session starts; the Delta tests are skipped when delta-spark is absent):
+
+```bash
+uv sync --group dev --group spark
+JAVA_HOME=/path/to/jdk-17 uv run pytest tests/integration
+```
+
+## Rules for the embedded runtime
+
+Modules listed in `tabledossier/notebook.py` (`PARAMETER_MODULES`, `RUNTIME_MODULES`) are copied into generated
+notebooks. In those modules:
+
+- import only the standard library (plus `pyspark` inside `tabledossier/runtime/`);
+- import other TableDossier names with top-level `from tabledossier.<module> import name` (no aliases, no relative
+  imports, no `__future__` imports), from modules listed *earlier*;
+- keep top-level names unique across all embedded modules (prefix private helpers, e.g. `_sp_`, `_r_`);
+- never add Python UDFs, caching, `toPandas()` on sources, writes to sources or per-column Spark actions.
+
+`tests/unit/test_notebook.py` enforces these rules.
+
+## After changing code
+
+The committed demo artefacts must match the code (`tests/unit/test_examples.py`). Rebuild them with:
+
+```bash
+JAVA_HOME=/path/to/jdk-17 uv run python examples/demo/build_demo_outputs.py
+```
+
+## Changing the contract
+
+Profile, configuration and annotation formats are defined by the JSON Schemas in `src/tabledossier/schemas/`.
+Update the schema, `docs/contract.md` or `docs/configuration.md`, the invariants in `contract.py` if needed, and add
+a CHANGELOG entry. Breaking changes require a new schema version.
+
+## Pull requests
+
+Describe the behaviour change, the tests you ran (with versions) and any limitation you introduced or removed.

@@ -1,0 +1,116 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tabledossier"
+dynamic = ["version"]
+description = "Portable data profiling, notebooks, and documentation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "ruanpato" }]
+keywords = [
+  "data-profiling",
+  "data-quality",
+  "data-dictionary",
+  "databricks",
+  "spark",
+  "documentation",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Database",
+  "Topic :: Software Development :: Documentation",
+  "Typing :: Typed",
+]
+# The CLI needs only jsonschema for formal validation. Generating a notebook and
+# rendering documentation never import Spark or any database/cloud SDK.
+dependencies = ["jsonschema>=4.18,<5"]
+
+[project.urls]
+Homepage = "https://github.com/ruanpato/tabledossier"
+Documentation = "https://github.com/ruanpato/tabledossier/tree/main/docs"
+Issues = "https://github.com/ruanpato/tabledossier/issues"
+Changelog = "https://github.com/ruanpato/tabledossier/blob/main/CHANGELOG.md"
+
+[project.scripts]
+tabledossier = "tabledossier.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "types-jsonschema", "build>=1.2"]
+# Only needed to run the Spark integration tests (requires a local Java 17 runtime).
+# delta-spark resolves its JARs from Maven Central the first time a session starts.
+spark = ["pyspark>=3.5.2,<3.6", "delta-spark>=3.2,<3.4"]
+
+[tool.hatch.version]
+path = "src/tabledossier/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tabledossier"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/examples",
+  "/docs",
+  "/README.md",
+  "/LICENSE",
+  "/NOTICE",
+  "/CHANGELOG.md",
+  "/CONTRIBUTING.md",
+  "/SECURITY.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "spark: requires PySpark and a Java runtime (skipped when unavailable)",
+]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+# Generated artefacts are checked by tests, not linted.
+extend-exclude = ["examples/demo/output", ".venv*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "BLE", "UP", "SIM", "D", "RUF"]
+ignore = [
+  "D105", # magic methods
+  "D107", # __init__ documented on the class
+  "RUF001",
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "E501"]
+"examples/**" = ["D"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+files = ["src/tabledossier"]
+
+[[tool.mypy.overrides]]
+module = ["pyspark.*"]
+ignore_missing_imports = true

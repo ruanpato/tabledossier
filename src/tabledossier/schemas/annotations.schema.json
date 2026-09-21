@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tabledossier:schema:annotations:1.0",
+  "title": "TableDossier human annotations",
+  "description": "Descriptions, owners and relationships written by people. Kept separate from generated content so that re-rendering never overwrites them.",
+  "type": "object",
+  "required": ["kind", "annotations_version"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"type": "string"},
+    "kind": {"const": "tabledossier.annotations"},
+    "annotations_version": {"const": "1.0"},
+    "tables": {
+      "description": "Keyed by table identifier (catalog.schema.table).",
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/tableAnnotation"}
+    },
+    "relationships": {"type": "array", "items": {"$ref": "#/$defs/relationship"}, "maxItems": 500}
+  },
+  "$defs": {
+    "text": {"type": "string", "maxLength": 5000},
+    "tags": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 100}, "maxItems": 50, "uniqueItems": true},
+    "columnAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {"$ref": "#/$defs/text"},
+        "tags": {"$ref": "#/$defs/tags"},
+        "notes": {"$ref": "#/$defs/text"}
+      }
+    },
+    "tableAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {"$ref": "#/$defs/text"},
+        "purpose": {"$ref": "#/$defs/text"},
+        "owner": {"type": "string", "maxLength": 200, "description": "A team or role; avoid personal names unless your policy allows them."},
+        "tags": {"$ref": "#/$defs/tags"},
+        "columns": {
+          "description": "Keyed by display path, e.g. order_id, shipping.city, items[] or `odd.name`.",
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/columnAnnotation"}
+        }
+      }
+    },
+    "columnRef": {
+      "oneOf": [
+        {"type": "string", "minLength": 1, "maxLength": 255},
+        {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 255}, "minItems": 1, "maxItems": 10}
+      ]
+    },
+    "cardinality": {"enum": ["zero_or_one", "exactly_one", "zero_or_more", "one_or_more"]},
+    "relationshipEnd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table", "columns"],
+      "properties": {
+        "table": {"type": "string", "minLength": 1},
+        "columns": {"type": "array", "items": {"$ref": "#/$defs/columnRef"}, "minItems": 1, "maxItems": 32}
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,100}$"},
+        "from": {"$ref": "#/$defs/relationshipEnd"},
+        "to": {"$ref": "#/$defs/relationshipEnd"},
+        "cardinality": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "properties": {
+            "from": {"$ref": "#/$defs/cardinality"},
+            "to": {"$ref": "#/$defs/cardinality"}
+          }
+        },
+        "description": {"type": "string", "maxLength": 2000}
+      }
+    }
+  }
+}

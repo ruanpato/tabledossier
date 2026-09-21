@@ -1,0 +1,587 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tabledossier:schema:profile:1.0",
+  "title": "TableDossier profile",
+  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. See docs/contract.md.",
+  "type": "object",
+  "required": ["kind", "schema_version", "tool", "run", "value_exposure", "tables", "relationships", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {"const": "tabledossier.profile"},
+    "schema_version": {"const": "1.0"},
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"const": "tabledossier"},
+        "version": {"type": "string", "minLength": 1}
+      }
+    },
+    "run": {"$ref": "#/$defs/run"},
+    "value_exposure": {"$ref": "#/$defs/valueExposure"},
+    "tables": {"type": "array", "items": {"$ref": "#/$defs/table"}},
+    "relationships": {"type": "array", "items": {"$ref": "#/$defs/relationship"}},
+    "summary": {"$ref": "#/$defs/summary"}
+  },
+  "$defs": {
+    "utcTimestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
+    "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "stringList": {"type": "array", "items": {"type": "string"}},
+    "nullableString": {"type": ["string", "null"]},
+    "run": {
+      "type": "object",
+      "required": [
+        "run_id", "status", "analysis_level", "started_at", "finished_at", "duration_ms",
+        "reference_time", "environment", "effective_config", "config_fingerprint",
+        "parameter_sources", "generation", "purpose", "capabilities"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {"type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"},
+        "status": {"enum": ["succeeded", "partial", "failed"]},
+        "analysis_level": {"enum": ["metadata", "standard"]},
+        "started_at": {"$ref": "#/$defs/utcTimestamp"},
+        "finished_at": {"$ref": "#/$defs/utcTimestamp"},
+        "duration_ms": {"type": "integer", "minimum": 0},
+        "reference_time": {"$ref": "#/$defs/utcTimestamp", "description": "Reference instant used by temporal metrics (after_reference_count)."},
+        "environment": {"$ref": "#/$defs/environment"},
+        "effective_config": {"type": "object", "description": "Configuration after applying defaults, generated values and widgets. It never contains credentials."},
+        "config_fingerprint": {"$ref": "#/$defs/fingerprint"},
+        "parameter_sources": {"type": "object"},
+        "generation": {
+          "type": "object",
+          "required": ["generator_version", "generation_id"],
+          "additionalProperties": false,
+          "properties": {
+            "generator_version": {"$ref": "#/$defs/nullableString"},
+            "generation_id": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+          }
+        },
+        "purpose": {"$ref": "#/$defs/nullableString"},
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["available", "detail"],
+            "additionalProperties": false,
+            "properties": {
+              "available": {"type": "boolean"},
+              "detail": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["engine", "execution_context", "python_version"],
+      "additionalProperties": false,
+      "properties": {
+        "engine": {"enum": ["spark", "none"]},
+        "execution_context": {"enum": ["databricks", "spark", "synthetic"]},
+        "python_version": {"type": "string"},
+        "spark_version": {"$ref": "#/$defs/nullableString"},
+        "databricks_runtime_version": {"$ref": "#/$defs/nullableString"},
+        "session_timezone": {"$ref": "#/$defs/nullableString"},
+        "ansi_mode": {"type": ["boolean", "null"]},
+        "spark_connect": {"type": ["boolean", "null"]}
+      }
+    },
+    "valueExposure": {
+      "type": "object",
+      "required": ["raw_values_persisted", "example_columns", "aggregate_extremes", "json_key_names", "redacted_columns", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "raw_values_persisted": {"type": "boolean"},
+        "example_columns": {"type": "array", "items": {"type": "object"}},
+        "aggregate_extremes": {"enum": ["include", "redact"]},
+        "json_key_names": {"enum": ["include", "redact"]},
+        "redacted_columns": {"type": "array", "items": {"type": "object"}},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["stage", "error_class", "condition", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "stage": {"enum": ["resolve", "metadata", "snapshot", "sample", "semantic", "aggregate", "checks", "assemble"]},
+        "error_class": {"type": "string"},
+        "condition": {"$ref": "#/$defs/nullableString"},
+        "message": {"type": "string", "maxLength": 1000}
+      }
+    },
+    "table": {
+      "type": "object",
+      "required": [
+        "table_id", "table_key", "identifier", "status", "errors", "purpose", "source",
+        "consistency", "scope", "sample", "summary", "table_metrics", "schema",
+        "field_profiles", "constraints", "findings", "quality_checks", "suggested_rules",
+        "omissions", "unsupported", "operations", "timings_ms", "notes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "table_id": {"type": "string", "pattern": "^t_[0-9a-f]{12}$"},
+        "table_key": {"type": "string", "minLength": 1},
+        "identifier": {
+          "type": "object",
+          "required": ["input", "parts", "quoted"],
+          "additionalProperties": false,
+          "properties": {
+            "input": {"type": "string"},
+            "parts": {"$ref": "#/$defs/stringList"},
+            "quoted": {"type": "string"}
+          }
+        },
+        "status": {"enum": ["succeeded", "partial", "failed"]},
+        "errors": {"type": "array", "items": {"$ref": "#/$defs/error"}},
+        "purpose": {"$ref": "#/$defs/nullableString"},
+        "source": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/source"}]},
+        "consistency": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/consistency"}]},
+        "scope": {"$ref": "#/$defs/scope"},
+        "sample": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sample"}]},
+        "summary": {
+          "type": "object",
+          "additionalProperties": {"type": ["integer", "null"], "minimum": 0}
+        },
+        "table_metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
+        "schema": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/schemaTree"}]},
+        "field_profiles": {"type": "array", "items": {"$ref": "#/$defs/fieldProfile"}},
+        "constraints": {"type": "array", "items": {"$ref": "#/$defs/constraint"}},
+        "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+        "quality_checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+        "suggested_rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}},
+        "omissions": {"type": "array", "items": {"$ref": "#/$defs/omission"}},
+        "unsupported": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["capability", "detail"],
+            "additionalProperties": false,
+            "properties": {"capability": {"type": "string"}, "detail": {"type": "string"}}
+          }
+        },
+        "operations": {"$ref": "#/$defs/operations"},
+        "timings_ms": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["source_type", "table_type", "provider", "comment", "created_at", "last_modified", "partition_columns", "clustering_columns", "size_in_bytes", "file_count", "metadata_state", "captured_at", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "source_type": {"enum": ["table", "view", "unknown"]},
+        "table_type": {"$ref": "#/$defs/nullableString"},
+        "provider": {"$ref": "#/$defs/nullableString"},
+        "comment": {"$ref": "#/$defs/nullableString"},
+        "created_at": {"$ref": "#/$defs/nullableString"},
+        "last_modified": {"$ref": "#/$defs/nullableString"},
+        "partition_columns": {"$ref": "#/$defs/stringList"},
+        "clustering_columns": {"$ref": "#/$defs/stringList"},
+        "size_in_bytes": {"$ref": "#/$defs/metric"},
+        "file_count": {"$ref": "#/$defs/metric"},
+        "metadata_state": {"enum": ["current_at_capture"]},
+        "captured_at": {"$ref": "#/$defs/utcTimestamp"},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "consistency": {
+      "type": "object",
+      "required": ["mode", "delta_version", "version_timestamp", "guarantee", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["pinned_delta_version", "unpinned", "metadata_only"]},
+        "delta_version": {"type": ["integer", "null"], "minimum": 0},
+        "version_timestamp": {"$ref": "#/$defs/nullableString"},
+        "guarantee": {"type": "string"},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": ["population", "scope_label", "filters", "selected_columns", "row_semantics"],
+      "additionalProperties": false,
+      "properties": {
+        "population": {"enum": ["full", "filtered"]},
+        "scope_label": {"enum": ["full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "table_metadata"]},
+        "filters": {"type": "array", "items": {"type": "object"}},
+        "selected_columns": {"type": ["array", "null"], "items": {"type": "string"}},
+        "row_semantics": {"type": "string"}
+      }
+    },
+    "sample": {
+      "type": "object",
+      "required": ["enabled", "method", "biased", "reads_full_source", "max_rows", "max_bytes", "max_value_chars", "rows_collected", "bytes_retained", "values_truncated", "stopped_reason", "fields_sampled", "fields_omitted", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "method": {"enum": ["prefix", "random", "none"]},
+        "biased": {"type": ["boolean", "null"]},
+        "reads_full_source": {"type": ["boolean", "null"]},
+        "max_rows": {"type": "integer", "minimum": 1},
+        "max_bytes": {"type": "integer", "minimum": 1},
+        "max_value_chars": {"type": "integer", "minimum": 1},
+        "random_fraction": {"type": ["number", "null"]},
+        "seed": {"type": ["integer", "null"]},
+        "rows_collected": {"type": ["integer", "null"], "minimum": 0},
+        "bytes_retained": {"type": ["integer", "null"], "minimum": 0},
+        "values_truncated": {"type": ["integer", "null"], "minimum": 0},
+        "stopped_reason": {"enum": ["row_limit", "byte_budget", "exhausted", "disabled", "not_applicable", "error"]},
+        "fields_sampled": {"type": "integer", "minimum": 0},
+        "fields_omitted": {"type": "integer", "minimum": 0},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "segment": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["field", "array_element", "map_key", "map_value"]},
+        "name": {"type": "string", "minLength": 1}
+      },
+      "if": {"properties": {"kind": {"const": "field"}}},
+      "then": {"required": ["name"]},
+      "else": {"not": {"required": ["name"]}}
+    },
+    "path": {"type": "array", "items": {"$ref": "#/$defs/segment"}, "minItems": 1},
+    "shallowType": {
+      "type": "object",
+      "required": ["kind", "physical_type"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["integer", "float", "decimal", "string", "boolean", "date", "timestamp", "timestamp_ntz", "binary", "struct", "array", "map", "variant", "interval", "null", "other"]},
+        "physical_type": {"type": "string"},
+        "precision": {"type": "integer"},
+        "scale": {"type": "integer"}
+      }
+    },
+    "schemaTree": {
+      "type": "object",
+      "required": ["fields", "nodes_total", "nodes_omitted", "top_level_omitted", "limits", "captured_from"],
+      "additionalProperties": false,
+      "properties": {
+        "fields": {"type": "array", "items": {"$ref": "#/$defs/schemaNode"}},
+        "nodes_total": {"type": "integer", "minimum": 0},
+        "nodes_omitted": {"type": "integer", "minimum": 0},
+        "top_level_omitted": {"type": "integer", "minimum": 0},
+        "limits": {"type": "object"},
+        "captured_from": {"enum": ["pinned_snapshot", "current_table"]}
+      }
+    },
+    "schemaNode": {
+      "type": "object",
+      "required": ["field_id", "name", "segment_kind", "path", "display_path", "parent_field_id", "depth", "type", "nullable", "comment", "children", "children_omitted", "children_omitted_reason"],
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {"type": "string", "pattern": "^f_[0-9a-f]{12}$"},
+        "name": {"$ref": "#/$defs/nullableString"},
+        "segment_kind": {"enum": ["field", "array_element", "map_key", "map_value"]},
+        "path": {"$ref": "#/$defs/path"},
+        "display_path": {"type": "string"},
+        "parent_field_id": {"$ref": "#/$defs/nullableString"},
+        "depth": {"type": "integer", "minimum": 1},
+        "type": {"$ref": "#/$defs/shallowType"},
+        "nullable": {"type": ["boolean", "null"], "description": "Nullability declared by the source schema (not observed)."},
+        "comment": {"$ref": "#/$defs/nullableString"},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/schemaNode"}},
+        "children_omitted": {"type": "integer", "minimum": 0},
+        "children_omitted_reason": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "metric": {
+      "type": "object",
+      "required": ["name", "status", "value", "unit", "scope", "accuracy", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "status": {"enum": ["measured", "not_computed", "unsupported", "insufficient_data", "redacted", "error", "unavailable"]},
+        "value": {"type": ["number", "string", "boolean", "array", "null"]},
+        "value_type": {"enum": ["integer", "float", "decimal", "boolean", "string", "date", "timestamp", "timestamp_ntz", "ratio", "quantiles"]},
+        "unit": {"$ref": "#/$defs/nullableString"},
+        "scope": {"enum": ["table_metadata", "full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "sample"]},
+        "accuracy": {"enum": ["exact", "approximate", "as_recorded", "unknown"]},
+        "source": {"enum": ["catalog_metadata", "table_statistics", "table_history", "aggregate", "sample", "derived"]},
+        "method": {"type": "string"},
+        "denominator": {"type": "integer", "minimum": 0},
+        "denominator_unit": {"$ref": "#/$defs/nullableString"},
+        "reason": {"type": "string"},
+        "details": {"type": "object"}
+      },
+      "if": {"properties": {"status": {"const": "measured"}}},
+      "then": {
+        "required": ["value_type", "method"],
+        "properties": {"value": {"type": ["number", "string", "boolean", "array"]}}
+      },
+      "else": {
+        "required": ["reason"],
+        "properties": {"value": {"type": "null"}}
+      }
+    },
+    "observedFormat": {
+      "type": "object",
+      "required": ["status", "format", "scope", "eligible_observations", "candidates", "method", "limitations"],
+      "additionalProperties": true,
+      "properties": {
+        "status": {"enum": ["detected", "mixed", "ambiguous", "unknown", "insufficient_data", "not_computed"]},
+        "format": {"type": ["string", "null"]},
+        "scope": {"const": "sample"},
+        "eligible_observations": {"type": "integer", "minimum": 0},
+        "candidates": {"type": "array", "items": {"type": "object", "required": ["format", "matches", "match_ratio"]}},
+        "method": {"type": "string"},
+        "limitations": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "fieldProfile": {
+      "type": "object",
+      "required": ["field_id", "display_path", "path", "type_kind", "physical_type", "nullable", "comment", "profiled", "omission_reason", "metrics", "semantics", "json_profile", "concentration", "examples"],
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {"type": "string", "pattern": "^f_[0-9a-f]{12}$"},
+        "display_path": {"type": "string"},
+        "path": {"$ref": "#/$defs/path"},
+        "type_kind": {"type": "string"},
+        "physical_type": {"type": "string"},
+        "nullable": {"type": ["boolean", "null"]},
+        "comment": {"$ref": "#/$defs/nullableString"},
+        "profiled": {"type": "boolean"},
+        "omission_reason": {"$ref": "#/$defs/nullableString"},
+        "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
+        "semantics": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["observed_format", "candidate_roles"],
+              "additionalProperties": false,
+              "properties": {
+                "observed_format": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/observedFormat"}]},
+                "candidate_roles": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["role", "evidence", "limitations"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "role": {"enum": ["identifier_candidate", "categorical_candidate", "json_document_candidate"]},
+                      "evidence": {"type": "array"},
+                      "limitations": {"type": "string"}
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "json_profile": {"type": ["object", "null"]},
+        "concentration": {"type": ["object", "null"]},
+        "examples": {"type": ["object", "null"]}
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "required": ["name", "constraint_type", "columns", "expression", "referenced", "enforcement", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "constraint_type": {"enum": ["primary_key", "foreign_key", "unique", "check", "not_null"]},
+        "columns": {"$ref": "#/$defs/stringList"},
+        "expression": {"$ref": "#/$defs/nullableString"},
+        "referenced": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["table", "columns"],
+              "additionalProperties": false,
+              "properties": {"table": {"type": "string"}, "columns": {"$ref": "#/$defs/stringList"}}
+            }
+          ]
+        },
+        "enforcement": {"enum": ["enforced", "not_enforced", "unknown"]},
+        "source": {"enum": ["information_schema", "delta_table_property", "source_schema"]}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["finding_id", "code", "severity", "field_id", "display_path", "title", "message", "evidence", "threshold", "severity_reason", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {"type": "string"},
+        "code": {"enum": ["all_null", "high_null_ratio", "possible_constant", "possible_categorical", "identifier_candidate", "probable_json", "extreme_numeric_tail", "large_arrays"]},
+        "severity": {"enum": ["info", "warning"]},
+        "field_id": {"type": "string"},
+        "display_path": {"type": "string"},
+        "title": {"type": "string"},
+        "message": {"type": "string"},
+        "evidence": {"type": "array"},
+        "threshold": {"type": ["object", "null"]},
+        "severity_reason": {"type": "string"},
+        "limitations": {"type": "string"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["check_id", "type", "origin", "target", "parameters", "status", "observed", "message", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {"type": "string"},
+        "type": {"enum": ["min_row_count", "max_row_count", "max_null_ratio", "max_null_count", "max_empty_string_ratio", "value_range"]},
+        "origin": {"const": "configured"},
+        "target": {
+          "type": "object",
+          "required": ["table", "column"],
+          "additionalProperties": false,
+          "properties": {"table": {"type": "string"}, "column": {"$ref": "#/$defs/nullableString"}}
+        },
+        "parameters": {"type": "object"},
+        "status": {"enum": ["pass", "fail", "not_evaluated", "error"]},
+        "observed": {"type": ["object", "null"]},
+        "message": {"type": "string"},
+        "description": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": ["rule_id", "table", "column", "rule_type", "parameters", "status", "requires_review", "rationale", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "rule_id": {"type": "string"},
+        "table": {"type": "string"},
+        "column": {"$ref": "#/$defs/nullableString"},
+        "rule_type": {"enum": ["not_null", "unique", "accepted_values", "valid_json", "matches_format", "value_range", "min_row_count"]},
+        "parameters": {"type": "object"},
+        "status": {"const": "proposed"},
+        "requires_review": {"const": true},
+        "rationale": {"type": "string"},
+        "evidence": {"type": "array"}
+      }
+    },
+    "omission": {
+      "type": "object",
+      "required": ["field_id", "display_path", "reason", "detail", "metrics"],
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {"$ref": "#/$defs/nullableString"},
+        "display_path": {"$ref": "#/$defs/nullableString"},
+        "reason": {"type": "string"},
+        "detail": {"type": "string"},
+        "metrics": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "operations": {
+      "type": "object",
+      "required": ["planned", "observed", "physical_scans", "bytes_read", "monetary_cost"],
+      "additionalProperties": false,
+      "properties": {
+        "planned": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["operation_id", "kind", "description", "reads_user_data"],
+            "additionalProperties": false,
+            "properties": {
+              "operation_id": {"type": "string"},
+              "kind": {"enum": ["catalog_metadata", "table_detail", "table_history", "information_schema", "sample_collect", "aggregate_pass"]},
+              "description": {"type": "string"},
+              "reads_user_data": {"type": "boolean"},
+              "details": {"type": "object"}
+            }
+          }
+        },
+        "observed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["operation_id", "status", "duration_ms"],
+            "additionalProperties": false,
+            "properties": {
+              "operation_id": {"type": "string"},
+              "status": {"enum": ["succeeded", "failed", "skipped"]},
+              "duration_ms": {"type": ["integer", "null"], "minimum": 0},
+              "rows_returned": {"type": ["integer", "null"], "minimum": 0},
+              "detail": {"$ref": "#/$defs/nullableString"}
+            }
+          }
+        },
+        "physical_scans": {"oneOf": [{"const": "unknown"}, {"type": "integer", "minimum": 0}]},
+        "bytes_read": {"oneOf": [{"const": "unknown"}, {"type": "integer", "minimum": 0}]},
+        "monetary_cost": {"const": "unknown"}
+      }
+    },
+    "relationshipEnd": {
+      "type": "object",
+      "required": ["table", "columns"],
+      "additionalProperties": false,
+      "properties": {
+        "table": {"type": "string"},
+        "columns": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+      }
+    },
+    "cardinality": {"enum": ["zero_or_one", "exactly_one", "zero_or_more", "one_or_more"]},
+    "relationship": {
+      "type": "object",
+      "required": ["relationship_id", "origin", "name", "from", "to", "cardinality", "cardinality_source", "enforcement", "validation", "scope", "description", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "relationship_id": {"type": "string"},
+        "origin": {"enum": ["declared_constraint", "configuration", "annotation"]},
+        "name": {"type": "string"},
+        "from": {"$ref": "#/$defs/relationshipEnd"},
+        "to": {"$ref": "#/$defs/relationshipEnd"},
+        "cardinality": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["from", "to"],
+              "additionalProperties": false,
+              "properties": {"from": {"$ref": "#/$defs/cardinality"}, "to": {"$ref": "#/$defs/cardinality"}}
+            }
+          ]
+        },
+        "cardinality_source": {"enum": ["provided", null]},
+        "enforcement": {"enum": ["enforced", "not_enforced", "unknown"]},
+        "validation": {"enum": ["not_validated", "validated", "violated"]},
+        "scope": {"enum": ["declared_metadata", "human_provided"]},
+        "description": {"$ref": "#/$defs/nullableString"},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["tables_total", "tables_succeeded", "tables_partial", "tables_failed", "fields_profiled", "checks", "findings", "suggested_rules"],
+      "additionalProperties": false,
+      "properties": {
+        "tables_total": {"type": "integer", "minimum": 0},
+        "tables_succeeded": {"type": "integer", "minimum": 0},
+        "tables_partial": {"type": "integer", "minimum": 0},
+        "tables_failed": {"type": "integer", "minimum": 0},
+        "fields_profiled": {"type": "integer", "minimum": 0},
+        "checks": {
+          "type": "object",
+          "required": ["pass", "fail", "not_evaluated", "error"],
+          "additionalProperties": false,
+          "properties": {
+            "pass": {"type": "integer", "minimum": 0},
+            "fail": {"type": "integer", "minimum": 0},
+            "not_evaluated": {"type": "integer", "minimum": 0},
+            "error": {"type": "integer", "minimum": 0}
+          }
+        },
+        "findings": {
+          "type": "object",
+          "required": ["info", "warning"],
+          "additionalProperties": false,
+          "properties": {
+            "info": {"type": "integer", "minimum": 0},
+            "warning": {"type": "integer", "minimum": 0}
+          }
+        },
+        "suggested_rules": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

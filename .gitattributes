@@ -1,0 +1,3 @@
+# Keep LF everywhere so generated notebooks, schemas and hashes are identical on every platform.
+* text=auto eol=lf
+*.whl binary

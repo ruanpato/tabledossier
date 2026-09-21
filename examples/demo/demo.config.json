@@ -1,0 +1,58 @@
+{
+  "kind": "tabledossier.config",
+  "config_version": "1.0",
+  "tables": [
+    "analytics.customers",
+    "analytics.orders",
+    "analytics.order_events",
+    "analytics.returns"
+  ],
+  "analysis_level": "standard",
+  "output_dir": "",
+  "purpose": "Synthetic demo: document the demo analytics tables.",
+  "value_policy": {
+    "persist_examples": true,
+    "example_columns": [
+      {"table": "analytics.customers", "column": "segment"}
+    ]
+  },
+  "table_options": {
+    "analytics.customers": {
+      "checks": [
+        {"id": "customers_email_nulls", "type": "max_null_ratio", "column": "email", "max": 0.1}
+      ]
+    },
+    "analytics.orders": {
+      "purpose": "Orders placed since 2025-01-01 (synthetic).",
+      "filters": [
+        {"column": "order_ts", "operator": "ge", "value": "2025-01-01T00:00:00Z", "value_type": "timestamp"}
+      ],
+      "checks": [
+        {"id": "orders_min_rows", "type": "min_row_count", "min": 1},
+        {"id": "orders_customer_not_null", "type": "max_null_ratio", "column": "customer_id", "max": 0.0},
+        {"id": "orders_amount_range", "type": "value_range", "column": "amount", "min": 0, "max": 10000,
+         "description": "Synthetic business bound; the demo data contains one planted outlier."}
+      ]
+    },
+    "analytics.returns": {
+      "checks": [
+        {"id": "returns_reason_nulls", "type": "max_null_ratio", "column": "reason", "max": 0.1}
+      ]
+    }
+  },
+  "relationships": [
+    {
+      "id": "orders_customer",
+      "from": {"table": "analytics.orders", "columns": ["customer_id"]},
+      "to": {"table": "analytics.customers", "columns": ["customer_id"]},
+      "cardinality": {"from": "zero_or_more", "to": "exactly_one"},
+      "description": "Each order references one customer (stated by the demo author)."
+    },
+    {
+      "id": "events_order",
+      "from": {"table": "analytics.order_events", "columns": ["order_id"]},
+      "to": {"table": "analytics.orders", "columns": ["order_id"]},
+      "description": "Events reference orders; cardinality intentionally not asserted."
+    }
+  ]
+}

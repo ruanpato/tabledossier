@@ -1,0 +1,25 @@
+{
+  "kind": "tabledossier.annotations",
+  "annotations_version": "1.0",
+  "tables": {
+    "analytics.customers": {
+      "description": "One row per synthetic customer.",
+      "owner": "analytics-engineering (team)",
+      "tags": ["demo", "synthetic"],
+      "columns": {
+        "customer_id": {"description": "Surrogate key of the customer."},
+        "segment": {"description": "Commercial segment: retail, smb or enterprise.", "tags": ["categorical"]},
+        "`a.b`": {"description": "A column literally named a.b, kept to show path quoting."}
+      }
+    },
+    "analytics.orders": {
+      "description": "One row per synthetic order.",
+      "owner": "analytics-engineering (team)",
+      "columns": {
+        "amount": {"description": "Order total in the customer's currency."},
+        "shipping.address.city": {"description": "Destination city (nested field)."},
+        "items[]": {"description": "Order lines; element-level profiling is not part of the standard level."}
+      }
+    }
+  }
+}

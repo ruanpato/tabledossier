@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tabledossier:schema:suggested_rules:1.0",
+  "title": "TableDossier suggested rules",
+  "description": "Neutral, tool-independent rule proposals derived from a profile. Proposals are never applied automatically.",
+  "type": "object",
+  "required": ["kind", "schema_version", "run_id", "profiled_at", "notice", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {"const": "tabledossier.suggested_rules"},
+    "schema_version": {"const": "1.0"},
+    "run_id": {"type": "string"},
+    "profiled_at": {"type": "string"},
+    "notice": {"type": "string"},
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "table", "column", "rule_type", "parameters", "status", "requires_review", "rationale", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "rule_id": {"type": "string"},
+          "table": {"type": "string"},
+          "column": {"type": ["string", "null"]},
+          "rule_type": {"enum": ["not_null", "unique", "accepted_values", "valid_json", "matches_format", "value_range", "min_row_count"]},
+          "parameters": {"type": "object"},
+          "status": {"const": "proposed"},
+          "requires_review": {"const": true},
+          "rationale": {"type": "string"},
+          "evidence": {"type": "array"}
+        }
+      }
+    }
+  }
+}
