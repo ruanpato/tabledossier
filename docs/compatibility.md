@@ -26,7 +26,7 @@ Spark Connect sessions (shared access mode, serverless). **None of this has been
 | Notebook runtime | Python 3.12.13, PySpark 4.0.4 (ANSI mode on by default), OpenJDK 17.0.20, local mode | 22 integration tests pass, 3 Delta tests skipped (delta-spark not installed there); full-scope `try_parse_json` validation measured |
 | Mermaid output | Mermaid 11 (jsDelivr) in a browser, `securityLevel: strict` | Demo ERD, auxiliary flowchart and hostile-name cases parse and render |
 | Offline installation | Python 3.13 wheelhouse + `pip install --no-index` | CLI installed and ran |
-| CI workflow | `.github/workflows/ci.yml` | Written, **not executed** (no remote repository yet) |
+| Continuous integration | GitHub Actions ([run 35668141317](https://github.com/ruanpato/tabledossier/actions/runs/35668141317)): Ubuntu with Python 3.10–3.14; Windows and macOS with Python 3.12; Spark jobs on Ubuntu with Temurin 17 | All 10 jobs green: lint + mypy, unit tests on every OS/Python, Spark 3.5.9 + delta-spark 3.3.3 (25 passed), Spark 4.0.4 (22 passed, 3 Delta tests skipped) |
 
 ## Pending validation (needs a Databricks workspace)
 

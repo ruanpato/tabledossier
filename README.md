@@ -257,8 +257,8 @@ anonymized**. Nothing is sent anywhere. Details: [privacy](docs/privacy.md).
 
 | Component | Tested | Pending |
 | --- | --- | --- |
-| CLI | Python 3.10, 3.11, 3.12, 3.13, 3.14 (macOS, from the built wheel; 159 unit tests) | Windows/Linux runs in CI once the repository is published |
-| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12 (25 and 22 integration tests) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, Spark Connect (shared/serverless), Unity Catalog constraints |
+| CLI | Python 3.10–3.14 on Linux (CI) and macOS; Python 3.12 on Windows (CI); 159 unit tests against the built wheel | Other OS/Python combinations |
+| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI (25 and 22 integration tests) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, Spark Connect (shared/serverless), Unity Catalog constraints |
 
 A reproducible remote check is described in [Databricks smoke test](docs/databricks-smoke-test.md).
 
