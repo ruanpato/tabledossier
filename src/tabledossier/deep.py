@@ -43,10 +43,7 @@ from tabledossier.planning import NUMERIC_KINDS, ORDERABLE_KINDS, TEMPORAL_KINDS
 from tabledossier.semantic import parse_json_text, sample_limitations
 
 COLLECTION_KINDS = ("array", "map")
-ELEMENT_SEGMENTS = ("array_element", "map_key", "map_value")
 DEEP_OPERATION_KINDS = ("deep_aggregate_pass", "element_explode_pass")
-# Deep candidates are always cheaper to drop than any standard metric (tiers 0-4).
-DEEP_TIERS = (5, 6, 7)
 JSON_TYPE_PATTERNS = {
     "object": "^OBJECT",
     "array": "^ARRAY",
@@ -63,6 +60,7 @@ _DP_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _DP_UNQUOTABLE = re.compile(r"['\\\[\]]")
 
 # (metric, op, tier, cost) per element kind; evaluated per row with higher-order functions.
+# Deep tiers are 5-7: deep candidates are always dropped before any standard metric (tiers 0-4).
 _DP_COMMON = [("null_count", "el_count_null", 5, 1)]
 _DP_NUMERIC = [
     ("min", "el_min", 6, 1),
@@ -87,11 +85,6 @@ _DP_BOOLEAN = [("true_count", "el_count_true", 6, 1), ("false_count", "el_count_
 _DP_TEMPORAL = [("min", "el_min", 6, 1), ("max", "el_max", 6, 1)]
 _DP_BINARY = [("min_length", "el_min_length", 6, 1), ("max_length", "el_max_length", 6, 1)]
 DEEP_EXTREME_METRICS = ("min", "max")
-
-
-def deep_enabled(config: Mapping[str, Any]) -> bool:
-    """Return True when the run uses the deep level."""
-    return config.get("analysis_level") == "deep"
 
 
 def collection_unit(kind: str) -> str:

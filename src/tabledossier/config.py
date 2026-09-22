@@ -25,14 +25,12 @@ from tabledossier.paths import (
     table_lookup_key,
 )
 from tabledossier.schemacheck import schema_errors
-from tabledossier.widgets import NOTEBOOK_WIDGETS
 
 CONFIG_KIND = "tabledossier.config"
 CONFIG_VERSION = "1.0"
 ANALYSIS_LEVELS = ("metadata", "standard", "deep")
 ROW_READING_LEVELS = ("standard", "deep")
 DEEP_ALL_TARGETS = "all_within_budget"
-WIDGET_NAMES = tuple(name for name, _ in NOTEBOOK_WIDGETS)
 DEDICATED_WIDGET_KEYS = {
     "tables": "tables_json",
     "analysis_level": "analysis_level",
