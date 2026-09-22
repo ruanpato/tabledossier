@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:792b7e8ab64d4fcb467bb39d24a2bdb9faea330225b61be9f5f65ec7ded1be72`).
+# MAGIC Generated offline by TableDossier 0.4.0 (generation id `sha256:b0a78333e3a95f4faede7b93fa92405755ca4695e61a3d020d4720308b33d720`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -38,7 +38,7 @@
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.widgets
-# TableDossier 0.3.0 embedded runtime: module tabledossier.widgets
+# TableDossier 0.4.0 embedded runtime: module tabledossier.widgets
 # Source: src/tabledossier/widgets.py (sha256:a2e3f175e63ab43eb0dab0b1099b42ac55168a36686335ac2e43fb03457dc116)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -217,8 +217,8 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                     'description': 'Events reference orders; cardinality intentionally not '
                                    'asserted.'}]}
 
-TD_GENERATION = {'generator_version': '0.3.0',
- 'generation_id': 'sha256:792b7e8ab64d4fcb467bb39d24a2bdb9faea330225b61be9f5f65ec7ded1be72'}
+TD_GENERATION = {'generator_version': '0.4.0',
+ 'generation_id': 'sha256:b0a78333e3a95f4faede7b93fa92405755ca4695e61a3d020d4720308b33d720'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -240,7 +240,7 @@ ensure_widgets(dbutils, TD_WIDGET_DEFAULTS)
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: JSON Schemas
-# JSON Schemas shipped with TableDossier 0.3.0: the exact text of the files in
+# JSON Schemas shipped with TableDossier 0.4.0: the exact text of the files in
 # src/tabledossier/schemas/ (SHA-256 below), parsed with json.loads.
 import json
 
@@ -1562,8 +1562,8 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier._version
-# TableDossier 0.3.0 embedded runtime: module tabledossier._version
-# Source: src/tabledossier/_version.py (sha256:9fabfc21e91d0d79ae6f647a29fab174452c00d3c61cd3fd9429def24e9d8332)
+# TableDossier 0.4.0 embedded runtime: module tabledossier._version
+# Source: src/tabledossier/_version.py (sha256:8d871cb09d1b3f0ac71fe2aa8260ca28deb5dc34946f3a0d695f61c5fd1cabfe)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -1571,12 +1571,12 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
 
 """Single source of the TableDossier version string."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.jsonutil
-# TableDossier 0.3.0 embedded runtime: module tabledossier.jsonutil
+# TableDossier 0.4.0 embedded runtime: module tabledossier.jsonutil
 # Source: src/tabledossier/jsonutil.py (sha256:378c3e5f9f1c369e0ca53869855120453636e79c2fac4552702ffba368e9242c)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -1683,7 +1683,7 @@ def encode_scalar(value: Any) -> tuple[Any, str]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.schemacheck
-# TableDossier 0.3.0 embedded runtime: module tabledossier.schemacheck
+# TableDossier 0.4.0 embedded runtime: module tabledossier.schemacheck
 # Source: src/tabledossier/schemacheck.py (sha256:73db83695ac1e7677801f230cbec851f49f1c56e6ff6a6f80c353274e08791ba)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -1932,7 +1932,7 @@ def unsupported_keywords(schema: Mapping[str, Any]) -> list[str]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.errors
-# TableDossier 0.3.0 embedded runtime: module tabledossier.errors
+# TableDossier 0.4.0 embedded runtime: module tabledossier.errors
 # Source: src/tabledossier/errors.py (sha256:b108b4cf3d80cefa0ea5538173f6b69387e4e354ad7871d1a21a596d06eb9cb1)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -1994,7 +1994,7 @@ def error_record(exc: BaseException, stage: str) -> dict[str, Any]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.paths
-# TableDossier 0.3.0 embedded runtime: module tabledossier.paths
+# TableDossier 0.4.0 embedded runtime: module tabledossier.paths
 # Source: src/tabledossier/paths.py (sha256:4dcb81311c66016927c7894a0639b34d3ff2cb78ed20a4d5fd9986dfbbec5e78)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -2218,7 +2218,7 @@ def field_id(segments: list[dict[str, Any]]) -> str:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.config
-# TableDossier 0.3.0 embedded runtime: module tabledossier.config
+# TableDossier 0.4.0 embedded runtime: module tabledossier.config
 # Source: src/tabledossier/config.py (sha256:5f121e95801d1d6ff839f31034cc01480bbb1560f6e5e58f94066c4f8544f055)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -2729,7 +2729,7 @@ def sanitized_config(config: Mapping[str, Any]) -> dict[str, Any]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.metrics
-# TableDossier 0.3.0 embedded runtime: module tabledossier.metrics
+# TableDossier 0.4.0 embedded runtime: module tabledossier.metrics
 # Source: src/tabledossier/metrics.py (sha256:c249a393132d3e995c1f45327360d5599d18d4e8485da31174cbd195c4162377)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -2929,7 +2929,7 @@ def numeric_value(metrics: Iterable[Mapping[str, Any]], name: str) -> float | No
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.planning
-# TableDossier 0.3.0 embedded runtime: module tabledossier.planning
+# TableDossier 0.4.0 embedded runtime: module tabledossier.planning
 # Source: src/tabledossier/planning.py (sha256:970ba12c986e535097884051dc5a72ebdf514b2ec1bbd7412608cf06151c40c1)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -3592,7 +3592,7 @@ def operation(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.semantic
-# TableDossier 0.3.0 embedded runtime: module tabledossier.semantic
+# TableDossier 0.4.0 embedded runtime: module tabledossier.semantic
 # Source: src/tabledossier/semantic.py (sha256:14e1b52707b12164c1eda7d2cdbb06f534676f56df0a9420ee44f329096edcc6)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -4056,7 +4056,7 @@ def candidate_roles(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.deep
-# TableDossier 0.3.0 embedded runtime: module tabledossier.deep
+# TableDossier 0.4.0 embedded runtime: module tabledossier.deep
 # Source: src/tabledossier/deep.py (sha256:fad2af92ebc4b4904a97aaa72dff50296f32000946572400c1fe372533c2de24)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -4897,7 +4897,7 @@ def _dp_json_metric(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.keys
-# TableDossier 0.3.0 embedded runtime: module tabledossier.keys
+# TableDossier 0.4.0 embedded runtime: module tabledossier.keys
 # Source: src/tabledossier/keys.py (sha256:209158129f791679ac1fc520588069a7b54beee890012311201137dc3818726b)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -5308,7 +5308,7 @@ def measured_keys(table: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.findings
-# TableDossier 0.3.0 embedded runtime: module tabledossier.findings
+# TableDossier 0.4.0 embedded runtime: module tabledossier.findings
 # Source: src/tabledossier/findings.py (sha256:84323f45be940c19f955304d9b2f5d9a767d49e063817ae65f3eeb9216621b4a)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -5560,7 +5560,7 @@ def field_findings(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.quality
-# TableDossier 0.3.0 embedded runtime: module tabledossier.quality
+# TableDossier 0.4.0 embedded runtime: module tabledossier.quality
 # Source: src/tabledossier/quality.py (sha256:5f728d2906f91e8477c5a690f2bb5b9f0c5532aaa029548c03952af89c45dcd2)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -5989,7 +5989,7 @@ def suggested_rules_document(profile: Mapping[str, Any]) -> dict[str, Any]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.relationships
-# TableDossier 0.3.0 embedded runtime: module tabledossier.relationships
+# TableDossier 0.4.0 embedded runtime: module tabledossier.relationships
 # Source: src/tabledossier/relationships.py (sha256:9998a8aa06ce10bc19dd47628430431400b71458a46b4c2e8b7b7e264e5315ab)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -6289,7 +6289,7 @@ def merge_relationships(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, 
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.integrity
-# TableDossier 0.3.0 embedded runtime: module tabledossier.integrity
+# TableDossier 0.4.0 embedded runtime: module tabledossier.integrity
 # Source: src/tabledossier/integrity.py (sha256:ddf44175d564bcad100e53dae71972c75e9fbcbc7bb4aad12055482ef792934b)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -6855,7 +6855,7 @@ def hypotheses_record(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.contract
-# TableDossier 0.3.0 embedded runtime: module tabledossier.contract
+# TableDossier 0.4.0 embedded runtime: module tabledossier.contract
 # Source: src/tabledossier/contract.py (sha256:3bfbddb4e8b773682a366f74d6dc1e74976e1ce3d3f6c723067593c4ae0c19aa)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -7237,7 +7237,7 @@ def validate_annotations(document: Any, schema: Mapping[str, Any]) -> list[str]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.render
-# TableDossier 0.3.0 embedded runtime: module tabledossier.render
+# TableDossier 0.4.0 embedded runtime: module tabledossier.render
 # Source: src/tabledossier/render.py (sha256:31bfca26a5cd3e269508a68bf8bc50415b7f1fd17430c4d18dcc7d211e2c4661)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -9004,7 +9004,7 @@ def render_all(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.package
-# TableDossier 0.3.0 embedded runtime: module tabledossier.package
+# TableDossier 0.4.0 embedded runtime: module tabledossier.package
 # Source: src/tabledossier/package.py (sha256:e48bdbffc517ac1f7b374a0764c04b7ff4cb784948a745b7c3b32732a05ffa03)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -9183,7 +9183,7 @@ def write_files(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.assemble
-# TableDossier 0.3.0 embedded runtime: module tabledossier.assemble
+# TableDossier 0.4.0 embedded runtime: module tabledossier.assemble
 # Source: src/tabledossier/assemble.py (sha256:b868890b99e2be458e6d45f6fd6f0cae5f8a63a76906122de9d794e5647baf96)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -10027,7 +10027,7 @@ def build_profile(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
-# TableDossier 0.3.0 embedded runtime: module tabledossier.runtime.spark
+# TableDossier 0.4.0 embedded runtime: module tabledossier.runtime.spark
 # Source: src/tabledossier/runtime/spark.py (sha256:9db4efb3a0aceb16df1bf8fbf8b629f1d3f4108bf293f8d7f981649cb65c6cd5)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -12713,7 +12713,7 @@ def evaluate_hypotheses(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
-# TableDossier 0.3.0 embedded runtime: module tabledossier.runtime.databricks
+# TableDossier 0.4.0 embedded runtime: module tabledossier.runtime.databricks
 # Source: src/tabledossier/runtime/databricks.py (sha256:182fdb119cd4985a036a9dddb7e162fe4e3e12a7500c92360a9d7202f9f811d8)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0

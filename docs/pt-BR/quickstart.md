@@ -8,7 +8,7 @@ com `python -m pip install .`; para máquinas sem internet, veja [instalação o
 ```bash
 python -m venv .venv
 # Ative o ambiente conforme o sistema operacional (ex.: source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.3.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.4.0"
 ```
 
 Requisitos locais: Python 3.10 ou superior. Não é preciso Spark, Java, Docker, drivers de banco, credenciais nem
