@@ -2,6 +2,7 @@ import copy
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -161,3 +162,36 @@ def test_module_entry_point_and_version():
         check=False,
     )
     assert result.returncode == 0 and result.stdout.startswith("tabledossier ")
+
+
+def test_profiles_of_contract_1_0_are_still_accepted(tmp_path, capsys):
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "profile-1.0.json"
+    profile = json.loads(fixture.read_text(encoding="utf-8"))
+    assert profile["schema_version"] == "1.0" and profile["tool"]["version"] == "0.1.0"
+    assert main(["validate", "--profile", str(fixture)]) == 0
+    assert "schema 1.0" in capsys.readouterr().out
+    out = tmp_path / "docs"
+    assert main(["render", "--input", str(fixture), "--output", str(out)]) == 0
+    dictionary = (out / "data_dictionary.md").read_text(encoding="utf-8")
+    assert "analytics.orders" in dictionary and "JSON paths" not in dictionary
+    # A 1.0 document may not use 1.1 additions: it is validated by the frozen 1.0 schema.
+    profile["run"]["analysis_level"] = "deep"
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(profile), encoding="utf-8")
+    assert main(["validate", "--profile", str(bad)]) == 3
+    profile["run"]["analysis_level"] = "standard"
+    profile["schema_version"] = "1.1"
+    relabelled = tmp_path / "relabelled.json"
+    relabelled.write_text(json.dumps(profile), encoding="utf-8")
+    assert main(["validate", "--profile", str(relabelled)]) == 0, "1.1 only adds to 1.0"
+    profile["schema_version"] = "9.9"
+    relabelled.write_text(json.dumps(profile), encoding="utf-8")
+    assert main(["validate", "--profile", str(relabelled)]) == 3
+    assert "supported: 1.0, 1.1" in capsys.readouterr().err
+
+
+def test_schema_command_serves_both_profile_versions(capsys):
+    assert main(["schema", "profile"]) == 0
+    assert '"const": "1.1"' in capsys.readouterr().out
+    assert main(["schema", "profile-1.0"]) == 0
+    assert '"const": "1.0"' in capsys.readouterr().out
