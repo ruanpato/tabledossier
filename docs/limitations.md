@@ -73,7 +73,9 @@ Known limits of release 0.3.0, by design or not yet addressed.
   missing hypothesis proves nothing. Inclusion can be coincidental (small integer ranges, codes): a hypothesis is a
   prompt for a person, not a relationship.
 - Declared PRIMARY KEY, UNIQUE and FOREIGN KEY constraints come from Unity Catalog `information_schema` and have not
-  been validated on a workspace yet (tested locally with a stubbed reader).
+  been validated on a workspace yet. Locally, the same queries run against a simulated `information_schema` (tables
+  with its column layout) and the assembly is tested with synthetic rows. A foreign key whose referenced constraint
+  cannot be read or resolved is not documented as a relationship (a table note says why).
 
 ## Documentation
 
