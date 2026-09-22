@@ -16,10 +16,11 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from tabledossier.assemble import build_profile, finalize_table, new_table
+from tabledossier.assemble import build_profile, finalize_table, known_relationships, new_table
 from tabledossier.config import ConfigError, execution_errors, resolve_parameters
 from tabledossier.contract import validate_profile
 from tabledossier.errors import error_record
+from tabledossier.integrity import hypotheses_record, not_validated_detail, referential_summary
 from tabledossier.jsonutil import format_utc, pretty_json, utc_now
 from tabledossier.package import build_documents, run_manifest, running_manifest, write_files
 from tabledossier.paths import parse_table_identifier, quote_table_identifier, table_id, table_key
@@ -254,8 +255,7 @@ def execute_run(
             finalize_table(table, config)
             log(f"[tabledossier] {name}: failed unexpectedly ({type(exc).__name__})")
         tables.append(table)
-    relationships, referential = validate_relationships(spark, tables, config, log=log)
-    hypotheses = evaluate_hypotheses(spark, tables, relationships, config, log=log)
+    relationships, referential, hypotheses = _db_integrity(spark, tables, config, log)
     finished = utc_now()
     return build_profile(
         run_id=ctx["run_id"],
@@ -273,6 +273,38 @@ def execute_run(
         referential_validation=referential,
         relationship_hypotheses=hypotheses,
     )
+
+
+def _db_integrity(
+    spark: Any, tables: list[dict[str, Any]], config: Mapping[str, Any], log: Callable[[str], None]
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, dict[str, Any] | None]:
+    """Run referential validation and hypotheses; an unexpected failure never loses the run."""
+    try:
+        relationships, referential = validate_relationships(spark, tables, config, log=log)
+    except Exception as exc:  # noqa: BLE001 - the profiles of every table are kept
+        log(f"[tabledossier] referential validation failed unexpectedly ({type(exc).__name__})")
+        relationships = known_relationships(tables, config)
+        reason = f"referential validation failed unexpectedly ({type(exc).__name__})"
+        for relationship in relationships:
+            relationship["validation_detail"] = not_validated_detail(reason)
+        referential = (
+            referential_summary(relationships, config, planned=0, limited=[])
+            if config["analysis_level"] == "deep"
+            else None
+        )
+    try:
+        hypotheses = evaluate_hypotheses(spark, tables, relationships, config, log=log)
+    except Exception as exc:  # noqa: BLE001 - the profiles of every table are kept
+        log(f"[tabledossier] relationship hypotheses failed unexpectedly ({type(exc).__name__})")
+        hypotheses = hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason=f"hypothesis evaluation failed unexpectedly ({type(exc).__name__})",
+        )
+    return relationships, referential, hypotheses
 
 
 def summary_text(profile: Mapping[str, Any]) -> str:

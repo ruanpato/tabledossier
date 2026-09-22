@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:01f5befac2a4833164da08b91f7755008cc2f9e7ce971661d41c56a697ea4545`).
+# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:97a5554e40f47ca66bf9b8e4d8e1d0842c608a86e7e8173ad86093578dd76f51`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -216,7 +216,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.2.0',
- 'generation_id': 'sha256:01f5befac2a4833164da08b91f7755008cc2f9e7ce971661d41c56a697ea4545'}
+ 'generation_id': 'sha256:97a5554e40f47ca66bf9b8e4d8e1d0842c608a86e7e8173ad86093578dd76f51'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -9775,7 +9775,7 @@ def build_profile(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:3b42b4408464b8460328304451abed3422921bfce5f4b02d9b262c8698658d92)
+# Source: src/tabledossier/runtime/spark.py (sha256:c99fa30e180d408f8b8f1430a8f69de3716f580487474031bf1b24664c91d943)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -11624,7 +11624,12 @@ def profile_table(
             json_unsupported=json_unsupported,
             scope=scope,
         )
-        _sp_uniqueness(table, scoped, tree, nodes_by_id, config, scope=scope, log=log)
+        try:
+            _sp_uniqueness(table, scoped, tree, nodes_by_id, config, scope=scope, log=log)
+        except Exception as exc:  # noqa: BLE001 - uniqueness never costs the table its profile
+            table["errors"].append(error_record(exc, "assemble"))
+            table["uniqueness"] = None
+            log(f"[tabledossier] {key}: uniqueness failed unexpectedly ({type(exc).__name__})")
     timings["total"] = _sp_ms(total_start)
     finalize_table(table, config)
     extra = (
@@ -12487,7 +12492,7 @@ def evaluate_hypotheses(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:7061b363767921b4251a8b11c95cb068cbda92589ef4e14527b71e5a97f510c4)
+# Source: src/tabledossier/runtime/databricks.py (sha256:75794e21f2aaec6b18e41e019b5ca03e7eeb8bd7beae90bf8ad3633f242b5c97)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -12735,8 +12740,7 @@ def execute_run(
             finalize_table(table, config)
             log(f"[tabledossier] {name}: failed unexpectedly ({type(exc).__name__})")
         tables.append(table)
-    relationships, referential = validate_relationships(spark, tables, config, log=log)
-    hypotheses = evaluate_hypotheses(spark, tables, relationships, config, log=log)
+    relationships, referential, hypotheses = _db_integrity(spark, tables, config, log)
     finished = utc_now()
     return build_profile(
         run_id=ctx["run_id"],
@@ -12754,6 +12758,38 @@ def execute_run(
         referential_validation=referential,
         relationship_hypotheses=hypotheses,
     )
+
+
+def _db_integrity(
+    spark: Any, tables: list[dict[str, Any]], config: Mapping[str, Any], log: Callable[[str], None]
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, dict[str, Any] | None]:
+    """Run referential validation and hypotheses; an unexpected failure never loses the run."""
+    try:
+        relationships, referential = validate_relationships(spark, tables, config, log=log)
+    except Exception as exc:  # noqa: BLE001 - the profiles of every table are kept
+        log(f"[tabledossier] referential validation failed unexpectedly ({type(exc).__name__})")
+        relationships = known_relationships(tables, config)
+        reason = f"referential validation failed unexpectedly ({type(exc).__name__})"
+        for relationship in relationships:
+            relationship["validation_detail"] = not_validated_detail(reason)
+        referential = (
+            referential_summary(relationships, config, planned=0, limited=[])
+            if config["analysis_level"] == "deep"
+            else None
+        )
+    try:
+        hypotheses = evaluate_hypotheses(spark, tables, relationships, config, log=log)
+    except Exception as exc:  # noqa: BLE001 - the profiles of every table are kept
+        log(f"[tabledossier] relationship hypotheses failed unexpectedly ({type(exc).__name__})")
+        hypotheses = hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason=f"hypothesis evaluation failed unexpectedly ({type(exc).__name__})",
+        )
+    return relationships, referential, hypotheses
 
 
 def summary_text(profile: Mapping[str, Any]) -> str:
