@@ -9,17 +9,23 @@ from jsonschema import Draft202012Validator
 from tabledossier.config import default_config
 from tabledossier.schemacheck import schema_errors, unsupported_keywords
 
+SCHEMA_NAMES = [
+    "config",
+    "profile",
+    "profile-1.0",
+    "profile-1.1",
+    "annotations",
+    "suggested_rules",
+    "manifest",
+]
 
-@pytest.mark.parametrize(
-    "name", ["config", "profile", "profile-1.0", "annotations", "suggested_rules", "manifest"]
-)
+
+@pytest.mark.parametrize("name", SCHEMA_NAMES)
 def test_schemas_only_use_supported_keywords(schemas, name):
     assert unsupported_keywords(schemas[name]) == []
 
 
-@pytest.mark.parametrize(
-    "name", ["config", "profile", "profile-1.0", "annotations", "suggested_rules", "manifest"]
-)
+@pytest.mark.parametrize("name", SCHEMA_NAMES)
 def test_schemas_are_valid_draft_2020_12(schemas, name):
     Draft202012Validator.check_schema(schemas[name])
 
@@ -137,6 +143,17 @@ def test_profile_1_1_additions_agreement(deep_profile, schemas):
         field = next(f for f in target["field_profiles"] if f["field_id"] == payload["field_id"])
         field["json_paths"]["paths"][0] = path
         assert not _agree(variant, schema)
+
+
+def test_profile_1_1_agreement(profile_1_1, schemas):
+    schema = schemas["profile-1.1"]
+    assert _agree(profile_1_1, schema)
+    for variant in _mutations(profile_1_1):
+        _agree(variant, schema)
+    assert not _agree({**profile_1_1, "schema_version": "1.2"}, schema)
+    variant = copy.deepcopy(profile_1_1)
+    variant["tables"][0]["uniqueness"] = None
+    assert not _agree(variant, schema), "1.1 documents cannot use 1.2 additions"
 
 
 def test_profile_1_0_agreement(profile_1_0, schemas):

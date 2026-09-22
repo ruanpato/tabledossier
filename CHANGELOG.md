@@ -3,6 +3,52 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-09-22
+
+"Deep II": exact uniqueness, referential validation and data-driven relationship hypotheses.
+
+### Added
+
+- `deep.uniqueness`: exact uniqueness of explicit keys (composite and nested struct columns included), declared
+  PRIMARY KEY/UNIQUE constraints (`declared_keys`) and identifier candidates (`identifier_candidates`), within
+  `max_keys` per table and `max_passes` Spark actions per table (keys share a pass: one explode and one grouped
+  aggregation). Per key: rows in scope, rows with NULL in the key, distinct keys, duplicate groups, rows in duplicate
+  groups, surplus rows, largest group and the outcome (`unique`, `unique_non_null`, `duplicates`, `empty`), with the
+  NULL semantics stated. Only counts are collected.
+- `deep.referential`: validation of configured relationships and declared foreign keys between tables of the run,
+  one Spark action per relationship (`max_relationships` per run, `full_scope` or `sample` mode). Both tables are read
+  at the Delta versions recorded in their profiles; composite keys are supported. Relationships become `validated`
+  (full scope, no orphan), `violated` (orphans) or stay `not_validated` with the reason, with orphan counts and ratio,
+  target key uniqueness, type compatibility and the versions read in `validation_detail`.
+- `deep.relationship_hypotheses` (off by default): single-column keys measured exactly unique are paired with
+  profiled columns of a compatible type whose measured ranges overlap — never by names — and at most `max_pairs`
+  inclusion checks run per run. Hypotheses that reach `min_inclusion_ratio` are listed in their own
+  `relationship_hypotheses` record, never with a cardinality and never drawn in the ER diagram.
+- Profile contract 1.2 (additive): `uniqueness` per table, `validation_detail` on relationships, top-level
+  `referential_validation` and `relationship_hypotheses`, summary counters and the operation kinds `uniqueness_pass`,
+  `referential_check` and `relationship_hypothesis_check`. The notebook writes 1.2; the CLI reads 1.0, 1.1 (frozen
+  schema, `tabledossier schema profile-1.1`) and 1.2. Invariants tie outcomes and validation statuses to their counts
+  and keep hypotheses apart from known relationships.
+- Data quality report sections "Uniqueness (exact)" and "Referential integrity"; `relationships.md` shows each
+  relationship's validation with its evidence and a hypotheses section. `unique` proposals cite the exact evidence and
+  are dropped when an exact check found duplicates.
+- Demo data with planted duplicate event ids, orphan orders and a self-reference (`customers.referrer_id`),
+  documented in `create_demo_tables.sql`; the deep demo profile shows all three checks.
+- Decision record 0005 (deep level, part II) and a deep part II step in the Databricks smoke test.
+- CI runs on pushes to `develop`; `CONTRIBUTING.md` describes the gitflow branches and repository rulesets.
+
+### Changed
+
+- Declared and provided relationships no longer claim that TableDossier never validates them; every relationship
+  states its validation status and why.
+- DQR sections are renumbered at the deep level (7 uniqueness, 8 referential integrity, 9 limitations).
+
+### Not yet validated
+
+- Execution on Databricks workspaces, including shared access mode and serverless compute, and the Unity Catalog
+  PRIMARY KEY/UNIQUE/FOREIGN KEY constraints used by `declared_keys` and `referential.declared` (tested locally with a
+  stubbed `information_schema` reader only).
+
 ## [0.2.0] - 2026-09-22
 
 "Deep I": elements of arrays and maps, JSON paths, and a Spark Connect test baseline.
@@ -69,5 +115,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Execution on Databricks workspaces (see `docs/compatibility.md`).
 
+[0.3.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.1.0

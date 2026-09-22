@@ -1,6 +1,6 @@
 # Databricks smoke test (manual, reproducible)
 
-This procedure validates a release on a real workspace. It has **not** been executed for 0.1.0 or 0.2.0; record
+This procedure validates a release on a real workspace. It has **not** been executed for 0.1.0, 0.2.0 or 0.3.0; record
 your results in the table at the end (or in an issue) before claiming support for a runtime.
 
 ## Prerequisites
@@ -47,7 +47,7 @@ your results in the table at the end (or in an issue) before claiming support fo
      `measured` (40) when available, otherwise `unsupported`;
    - no `SECRET`/sample values appear anywhere; errors are sanitized.
 9. **Deep level** (0.2.0): set `analysis_level` to `deep` (keep `config_json` = `{}`), run again. *Expected*:
-   - `run.analysis_level` is `deep`, `schema_version` is `1.1`, and `tabledossier validate` passes locally;
+   - `run.analysis_level` is `deep`, `schema_version` is `1.2`, and `tabledossier validate` passes locally;
    - `run.environment.spark_connect` is `true` on shared access mode and serverless, `false` on single-user compute;
    - `orders` has profiled element fields (`items[]`, `items[].sku`, `items[].qty`, `items[].price`,
      `attributes{key}`, `attributes{value}`, `tags[]`) whose denominators are `elements` or `entries`; for
@@ -57,9 +57,25 @@ your results in the table at the end (or in an issue) before claiming support fo
      `json_paths.full_scope.method` is `variant` when `run.capabilities.variant_functions.available` is true, else
      `get_json_object`;
    - the quality report has the section "Deep analysis: coverage and budget"; no sampled value appears anywhere.
-10. **Metadata level**: set `analysis_level` to `metadata`, run again. *Expected*: no sample or aggregation
+10. **Deep level, part II** (0.3.0), in the profile of the run of step 9 (the generated configuration enables
+    `deep.uniqueness`, `deep.referential` and `deep.relationship_hypotheses`). *Expected*:
+    - `customers` key `customer_id` and `orders` key `order_id` are `measured` with outcome `unique`, and their
+      origins include `configured` and `declared_primary_key` (the constraints of `add_demo_constraints.sql`);
+    - `order_events` key `event_id` has outcome `duplicates` with `duplicate_key_groups` 3 and
+      `rows_in_duplicate_groups` 6, and key `order_id, event_type` has 1,000 duplicate groups;
+    - every table has at most one `uniqueness_pass` in `operations.planned`;
+    - relationships `orders_customer` (configuration) and `orders_customer_fk` (declared) are `violated` with
+      `orphan_rows` 5 (0.50%), `events_order` is `validated`; each `validation_detail.from.delta_version` and
+      `to.delta_version` equals the `consistency.delta_version` of that table; `referential_validation.planned` is 3;
+    - `relationship_hypotheses.hypotheses` lists `analytics.customers (referrer_id)` →
+      `analytics.customers (customer_id)` with inclusion 100% (sample) and `cardinality` `null`;
+    - the quality report has "7. Uniqueness (exact)" and "8. Referential integrity", `relationships.md` has
+      "Referential validation" and "Hypotheses (data-driven, not relationships)", and `erd.mmd` draws only
+      `orders_customer`;
+    - the duplicated event id `evt-000000` appears nowhere in the result package.
+11. **Metadata level**: set `analysis_level` to `metadata`, run again. *Expected*: no sample or aggregation
    operations; row counts `unavailable` unless statistics exist.
-11. **Destination error**: set `output_dir` to a path without write permission. *Expected*: the validation cell
+12. **Destination error**: set `output_dir` to a path without write permission. *Expected*: the validation cell
     fails with a message about the output directory before any table is read.
 
 ## Record

@@ -13,6 +13,7 @@ import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from tabledossier.keys import measured_keys
 from tabledossier.metrics import find_metric
 from tabledossier.paths import parse_table_identifier, table_lookup_key
 from tabledossier.planning import iter_nodes
@@ -1033,24 +1034,20 @@ def render_quality_report(
         "",
         "- **Validity** is only evaluated through configured checks. Formats observed on samples "
         "are hypotheses.",
-        "- **Uniqueness** is only approximated (HyperLogLog-based distinct counts); no exact "
-        "uniqueness check ran.",
-        "- **Referential integrity** is not verified: declared or provided relationships were not "
-        "validated.",
+        _r_uniqueness_dimension(profile),
+        _r_referential_dimension(profile),
         "- **Timeliness** needs a time column and an agreed SLA; `after_reference_count` is "
         "descriptive only.",
         "- **Business accuracy** cannot be inferred from distributions.",
         "",
     ]
     deep_tables = [table for table in profile["tables"] if table.get("deep")]
-    if profile["run"].get("analysis_level") == "deep":
+    deep_level = profile["run"].get("analysis_level") == "deep"
+    if deep_level:
         out += _r_deep_coverage(deep_tables)
-    out += [
-        "## 7. Limitations"
-        if profile["run"].get("analysis_level") == "deep"
-        else "## 6. Limitations",
-        "",
-    ]
+        out += _r_uniqueness(profile)
+        out += _r_referential(profile)
+    out += ["## 9. Limitations" if deep_level else "## 6. Limitations", ""]
     for table in profile["tables"]:
         lines = []
         consistency = table.get("consistency") or {}
@@ -1080,6 +1077,252 @@ def render_quality_report(
         out += [f"- {md_text(line)}" for line in lines] or ["- none recorded"]
         out.append("")
     return "\n".join(out)
+
+
+def _r_checked(profile: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Relationships whose validation detail comes from a check of the data."""
+    return [
+        rel
+        for rel in profile.get("relationships", [])
+        if (rel.get("validation_detail") or {}).get("operation_id")
+    ]
+
+
+def _r_referential_dimension(profile: Mapping[str, Any]) -> str:
+    checked = _r_checked(profile)
+    if checked:
+        return (
+            f"- **Referential integrity** is established only for the {len(checked)} "
+            "relationship(s) checked in section 8; other relationships were not validated."
+        )
+    return (
+        "- **Referential integrity** is not verified: declared or provided relationships were not "
+        "validated."
+    )
+
+
+def _r_validation_text(rel: Mapping[str, Any]) -> str:
+    """Short validation status with its main evidence (orphans) or reason."""
+    detail = rel.get("validation_detail") or {}
+    status = rel.get("validation", "not_validated")
+    orphans = find_metric(detail.get("metrics", []), "orphan_rows")
+    ratio_metric = find_metric(detail.get("metrics", []), "orphan_ratio")
+    if status == "violated" and orphans:
+        text = f"**violated**: {format_value(orphans)} orphan row(s)"
+        if ratio_metric and ratio_metric.get("status") == "measured":
+            text += f" ({format_value(ratio_metric)})"
+        return text
+    if status == "validated":
+        complete = find_metric(detail.get("metrics", []), "source_rows_with_complete_key")
+        return f"validated: 0 orphans among {format_value(complete or {})} row(s)"
+    reason = detail.get("reason")
+    return "not validated" + (f" ({md_text(reason)})" if reason else "")
+
+
+def _r_referential(profile: Mapping[str, Any]) -> list[str]:
+    """Render section 8 of the DQR: referential integrity of checked relationships."""
+    out = ["## 8. Referential integrity", ""]
+    checked = _r_checked(profile)
+    if not checked:
+        return [
+            *out,
+            "Not established: no relationship was checked against the data in this run "
+            "(`deep.referential`). See `relationships.md` for the reason of each relationship.",
+            "",
+        ]
+    out += [
+        "Orphans are source rows with a complete key that no target row has. The source keeps its "
+        "analysed scope; the target is read in full at its recorded version. Only counts are "
+        "recorded: orphan values are never collected.",
+        "",
+    ]
+    rows = []
+    for rel in checked:
+        detail = rel["validation_detail"]
+        metrics = {m["name"]: m for m in detail["metrics"]}
+
+        def cell(name: str, metrics: Mapping[str, Any] = metrics) -> str:
+            return format_value(metrics[name]) if name in metrics else "—"
+
+        unique = detail.get("target_key_unique")
+        rows.append(
+            [
+                md_code(rel["name"]),
+                f"{md_text(rel['from']['table'])} ({md_text(', '.join(rel['from']['columns']))})",
+                f"{md_text(rel['to']['table'])} ({md_text(', '.join(rel['to']['columns']))})",
+                md_text(detail["mode"].replace("_", " ")),
+                _r_status(rel["validation"]),
+                cell("source_rows_with_complete_key"),
+                cell("source_rows_with_null_key"),
+                cell("orphan_rows"),
+                cell("orphan_ratio"),
+                "unknown" if unique is None else ("yes" if unique else "**no**"),
+                _r_versions(detail),
+            ]
+        )
+    out += [
+        _r_table(
+            [
+                "Relationship",
+                "From",
+                "To",
+                "Mode",
+                "Validation",
+                "Source rows with a complete key",
+                "Source rows with NULL in the key",
+                "Orphan rows",
+                "Orphan ratio",
+                "Target key unique",
+                "Versions read",
+            ],
+            rows,
+        ),
+        "",
+    ]
+    notes = sorted(
+        {note for rel in checked for note in rel["validation_detail"]["limitations"]}
+        | {
+            f"{rel['name']}: {rel['validation_detail']['reason']}"
+            for rel in checked
+            if rel["validation_detail"].get("reason")
+        }
+    )
+    out += [f"- {md_text(note)}" for note in notes]
+    if notes:
+        out.append("")
+    return out
+
+
+def _r_status(status: str) -> str:
+    return f"**{status}**" if status == "violated" else status.replace("_", " ")
+
+
+def _r_versions(detail: Mapping[str, Any]) -> str:
+    parts = []
+    for side in ("from", "to"):
+        info = detail.get(side) or {}
+        version = info.get("delta_version")
+        label = f"v{version}" if version is not None else str(info.get("consistency_mode"))
+        parts.append(f"{side} {label}")
+    return md_text(", ".join(parts))
+
+
+def _r_uniqueness_dimension(profile: Mapping[str, Any]) -> str:
+    if any(measured_keys(table) for table in profile["tables"]):
+        return (
+            "- **Uniqueness** is established only for the keys of section 7, exactly and over "
+            "their analysed scope; other columns only have approximate (HyperLogLog-based) "
+            "distinct counts."
+        )
+    return (
+        "- **Uniqueness** is only approximated (HyperLogLog-based distinct counts); no exact "
+        "uniqueness check ran."
+    )
+
+
+_R_OUTCOMES = {
+    "unique": "unique",
+    "unique_non_null": "unique among complete keys (some keys have NULL)",
+    "duplicates": "**duplicates**",
+    "empty": "no complete key in scope",
+}
+
+
+def _r_uniqueness(profile: Mapping[str, Any]) -> list[str]:
+    """Render section 7 of the DQR: exact uniqueness of keys, with its evidence."""
+    out = ["## 7. Uniqueness (exact)", ""]
+    records = [(table, table.get("uniqueness")) for table in profile["tables"]]
+    keys = [(table, key) for table, record in records if record for key in record["keys"]]
+    if not keys:
+        return [
+            *out,
+            "Not established: no key was checked for exact uniqueness in this run (configure "
+            "`deep.uniqueness`: explicit keys, declared keys or identifier candidates).",
+            "",
+        ]
+    semantics = next(record["null_semantics"] for _, record in records if record)
+    out += [
+        "Each key was checked with an exact grouped aggregation over the analysed scope; several "
+        "keys of a table share one pass. Only counts are recorded: duplicated values are never "
+        "collected. " + semantics,
+        "",
+    ]
+    rows = []
+    for table, key in keys:
+        if key["status"] != "measured":
+            continue
+        values = {m["name"]: m for m in key["metrics"]}
+
+        def cell(name: str, values: Mapping[str, Any] = values) -> str:
+            return format_value(values[name]) if name in values else "—"
+
+        rows.append(
+            [
+                md_text(table["table_key"]),
+                md_code(", ".join(key["columns"])),
+                md_text(", ".join(origin.replace("_", " ") for origin in key["origins"])),
+                _R_OUTCOMES.get(key["outcome"], md_text(key["outcome"])),
+                cell("rows_in_scope"),
+                cell("rows_with_null_key"),
+                cell("distinct_keys"),
+                cell("duplicate_key_groups"),
+                cell("rows_in_duplicate_groups"),
+                cell("max_rows_per_key"),
+                md_text(SCOPE_LABELS.get(key["scope"], key["scope"])),
+            ]
+        )
+    if rows:
+        out += [
+            _r_table(
+                [
+                    "Table",
+                    "Key",
+                    "Origin",
+                    "Outcome",
+                    "Rows in scope",
+                    "Rows with NULL in the key",
+                    "Distinct keys",
+                    "Duplicate groups",
+                    "Rows in duplicate groups",
+                    "Most rows per key",
+                    "Scope",
+                ],
+                rows,
+            ),
+            "",
+        ]
+    skipped = [(table, key) for table, key in keys if key["status"] != "measured"]
+    if skipped:
+        out += ["**Keys not measured**", ""]
+        out.append(
+            _r_table(
+                ["Table", "Key", "Origin", "Status", "Reason"],
+                [
+                    [
+                        md_text(table["table_key"]),
+                        md_code(", ".join(key["columns"])) if key["columns"] else "—",
+                        md_text(", ".join(origin.replace("_", " ") for origin in key["origins"])),
+                        md_code(key["status"]),
+                        md_text(key["reason"] or ""),
+                    ]
+                    for table, key in skipped
+                ],
+            )
+        )
+        out.append("")
+    notes = [
+        md_text(note) for note in sorted({note for _, key in keys for note in key["limitations"]})
+    ]
+    notes += [
+        f"{md_text(table['table_key'])}: {md_text(note)}"
+        for table, record in records
+        if record
+        for note in record["notes"]
+    ]
+    out += [f"- {note}" for note in notes]
+    if notes:
+        out.append("")
+    return out
 
 
 def _r_deep_coverage(tables: list[Mapping[str, Any]]) -> list[str]:
@@ -1193,11 +1436,17 @@ def render_relationships(
 ) -> str:
     """Render ``relationships.md``: known relationships, declared keys and hypotheses."""
     relationships = all_relationships(profile, annotations)
+    checked = _r_checked(profile)
     out = [provenance_header(profile, "Relationships")]
     out += [
         "Relationships come only from declared constraints or from people (configuration or "
-        "annotations). TableDossier never infers a relationship from column names, and it did not "
-        "validate any relationship against the data.",
+        "annotations). TableDossier never infers a relationship from column names"
+        + (
+            f"; {len(checked)} relationship(s) were checked against the data (see Referential "
+            "validation)."
+            if checked
+            else ", and it did not validate any relationship against the data."
+        ),
         "",
         "## Known relationships",
         "",
@@ -1225,7 +1474,7 @@ def render_relationships(
                         f"({md_text(', '.join(rel['to']['columns']))})",
                         _r_cardinality(rel),
                         md_text(rel["enforcement"]),
-                        md_text(rel["validation"]),
+                        _r_validation_text(rel),
                         md_text(rel["scope"]),
                     ]
                     for rel in relationships
@@ -1265,7 +1514,17 @@ def render_relationships(
             "to "
             "the run and none were provided in configuration or annotations."
         )
-    out += ["", "## Declared keys and constraints", ""]
+    out += ["", "## Referential validation", ""]
+    if checked:
+        out += _r_referential(profile)[2:]
+    else:
+        out += [
+            "No relationship was checked against the data in this run. Referential validation "
+            "runs at the deep level for the relationships selected by `deep.referential`; the "
+            "Validation column above gives the reason for each relationship.",
+            "",
+        ]
+    out += ["## Declared keys and constraints", ""]
     constraint_rows = []
     for table in profile["tables"]:
         for constraint in table.get("constraints", []):
@@ -1294,14 +1553,97 @@ def render_relationships(
         "document "
         "intent and are not enforced, so they do not prove integrity of the data.",
         "",
-        "## Hypotheses",
-        "",
-        "No data-driven relationship inference was performed. Candidate identifiers in the data "
-        "dictionary are not keys; exact uniqueness and referential validation are planned for a "
-        "later release (deep level, part II).",
-        "",
+        *_r_hypotheses(profile),
     ]
     return "\n".join(out)
+
+
+def _r_hypotheses(profile: Mapping[str, Any]) -> list[str]:
+    """Render the hypotheses section of relationships.md (never known relationships)."""
+    out = [
+        "## Hypotheses (data-driven, not relationships)",
+        "",
+        "Hypotheses are observations about the data, kept apart from the known relationships "
+        "above: they are never inferred from column names, have no cardinality and are never "
+        "drawn in `erd.mmd`. A person must confirm one before declaring it.",
+        "",
+    ]
+    record = profile.get("relationship_hypotheses")
+    if not record:
+        return [
+            *out,
+            "No data-driven relationship hypothesis was evaluated (deep level with "
+            "`deep.relationship_hypotheses.enabled`). Candidate identifiers in the data dictionary "
+            "are not keys unless an exact uniqueness check says so (quality report).",
+            "",
+        ]
+    if not record["enabled"] or (record["reason"] and not record["pairs_evaluated"]):
+        return [*out, f"Not evaluated: {md_text(record['reason'] or 'disabled')}.", ""]
+    budget = record["budget"]
+    rejected = ", ".join(
+        f"{count} {reason.replace('_', ' ')}"
+        for reason, count in sorted(record["pairs_rejected"].items())
+    )
+    out += [
+        f"Targets (single-column keys measured exactly unique): {format_count(record['targets'])}. "
+        f"Candidate pairs after the type and range filters: "
+        f"{format_count(record['pairs_considered'])}; evaluated: "
+        f"{format_count(record['pairs_evaluated'])}; left out by `max_pairs` = "
+        f"{budget['max_pairs']}: {format_count(record['pairs_not_evaluated'])}. Skipped: "
+        f"{format_count(record['pairs_known_excluded'])} known relationship(s), "
+        f"{format_count(record['pairs_disjoint_excluded'])} disjoint range(s). Rejected: "
+        f"{md_text(rejected) or 'none'}.",
+        "",
+    ]
+    rows = []
+    for item in record["hypotheses"]:
+        evidence = item["evidence"]
+        metrics = {m["name"]: m for m in evidence["metrics"]}
+        rows.append(
+            [
+                md_code(item["hypothesis_id"]),
+                f"{md_text(item['from']['table'])} ({md_text(', '.join(item['from']['columns']))})",
+                f"{md_text(item['to']['table'])} ({md_text(', '.join(item['to']['columns']))})",
+                format_value(metrics["inclusion_ratio"])
+                + f" ({md_text(evidence['inclusion_scope'].replace('_', ' '))})",
+                format_value(metrics["included_rows"])
+                + " of "
+                + format_value(metrics["source_rows_with_complete_key"]),
+                "yes" if evidence["target_key_unique"] else "no",
+                md_text(evidence["type_compatibility"][0]["rule"]),
+                md_text(
+                    f"{evidence['range_relation'].replace('_', ' ')} ({evidence['range_basis']})"
+                ),
+                _r_versions(evidence),
+            ]
+        )
+    if rows:
+        out += [
+            _r_table(
+                [
+                    "Hypothesis",
+                    "From",
+                    "To",
+                    "Inclusion",
+                    "Included rows",
+                    "Target key unique",
+                    "Types",
+                    "Measured range",
+                    "Versions read",
+                ],
+                rows,
+            ),
+            "",
+        ]
+    else:
+        out += [
+            f"No evaluated pair reached `min_inclusion_ratio` = {budget['min_inclusion_ratio']}.",
+            "",
+        ]
+    notes = sorted({note for item in record["hypotheses"] for note in item["limitations"]})
+    out += [f"- {md_text(note)}" for note in [*notes, *record["limitations"]]]
+    out.append("")
+    return out
 
 
 def _r_erd_type(node: Mapping[str, Any]) -> str:

@@ -14,6 +14,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from tabledossier.jsonutil import short_hash
+from tabledossier.keys import measured_keys
 from tabledossier.metrics import find_metric, metric_value
 from tabledossier.paths import column_reference_segments, display_path, field_id
 
@@ -223,8 +224,11 @@ def _q_rule(
     rationale: str,
     evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    identity: list[Any] = [table_key, column, rule_type]
+    if column is None and parameters:
+        identity.append(dict(parameters))
     return {
-        "rule_id": "sr_" + short_hash([table_key, column, rule_type]),
+        "rule_id": "sr_" + short_hash(identity),
         "table": table_key,
         "column": column,
         "rule_type": rule_type,
@@ -236,12 +240,47 @@ def _q_rule(
     }
 
 
+def _q_exact_evidence(key: Mapping[str, Any]) -> list[dict[str, Any]]:
+    values = {m["name"]: m["value"] for m in key["metrics"] if m["status"] == "measured"}
+    return [
+        {"check": "exact_uniqueness", "key_id": key["key_id"], "scope": key["scope"]},
+        *(
+            {"metric": name, "value": values[name]}
+            for name in (
+                "rows_with_complete_key",
+                "distinct_keys",
+                "duplicate_key_groups",
+                "rows_with_null_key",
+            )
+            if name in values
+        ),
+    ]
+
+
+def _q_exact_rationale(key: Mapping[str, Any]) -> str:
+    values = {m["name"]: m["value"] for m in key["metrics"] if m["status"] == "measured"}
+    text = (
+        f"Exact uniqueness check: no duplicate among {values.get('rows_with_complete_key')} "
+        "row(s) with a complete key in the analysed scope"
+    )
+    if key["outcome"] == "unique_non_null":
+        text += f"; {values.get('rows_with_null_key')} row(s) have NULL in the key"
+    return text + ". This describes the analysed scope, not future data."
+
+
 def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Propose rules from observations of one table (never applied automatically)."""
+    """Propose rules from observations of one table (never applied automatically).
+
+    ``unique`` proposals cite the exact uniqueness check of the deep level when
+    one measured the column; an exact check that found duplicates suppresses
+    the proposal.
+    """
     if table.get("status") == "failed":
         return []
     table_key = table["table_key"]
     rules = []
+    exact = {tuple(key["field_ids"]): key for key in measured_keys(table)}
+    proposed_keys: set[tuple[str, ...]] = set()
     min_rows = thresholds["identifier_min_rows"]
     for field in table.get("field_profiles", []):
         if not field.get("profiled") or field.get("element_context"):
@@ -274,6 +313,21 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
         semantics = field.get("semantics") or {}
         for role in semantics.get("candidate_roles", []):
             if role["role"] == "identifier_candidate":
+                key = exact.get((field["field_id"],))
+                if key is not None:
+                    proposed_keys.add((field["field_id"],))
+                    if key["outcome"] in ("unique", "unique_non_null"):
+                        rules.append(
+                            _q_rule(
+                                table_key,
+                                column,
+                                "unique",
+                                {},
+                                _q_exact_rationale(key),
+                                [*_q_exact_evidence(key), *role["evidence"]],
+                            )
+                        )
+                    continue
                 rules.append(
                     _q_rule(
                         table_key,
@@ -281,7 +335,7 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
                         "unique",
                         {},
                         "Approximate distinct count close to non-null count; confirm with an exact "
-                        "uniqueness check before adopting.",
+                        "uniqueness check (deep.uniqueness) before adopting.",
                         role["evidence"],
                     )
                 )
@@ -335,6 +389,20 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
                         ],
                     )
                 )
+    for ids, key in exact.items():
+        if ids in proposed_keys or key["outcome"] not in ("unique", "unique_non_null"):
+            continue
+        single = len(key["columns"]) == 1
+        rules.append(
+            _q_rule(
+                table_key,
+                key["columns"][0] if single else None,
+                "unique",
+                {} if single else {"columns": list(key["columns"])},
+                _q_exact_rationale(key),
+                _q_exact_evidence(key),
+            )
+        )
     return rules
 
 

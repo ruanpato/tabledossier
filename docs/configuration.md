@@ -153,6 +153,73 @@ are collapsed into `*`. See [privacy](privacy.md).
 }
 ```
 
+### `deep.uniqueness`
+
+Exact uniqueness of keys over the analysed scope (filters and pinned snapshot of the table). Nothing is checked
+unless a key is listed or a source is enabled.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `keys` | `[]` | Explicit keys: `{"table", "columns", "id"?}` entries; `columns` are column references (a string is a literal top-level name, a list navigates struct fields), several columns make a composite key. |
+| `declared_keys` | `false` | Also check the PRIMARY KEY and UNIQUE constraints read from Unity Catalog `information_schema` (they are informational there, so they are checked, never trusted). |
+| `identifier_candidates` | `false` | Also check single columns that the standard metrics mark as identifier candidates (approximate distinct count close to the non-null count). |
+| `max_keys` | 5 | Keys checked per table, in this order: explicit, declared primary keys, declared unique constraints, candidates. Further keys are recorded as `not_computed` (`uniqueness_budget`). |
+| `max_passes` | 1 | Spark actions the checks may use per table. Keys are split evenly across the passes; each pass explodes every row once per key it checks and runs one grouped aggregation. |
+
+A key with the same columns as another one (for example an explicit key that is also the declared primary key) is
+checked once and keeps both origins. Key columns must be atomic (numbers, strings, booleans, dates, timestamps,
+binary) and outside arrays and maps; other keys are `not_eligible` with the reason. Rows with NULL in any key column
+are counted apart and never treated as duplicates. Only counts are recorded, never key values. See
+[contract](contract.md#uniqueness-12).
+
+### `deep.referential`
+
+Validation of known relationships against the data. A relationship is checked only when both of its tables are
+profiled in the same run (tables outside the run are never read).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `configured` | `false` | Validate the relationships listed in [`relationships`](#relationships). |
+| `declared` | `false` | Validate the FOREIGN KEY constraints read from Unity Catalog `information_schema`. |
+| `mode` | `"full_scope"` | `full_scope`: every source row in scope. `sample`: at most `max_sample_rows` source rows (`sampling.method` prefix or random); an orphan found in a sample violates the relationship, but a sample without orphans never validates it. |
+| `max_relationships` | 5 | Checks per run, one Spark action each (recorded as a `referential_check` operation of the source table). Further relationships stay `not_validated` (`referential_budget`). |
+| `max_sample_rows` | 10000 | Source rows read by a check in `sample` mode. |
+
+Each check reads both tables at the Delta versions recorded when they were profiled. The source keeps its analysed
+scope (its filters); the target is read in full, because a reference is valid when the key exists anywhere in the
+target table. Source rows with NULL in any key column are counted apart and are never orphans. Key columns must have
+compatible types (the same kind, or integer and decimal); otherwise the relationship stays `not_validated` with the
+column types in the reason. Only counts are recorded, never orphan values. See
+[contract](contract.md#referential-validation-12).
+
+### `deep.relationship_hypotheses`
+
+Data-driven relationship hypotheses, **off by default**. They are listed apart from known relationships, never get a
+cardinality and are never drawn in the ER diagram.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | Evaluate hypotheses at the deep level. |
+| `max_pairs` | 5 | Column pairs measured per run, one Spark action each (a `relationship_hypothesis_check` operation of the source table). |
+| `max_sample_rows` | 10000 | Source rows examined per pair when `inclusion_scope` is `sample`. |
+| `inclusion_scope` | `"sample"` | `sample` (bounded prefix or random sample of the source, labelled as such) or `full_scope`. |
+| `min_inclusion_ratio` | 0.95 | Share of the source rows with a value whose value is found among the target key values, needed to list a hypothesis. |
+
+How pairs are chosen, without ever looking at column names:
+
+1. **Targets** are single-column keys measured exactly unique in this run (`deep.uniqueness`: explicit keys, declared
+   keys or identifier candidates) of integer, scale-0 decimal, string or date type.
+2. **Sources** are profiled columns of the tables in the run, of a compatible type, with at least one non-null value.
+   Known relationships (declared or configured) are skipped.
+3. The standard metrics must not rule the pair out: value ranges (numbers, dates) or length ranges (strings) that
+   do not overlap are skipped (`pairs_disjoint_excluded`). Pairs whose source range lies inside the target range are
+   measured first, then schema order, up to `max_pairs`.
+4. Each measured pair counts the source rows found among the distinct target key values (target read in full at its
+   recorded version); a hypothesis needs `min_inclusion_ratio` and a target key without duplicates. Other pairs are
+   counted by reason (`pairs_rejected`).
+
+See [contract](contract.md#relationship-hypotheses-12).
+
 ## `table_options`
 
 Keyed by table identifier (matched case-insensitively):
@@ -208,4 +275,5 @@ when any configured check failed.
 
 `cardinality.from` describes how many `from` rows relate to one `to` row, and `cardinality.to` how many `to` rows
 relate to one `from` row (`zero_or_one`, `exactly_one`, `zero_or_more`, `one_or_more`). Without cardinality the
-relationship is documented but not drawn as an ER edge. Relationships are recorded as `not_validated`.
+relationship is documented but not drawn as an ER edge. Relationships stay `not_validated`, with the reason, unless
+[`deep.referential`](#deepreferential) checks them; validation never changes the cardinality a person provided.

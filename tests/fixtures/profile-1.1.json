@@ -1,18 +1,18 @@
 {
   "kind": "tabledossier.profile",
-  "schema_version": "1.2",
+  "schema_version": "1.1",
   "tool": {
     "name": "tabledossier",
-    "version": "0.3.0"
+    "version": "0.2.0"
   },
   "run": {
-    "run_id": "20260922T085727Z-b5ee4b39",
+    "run_id": "20260922T041230Z-145902bd",
     "status": "succeeded",
-    "analysis_level": "standard",
-    "started_at": "2026-09-22T08:57:27.724Z",
-    "finished_at": "2026-09-22T08:57:38.233Z",
-    "duration_ms": 10508,
-    "reference_time": "2026-09-22T08:57:27.724Z",
+    "analysis_level": "deep",
+    "started_at": "2026-09-22T04:12:30.693Z",
+    "finished_at": "2026-09-22T04:12:38.959Z",
+    "duration_ms": 8266,
+    "reference_time": "2026-09-22T04:12:30.693Z",
     "environment": {
       "engine": "spark",
       "execution_context": "spark",
@@ -32,7 +32,7 @@
         "analytics.order_events",
         "analytics.returns"
       ],
-      "analysis_level": "standard",
+      "analysis_level": "deep",
       "output_dir": "/tmp/tabledossier-demo/results",
       "purpose": "Synthetic demo: document the demo analytics tables.",
       "limits": {
@@ -109,58 +109,7 @@
         "max_elements": 100000,
         "max_json_paths": 50,
         "max_json_depth": 3,
-        "max_json_object_keys": 50,
-        "uniqueness": {
-          "keys": [
-            {
-              "table": "analytics.customers",
-              "columns": [
-                "customer_id"
-              ],
-              "id": "customers_key"
-            },
-            {
-              "table": "analytics.orders",
-              "columns": [
-                "order_id"
-              ],
-              "id": "orders_key"
-            },
-            {
-              "table": "analytics.order_events",
-              "columns": [
-                "event_id"
-              ],
-              "id": "events_key"
-            },
-            {
-              "table": "analytics.order_events",
-              "columns": [
-                "order_id",
-                "event_type"
-              ],
-              "id": "events_per_order_and_type"
-            }
-          ],
-          "declared_keys": true,
-          "identifier_candidates": true,
-          "max_keys": 5,
-          "max_passes": 1
-        },
-        "referential": {
-          "configured": true,
-          "declared": true,
-          "mode": "full_scope",
-          "max_relationships": 5,
-          "max_sample_rows": 10000
-        },
-        "relationship_hypotheses": {
-          "enabled": true,
-          "max_pairs": 5,
-          "max_sample_rows": 10000,
-          "inclusion_scope": "sample",
-          "min_inclusion_ratio": 0.95
-        }
+        "max_json_object_keys": 50
       },
       "table_options": {
         "analytics.customers": {
@@ -255,7 +204,7 @@
         }
       ]
     },
-    "config_fingerprint": "sha256:04695e6f291900c2e89c6668bfd8f76b1c7ad122221b5fb6c6dc15a32e382ec5",
+    "config_fingerprint": "sha256:837fb12cc4623d37e920d79225c7fa1cb037973c71aa0ad5a819a6cc10ff8fc8",
     "parameter_sources": {
       "precedence": [
         "built-in defaults",
@@ -271,7 +220,7 @@
         },
         "analysis_level": {
           "source": "widget",
-          "matches_generated_default": true
+          "matches_generated_default": false
         },
         "output_dir": {
           "source": "widget",
@@ -280,8 +229,8 @@
       }
     },
     "generation": {
-      "generator_version": "0.3.0",
-      "generation_id": "sha256:2c25321afc2633083069aa9bfe3280129049b8f08278c535e49c26fd64869569"
+      "generator_version": "0.2.0",
+      "generation_id": "sha256:c9cca9ac463f74eb1fc32674e1da24f836eed7b4d1729332295f1ea523faa9d5"
     },
     "purpose": "Synthetic demo: document the demo analytics tables.",
     "capabilities": {
@@ -345,14 +294,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic customers (simple types, special column names, all-null and constant columns)",
-        "created_at": "2026-09-22T08:57:19.785000Z",
-        "last_modified": "2026-09-22T08:57:27.417000Z",
+        "created_at": "2026-09-22T04:12:09.606000Z",
+        "last_modified": "2026-09-22T04:12:18.288000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 26661,
+          "value": 25486,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -372,7 +321,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T08:57:28.771Z",
+        "captured_at": "2026-09-22T04:12:30.742Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -380,7 +329,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T08:57:27.417000Z",
+        "version_timestamp": "2026-09-22T04:12:18.288000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -415,12 +364,12 @@
         ]
       },
       "summary": {
-        "top_level_columns": 12,
+        "top_level_columns": 11,
         "columns_selected": null,
-        "schema_nodes": 12,
-        "fields_profiled": 12,
+        "schema_nodes": 11,
+        "fields_profiled": 11,
         "fields_omitted": 0,
-        "findings": 7,
+        "findings": 6,
         "quality_checks": 1,
         "suggested_rules": 13
       },
@@ -693,32 +642,9 @@
             "children": [],
             "children_omitted": 0,
             "children_omitted_reason": null
-          },
-          {
-            "field_id": "f_47a60170bc61",
-            "name": "referrer_id",
-            "segment_kind": "field",
-            "path": [
-              {
-                "kind": "field",
-                "name": "referrer_id"
-              }
-            ],
-            "display_path": "referrer_id",
-            "parent_field_id": null,
-            "depth": 1,
-            "type": {
-              "kind": "integer",
-              "physical_type": "int"
-            },
-            "nullable": true,
-            "comment": null,
-            "children": [],
-            "children_omitted": 0,
-            "children_omitted_reason": null
           }
         ],
-        "nodes_total": 12,
+        "nodes_total": 11,
         "nodes_omitted": 0,
         "top_level_omitted": 0,
         "limits": {
@@ -947,7 +873,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
               }
             ]
           },
@@ -2775,7 +2701,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
               }
             ]
           },
@@ -3023,216 +2949,6 @@
           "examples": null,
           "element_context": null,
           "json_paths": null
-        },
-        {
-          "field_id": "f_47a60170bc61",
-          "display_path": "referrer_id",
-          "path": [
-            {
-              "kind": "field",
-              "name": "referrer_id"
-            }
-          ],
-          "type_kind": "integer",
-          "physical_type": "int",
-          "nullable": true,
-          "comment": null,
-          "profiled": true,
-          "omission_reason": null,
-          "metrics": [
-            {
-              "name": "null_count",
-              "status": "measured",
-              "value": 450,
-              "value_type": "integer",
-              "unit": "rows",
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "rows where the field is null (includes rows whose parent struct is null)",
-              "denominator": 500,
-              "denominator_unit": "rows"
-            },
-            {
-              "name": "non_null_count",
-              "status": "measured",
-              "value": 50,
-              "value_type": "integer",
-              "unit": "rows",
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "derived",
-              "method": "row_count - null_count",
-              "denominator": 500,
-              "denominator_unit": "rows"
-            },
-            {
-              "name": "null_ratio",
-              "status": "measured",
-              "value": 0.9,
-              "value_type": "ratio",
-              "unit": "ratio",
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "derived",
-              "method": "null_count / row_count",
-              "denominator": 500,
-              "denominator_unit": "rows"
-            },
-            {
-              "name": "approx_distinct_count",
-              "status": "measured",
-              "value": 47,
-              "value_type": "integer",
-              "unit": "values",
-              "scope": "full_snapshot",
-              "accuracy": "approximate",
-              "source": "aggregate",
-              "method": "approx_count_distinct (HyperLogLog++)",
-              "details": {
-                "relative_standard_deviation": 0.02
-              }
-            },
-            {
-              "name": "all_values_equal",
-              "status": "measured",
-              "value": false,
-              "value_type": "boolean",
-              "unit": null,
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "min(field) = max(field) over non-null values"
-            },
-            {
-              "name": "min",
-              "status": "measured",
-              "value": 2,
-              "value_type": "integer",
-              "unit": null,
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "minimum over non-null values (finite values only for floating point)"
-            },
-            {
-              "name": "max",
-              "status": "measured",
-              "value": 497,
-              "value_type": "integer",
-              "unit": null,
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "maximum over non-null values (finite values only for floating point)"
-            },
-            {
-              "name": "mean",
-              "status": "measured",
-              "value": 271.76,
-              "value_type": "float",
-              "unit": null,
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "average over non-null values (finite values only for floating point)"
-            },
-            {
-              "name": "stddev",
-              "status": "measured",
-              "value": 150.81892914271438,
-              "value_type": "float",
-              "unit": null,
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "sample standard deviation (stddev_samp), computed in double precision"
-            },
-            {
-              "name": "quantiles",
-              "status": "measured",
-              "value": [
-                {
-                  "probability": 0.05,
-                  "value": 34
-                },
-                {
-                  "probability": 0.25,
-                  "value": 157
-                },
-                {
-                  "probability": 0.5,
-                  "value": 260
-                },
-                {
-                  "probability": 0.75,
-                  "value": 429
-                },
-                {
-                  "probability": 0.95,
-                  "value": 488
-                }
-              ],
-              "value_type": "quantiles",
-              "unit": null,
-              "scope": "full_snapshot",
-              "accuracy": "approximate",
-              "source": "aggregate",
-              "method": "percentile_approx over non-null (finite) values",
-              "details": {
-                "element_type": "integer",
-                "accuracy_parameter": 10000
-              }
-            },
-            {
-              "name": "zero_count",
-              "status": "measured",
-              "value": 0,
-              "value_type": "integer",
-              "unit": "values",
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "values equal to zero",
-              "denominator": 50,
-              "denominator_unit": "values"
-            },
-            {
-              "name": "negative_count",
-              "status": "measured",
-              "value": 0,
-              "value_type": "integer",
-              "unit": "values",
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "values below zero",
-              "denominator": 50,
-              "denominator_unit": "values"
-            },
-            {
-              "name": "positive_count",
-              "status": "measured",
-              "value": 50,
-              "value_type": "integer",
-              "unit": "values",
-              "scope": "full_snapshot",
-              "accuracy": "exact",
-              "source": "aggregate",
-              "method": "values above zero",
-              "denominator": 50,
-              "denominator_unit": "values"
-            }
-          ],
-          "semantics": {
-            "observed_format": null,
-            "candidate_roles": []
-          },
-          "json_profile": null,
-          "concentration": null,
-          "examples": null,
-          "element_context": null,
-          "json_paths": null
         }
       ],
       "constraints": [],
@@ -3264,7 +2980,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
         },
         {
           "finding_id": "fd_bf578f74a945",
@@ -3365,7 +3081,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
         },
         {
           "finding_id": "fd_d16707673d3f",
@@ -3391,31 +3107,6 @@
           },
           "severity_reason": "info: descriptive signal only.",
           "limitations": "Few distinct values in the analysed scope; the set of allowed values must be defined by a data owner."
-        },
-        {
-          "finding_id": "fd_adb773af67a4",
-          "code": "high_null_ratio",
-          "severity": "info",
-          "field_id": "f_47a60170bc61",
-          "display_path": "referrer_id",
-          "title": "High null ratio",
-          "message": "90.0% of rows in scope are null.",
-          "evidence": [
-            {
-              "metric": "null_count",
-              "value": 450
-            },
-            {
-              "metric": "null_ratio",
-              "value": 0.9
-            }
-          ],
-          "threshold": {
-            "name": "high_null_ratio",
-            "value": 0.5
-          },
-          "severity_reason": "info: sparse fields are frequently legitimate (optional attributes).",
-          "limitations": "Nullity of nested fields includes rows where a parent struct is null; see null_count_parent_present."
         }
       ],
       "quality_checks": [
@@ -3469,7 +3160,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -3653,7 +3344,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -3757,8 +3448,9 @@
             "description": "one shared aggregation over the analysed scope (single agg call; not a guarantee of a single physical scan)",
             "reads_user_data": true,
             "details": {
-              "expressions": 126,
-              "fields": 12
+              "expressions": 114,
+              "fields": 11,
+              "deep_expressions": 0
             }
           }
         ],
@@ -3766,21 +3458,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 43,
+            "duration_ms": 10,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 994,
+            "duration_ms": 33,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 275,
+            "duration_ms": 114,
             "rows_returned": 1,
             "detail": null
           },
@@ -3794,14 +3486,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 470,
+            "duration_ms": 191,
             "rows_returned": 500,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1821,
+            "duration_ms": 1168,
             "rows_returned": 1,
             "detail": null
           }
@@ -3811,16 +3503,45 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 1330,
-        "sample": 473,
-        "aggregate": 1994,
-        "total": 3801
+        "metadata": 164,
+        "sample": 195,
+        "aggregate": 1335,
+        "total": 1698
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
       ],
-      "deep": null,
-      "uniqueness": null
+      "deep": {
+        "targets": "all_within_budget",
+        "requested_targets": null,
+        "not_eligible": [],
+        "collections": [],
+        "json_fields": [],
+        "budget": {
+          "max_extra_passes": 2,
+          "max_explode_rows": 1000,
+          "max_elements": 100000,
+          "max_json_paths": 50,
+          "max_json_depth": 3,
+          "max_json_object_keys": 50
+        },
+        "extra_passes": {
+          "budget": 2,
+          "planned": 0,
+          "aggregate": 0,
+          "element_explode": 0
+        },
+        "expressions": {
+          "planned": 0,
+          "omitted": 0
+        },
+        "element_distinct": null,
+        "limited": [],
+        "notes": [
+          "Element metrics are exact over the analysed scope and computed per row with higher-order functions inside the shared aggregation passes (no explode); their denominators are elements or entries, never rows.",
+          "JSON path catalogues come from the transient sample; they are not a complete schema."
+        ]
+      }
     },
     {
       "table_id": "t_f70c26467a5c",
@@ -3841,14 +3562,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic orders with nested structs, arrays and maps",
-        "created_at": "2026-09-22T08:57:24.784000Z",
-        "last_modified": "2026-09-22T08:57:27.520000Z",
+        "created_at": "2026-09-22T04:12:15.221000Z",
+        "last_modified": "2026-09-22T04:12:18.405000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 85736,
+          "value": 85724,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -3868,7 +3589,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T08:57:32.304Z",
+        "captured_at": "2026-09-22T04:12:32.441Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -3876,7 +3597,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T08:57:27.520000Z",
+        "version_timestamp": "2026-09-22T04:12:18.405000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -3921,8 +3642,8 @@
         "top_level_columns": 10,
         "columns_selected": null,
         "schema_nodes": 21,
-        "fields_profiled": 14,
-        "fields_omitted": 4,
+        "fields_profiled": 21,
+        "fields_omitted": 0,
         "findings": 7,
         "quality_checks": 3,
         "suggested_rules": 13
@@ -4735,7 +4456,7 @@
                     "observed_format": "uuid"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
               }
             ]
           },
@@ -4811,7 +4532,7 @@
             {
               "name": "approx_distinct_count",
               "status": "measured",
-              "value": 430,
+              "value": 426,
               "value_type": "integer",
               "unit": "values",
               "scope": "filtered_snapshot",
@@ -4847,7 +4568,7 @@
             {
               "name": "max",
               "status": "measured",
-              "value": 505,
+              "value": 500,
               "value_type": "integer",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4858,7 +4579,7 @@
             {
               "name": "mean",
               "status": "measured",
-              "value": 252.64,
+              "value": 251.517,
               "value_type": "float",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4869,7 +4590,7 @@
             {
               "name": "stddev",
               "status": "measured",
-              "value": 149.6048194477771,
+              "value": 148.9045475305415,
               "value_type": "float",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4899,7 +4620,7 @@
                 },
                 {
                   "probability": 0.95,
-                  "value": 485
+                  "value": 483
                 }
               ],
               "value_type": "quantiles",
@@ -6636,14 +6357,72 @@
           "physical_type": "struct",
           "nullable": true,
           "comment": null,
-          "profiled": false,
-          "omission_reason": "inside_collection",
-          "metrics": [],
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "element_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "elements of items in scope (size of the collection summed over rows (denominator of the others))"
+            },
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose value is null (includes elements whose parent struct is null); higher-order functions per row, summed",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "element_count - null_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.0,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / element_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            }
+          ],
           "semantics": null,
           "json_profile": null,
           "concentration": null,
           "examples": null,
-          "element_context": null,
+          "element_context": {
+            "collection_field_id": "f_9f1becbb1409",
+            "collection_display_path": "items",
+            "collection_kind": "array",
+            "segment": "array_element",
+            "inner": [],
+            "unit": "elements"
+          },
           "json_paths": null
         },
         {
@@ -6666,14 +6445,168 @@
           "physical_type": "string",
           "nullable": true,
           "comment": null,
-          "profiled": false,
-          "omission_reason": "inside_collection",
-          "metrics": [],
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "element_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "elements of items in scope (size of the collection summed over rows (denominator of the others))"
+            },
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose value is null (includes elements whose parent struct is null); higher-order functions per row, summed",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "element_count - null_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.0,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / element_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_count_parent_present",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose parent struct is not null and the field is null",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio_given_parent_present",
+              "status": "measured",
+              "value": 0.0,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count_parent_present / elements with a non-null parent",
+              "denominator": 3000,
+              "denominator_unit": "elements with a non-null parent"
+            },
+            {
+              "name": "empty_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "empty strings",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "whitespace_only_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "non-empty strings made only of whitespace (regex ^\\s+$)",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "min_length",
+              "status": "measured",
+              "value": 5,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "minimum length over non-null values"
+            },
+            {
+              "name": "max_length",
+              "status": "measured",
+              "value": 8,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "maximum length over non-null values"
+            },
+            {
+              "name": "distinct_count",
+              "status": "measured",
+              "value": 1501,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "sample",
+              "method": "count(DISTINCT) over the elements of one explode of a bounded prefix sample (at most 1000 rows, stopped at 100000 elements); exact for the elements examined only",
+              "denominator": 3000,
+              "denominator_unit": "elements",
+              "details": {
+                "elements_examined": 3000,
+                "rows_with_elements": 958,
+                "max_rows": 1000,
+                "max_elements": 100000,
+                "stopped_by_element_limit": false
+              }
+            }
+          ],
           "semantics": null,
           "json_profile": null,
           "concentration": null,
           "examples": null,
-          "element_context": null,
+          "element_context": {
+            "collection_field_id": "f_9f1becbb1409",
+            "collection_display_path": "items",
+            "collection_kind": "array",
+            "segment": "array_element",
+            "inner": [
+              "sku"
+            ],
+            "unit": "elements"
+          },
           "json_paths": null
         },
         {
@@ -6696,14 +6629,181 @@
           "physical_type": "int",
           "nullable": true,
           "comment": null,
-          "profiled": false,
-          "omission_reason": "inside_collection",
-          "metrics": [],
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "element_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "elements of items in scope (size of the collection summed over rows (denominator of the others))"
+            },
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 500,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose value is null (includes elements whose parent struct is null); higher-order functions per row, summed",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 2500,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "element_count - null_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.16666666666666666,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / element_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_count_parent_present",
+              "status": "measured",
+              "value": 500,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose parent struct is not null and the field is null",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio_given_parent_present",
+              "status": "measured",
+              "value": 0.16666666666666666,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count_parent_present / elements with a non-null parent",
+              "denominator": 3000,
+              "denominator_unit": "elements with a non-null parent"
+            },
+            {
+              "name": "min",
+              "status": "measured",
+              "value": 1,
+              "value_type": "integer",
+              "unit": null,
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "array_min per row, then min over rows (finite values only for floats)"
+            },
+            {
+              "name": "max",
+              "status": "measured",
+              "value": 5,
+              "value_type": "integer",
+              "unit": null,
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "array_max per row, then max over rows (finite values only for floats)"
+            },
+            {
+              "name": "zero_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values equal to zero",
+              "denominator": 2500,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "negative_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values below zero",
+              "denominator": 2500,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "positive_count",
+              "status": "measured",
+              "value": 2500,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values above zero",
+              "denominator": 2500,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "distinct_count",
+              "status": "measured",
+              "value": 5,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "sample",
+              "method": "count(DISTINCT) over the elements of one explode of a bounded prefix sample (at most 1000 rows, stopped at 100000 elements); exact for the elements examined only",
+              "denominator": 2500,
+              "denominator_unit": "elements",
+              "details": {
+                "elements_examined": 3000,
+                "rows_with_elements": 958,
+                "max_rows": 1000,
+                "max_elements": 100000,
+                "stopped_by_element_limit": false
+              }
+            }
+          ],
           "semantics": null,
           "json_profile": null,
           "concentration": null,
           "examples": null,
-          "element_context": null,
+          "element_context": {
+            "collection_field_id": "f_9f1becbb1409",
+            "collection_display_path": "items",
+            "collection_kind": "array",
+            "segment": "array_element",
+            "inner": [
+              "qty"
+            ],
+            "unit": "elements"
+          },
           "json_paths": null
         },
         {
@@ -6726,14 +6826,181 @@
           "physical_type": "decimal(10,2)",
           "nullable": true,
           "comment": null,
-          "profiled": false,
-          "omission_reason": "inside_collection",
-          "metrics": [],
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "element_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "elements of items in scope (size of the collection summed over rows (denominator of the others))"
+            },
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose value is null (includes elements whose parent struct is null); higher-order functions per row, summed",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "element_count - null_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.0,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / element_count",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_count_parent_present",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose parent struct is not null and the field is null",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio_given_parent_present",
+              "status": "measured",
+              "value": 0.0,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count_parent_present / elements with a non-null parent",
+              "denominator": 3000,
+              "denominator_unit": "elements with a non-null parent"
+            },
+            {
+              "name": "min",
+              "status": "measured",
+              "value": "0.08",
+              "value_type": "decimal",
+              "unit": null,
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "array_min per row, then min over rows (finite values only for floats)"
+            },
+            {
+              "name": "max",
+              "status": "measured",
+              "value": "99.97",
+              "value_type": "decimal",
+              "unit": null,
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "array_max per row, then max over rows (finite values only for floats)"
+            },
+            {
+              "name": "zero_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values equal to zero",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "negative_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values below zero",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "positive_count",
+              "status": "measured",
+              "value": 3000,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values above zero",
+              "denominator": 3000,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "distinct_count",
+              "status": "measured",
+              "value": 1395,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "sample",
+              "method": "count(DISTINCT) over the elements of one explode of a bounded prefix sample (at most 1000 rows, stopped at 100000 elements); exact for the elements examined only",
+              "denominator": 3000,
+              "denominator_unit": "elements",
+              "details": {
+                "elements_examined": 3000,
+                "rows_with_elements": 958,
+                "max_rows": 1000,
+                "max_elements": 100000,
+                "stopped_by_element_limit": false
+              }
+            }
+          ],
           "semantics": null,
           "json_profile": null,
           "concentration": null,
           "examples": null,
-          "element_context": null,
+          "element_context": {
+            "collection_field_id": "f_9f1becbb1409",
+            "collection_display_path": "items",
+            "collection_kind": "array",
+            "segment": "array_element",
+            "inner": [
+              "price"
+            ],
+            "unit": "elements"
+          },
           "json_paths": null
         },
         {
@@ -6888,14 +7155,140 @@
           "physical_type": "string",
           "nullable": false,
           "comment": null,
-          "profiled": false,
-          "omission_reason": "inside_collection",
-          "metrics": [],
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "element_count",
+              "status": "measured",
+              "value": 1750,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "entries of attributes in scope (size of the collection summed over rows (denominator of the others))"
+            },
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose value is null (includes elements whose parent struct is null); higher-order functions per row, summed",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 1750,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "element_count - null_count",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.0,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / element_count",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "empty_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "empty strings",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "whitespace_only_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "non-empty strings made only of whitespace (regex ^\\s+$)",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "min_length",
+              "status": "measured",
+              "value": 6,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "minimum length over non-null values"
+            },
+            {
+              "name": "max_length",
+              "status": "measured",
+              "value": 7,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "maximum length over non-null values"
+            },
+            {
+              "name": "distinct_count",
+              "status": "measured",
+              "value": 2,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "sample",
+              "method": "count(DISTINCT) over the elements of one explode of a bounded prefix sample (at most 1000 rows, stopped at 100000 elements); exact for the elements examined only",
+              "denominator": 1750,
+              "denominator_unit": "entries",
+              "details": {
+                "elements_examined": 1750,
+                "rows_with_elements": 958,
+                "max_rows": 1000,
+                "max_elements": 100000,
+                "stopped_by_element_limit": false
+              }
+            }
+          ],
           "semantics": null,
           "json_profile": null,
           "concentration": null,
           "examples": null,
-          "element_context": null,
+          "element_context": {
+            "collection_field_id": "f_95ec8e968118",
+            "collection_display_path": "attributes",
+            "collection_kind": "map",
+            "segment": "map_key",
+            "inner": [],
+            "unit": "entries"
+          },
           "json_paths": null
         },
         {
@@ -6914,14 +7307,140 @@
           "physical_type": "string",
           "nullable": true,
           "comment": null,
-          "profiled": false,
-          "omission_reason": "inside_collection",
-          "metrics": [],
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "element_count",
+              "status": "measured",
+              "value": 1750,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "entries of attributes in scope (size of the collection summed over rows (denominator of the others))"
+            },
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 700,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose value is null (includes elements whose parent struct is null); higher-order functions per row, summed",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 1050,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "element_count - null_count",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.4,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / element_count",
+              "denominator": 1750,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "empty_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "empty strings",
+              "denominator": 1050,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "whitespace_only_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "entries",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "non-empty strings made only of whitespace (regex ^\\s+$)",
+              "denominator": 1050,
+              "denominator_unit": "entries"
+            },
+            {
+              "name": "min_length",
+              "status": "measured",
+              "value": 2,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "minimum length over non-null values"
+            },
+            {
+              "name": "max_length",
+              "status": "measured",
+              "value": 4,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "maximum length over non-null values"
+            },
+            {
+              "name": "distinct_count",
+              "status": "measured",
+              "value": 177,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "sample",
+              "method": "count(DISTINCT) over the elements of one explode of a bounded prefix sample (at most 1000 rows, stopped at 100000 elements); exact for the elements examined only",
+              "denominator": 1050,
+              "denominator_unit": "entries",
+              "details": {
+                "elements_examined": 1750,
+                "rows_with_elements": 958,
+                "max_rows": 1000,
+                "max_elements": 100000,
+                "stopped_by_element_limit": false
+              }
+            }
+          ],
           "semantics": null,
           "json_profile": null,
           "concentration": null,
           "examples": null,
-          "element_context": null,
+          "element_context": {
+            "collection_field_id": "f_95ec8e968118",
+            "collection_display_path": "attributes",
+            "collection_kind": "map",
+            "segment": "map_value",
+            "inner": [],
+            "unit": "entries"
+          },
           "json_paths": null
         },
         {
@@ -7076,14 +7595,140 @@
           "physical_type": "string",
           "nullable": true,
           "comment": null,
-          "profiled": false,
-          "omission_reason": "inside_collection",
-          "metrics": [],
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "element_count",
+              "status": "measured",
+              "value": 1666,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "elements of tags in scope (size of the collection summed over rows (denominator of the others))"
+            },
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 166,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "elements whose value is null (includes elements whose parent struct is null); higher-order functions per row, summed",
+              "denominator": 1666,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 1500,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "element_count - null_count",
+              "denominator": 1666,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.09963985594237695,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / element_count",
+              "denominator": 1666,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "empty_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "empty strings",
+              "denominator": 1500,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "whitespace_only_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "elements",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "non-empty strings made only of whitespace (regex ^\\s+$)",
+              "denominator": 1500,
+              "denominator_unit": "elements"
+            },
+            {
+              "name": "min_length",
+              "status": "measured",
+              "value": 4,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "minimum length over non-null values"
+            },
+            {
+              "name": "max_length",
+              "status": "measured",
+              "value": 8,
+              "value_type": "integer",
+              "unit": "characters",
+              "scope": "filtered_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "maximum length over non-null values"
+            },
+            {
+              "name": "distinct_count",
+              "status": "measured",
+              "value": 2,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "sample",
+              "method": "count(DISTINCT) over the elements of one explode of a bounded prefix sample (at most 1000 rows, stopped at 100000 elements); exact for the elements examined only",
+              "denominator": 1500,
+              "denominator_unit": "elements",
+              "details": {
+                "elements_examined": 1666,
+                "rows_with_elements": 958,
+                "max_rows": 1000,
+                "max_elements": 100000,
+                "stopped_by_element_limit": false
+              }
+            }
+          ],
           "semantics": null,
           "json_profile": null,
           "concentration": null,
           "examples": null,
-          "element_context": null,
+          "element_context": {
+            "collection_field_id": "f_73df31a71359",
+            "collection_display_path": "tags",
+            "collection_kind": "array",
+            "segment": "array_element",
+            "inner": [],
+            "unit": "elements"
+          },
           "json_paths": null
         },
         {
@@ -7381,7 +8026,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
         },
         {
           "finding_id": "fd_21934206214c",
@@ -7654,7 +8299,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -7896,36 +8541,7 @@
           ]
         }
       ],
-      "omissions": [
-        {
-          "field_id": "f_7d2018d6f960",
-          "display_path": "items[]",
-          "reason": "inside_collection",
-          "detail": "array elements and map entries are profiled at collection level only; element-level profiling requires analysis_level = deep",
-          "metrics": []
-        },
-        {
-          "field_id": "f_3b14582d2c17",
-          "display_path": "attributes{key}",
-          "reason": "inside_collection",
-          "detail": "array elements and map entries are profiled at collection level only; element-level profiling requires analysis_level = deep",
-          "metrics": []
-        },
-        {
-          "field_id": "f_1092c4edc196",
-          "display_path": "attributes{value}",
-          "reason": "inside_collection",
-          "detail": "array elements and map entries are profiled at collection level only; element-level profiling requires analysis_level = deep",
-          "metrics": []
-        },
-        {
-          "field_id": "f_46a4389a105e",
-          "display_path": "tags[]",
-          "reason": "inside_collection",
-          "detail": "array elements and map entries are profiled at collection level only; element-level profiling requires analysis_level = deep",
-          "metrics": []
-        }
-      ],
+      "omissions": [],
       "unsupported": [],
       "operations": {
         "planned": [
@@ -7970,8 +8586,21 @@
             "description": "one shared aggregation over the analysed scope (single agg call; not a guarantee of a single physical scan)",
             "reads_user_data": true,
             "details": {
-              "expressions": 125,
-              "fields": 14
+              "expressions": 161,
+              "fields": 21,
+              "deep_expressions": 36
+            }
+          },
+          {
+            "operation_id": "op_deep_elements",
+            "kind": "element_explode_pass",
+            "description": "one explode of the element fields over a prefix sample of at most 1000 rows, stopped at 100000 elements (distinct counts only)",
+            "reads_user_data": true,
+            "details": {
+              "mode": "sample",
+              "max_rows": 1000,
+              "max_elements": 100000,
+              "fields": 6
             }
           }
         ],
@@ -7979,21 +8608,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 17,
+            "duration_ms": 11,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 750,
+            "duration_ms": 32,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 104,
+            "duration_ms": 107,
             "rows_returned": 1,
             "detail": null
           },
@@ -8007,14 +8636,21 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 461,
+            "duration_ms": 215,
             "rows_returned": 1000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1353,
+            "duration_ms": 1431,
+            "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_deep_elements",
+            "status": "succeeded",
+            "duration_ms": 770,
             "rows_returned": 1,
             "detail": null
           }
@@ -8024,16 +8660,79 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 880,
-        "sample": 467,
-        "aggregate": 1531,
-        "total": 2886
+        "metadata": 158,
+        "sample": 223,
+        "aggregate": 1861,
+        "deep_elements": 770,
+        "total": 3018
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
       ],
-      "deep": null,
-      "uniqueness": null
+      "deep": {
+        "targets": "all_within_budget",
+        "requested_targets": null,
+        "not_eligible": [],
+        "collections": [
+          {
+            "field_id": "f_9f1becbb1409",
+            "display_path": "items",
+            "kind": "array",
+            "element_fields_profiled": 4,
+            "element_fields_omitted": 0
+          },
+          {
+            "field_id": "f_95ec8e968118",
+            "display_path": "attributes",
+            "kind": "map",
+            "element_fields_profiled": 2,
+            "element_fields_omitted": 0
+          },
+          {
+            "field_id": "f_73df31a71359",
+            "display_path": "tags",
+            "kind": "array",
+            "element_fields_profiled": 1,
+            "element_fields_omitted": 0
+          }
+        ],
+        "json_fields": [],
+        "budget": {
+          "max_extra_passes": 2,
+          "max_explode_rows": 1000,
+          "max_elements": 100000,
+          "max_json_paths": 50,
+          "max_json_depth": 3,
+          "max_json_object_keys": 50
+        },
+        "extra_passes": {
+          "budget": 2,
+          "planned": 1,
+          "aggregate": 0,
+          "element_explode": 1
+        },
+        "expressions": {
+          "planned": 36,
+          "omitted": 0
+        },
+        "element_distinct": {
+          "mode": "sample",
+          "status": "measured",
+          "reason": null,
+          "fields": 6,
+          "method": "prefix",
+          "max_rows": 1000,
+          "max_elements": 100000,
+          "rows_with_elements": 958,
+          "elements_examined": 14166,
+          "stopped_reason": "exhausted"
+        },
+        "limited": [],
+        "notes": [
+          "Element metrics are exact over the analysed scope and computed per row with higher-order functions inside the shared aggregation passes (no explode); their denominators are elements or entries, never rows.",
+          "JSON path catalogues come from the transient sample; they are not a complete schema."
+        ]
+      }
     },
     {
       "table_id": "t_c56e0f3525a5",
@@ -8054,14 +8753,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic order events with a JSON payload stored as STRING",
-        "created_at": "2026-09-22T08:57:26.041000Z",
-        "last_modified": "2026-09-22T08:57:26.299000Z",
+        "created_at": "2026-09-22T04:12:16.667000Z",
+        "last_modified": "2026-09-22T04:12:16.980000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 150900,
+          "value": 150898,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -8081,7 +8780,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T08:57:34.762Z",
+        "captured_at": "2026-09-22T04:12:35.461Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -8089,7 +8788,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T08:57:26.299000Z",
+        "version_timestamp": "2026-09-22T04:12:16.980000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -8447,7 +9146,7 @@
             {
               "name": "approx_distinct_count",
               "status": "measured",
-              "value": 1962,
+              "value": 1965,
               "value_type": "integer",
               "unit": "values",
               "scope": "full_snapshot",
@@ -8595,7 +9294,7 @@
                 "evidence": [
                   {
                     "metric": "approx_distinct_count",
-                    "value": 1962
+                    "value": 1965
                   },
                   {
                     "metric": "non_null_count",
@@ -8606,7 +9305,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
               }
             ]
           },
@@ -8615,9 +9314,9 @@
             "scope": "sample",
             "accuracy": "exact_for_sample",
             "observations": 2000,
-            "sample_distinct_count": 1997,
-            "top_1_share": 0.001,
-            "top_5_share": 0.004,
+            "sample_distinct_count": 2000,
+            "top_1_share": 0.0005,
+            "top_5_share": 0.0025,
             "note": "Exact for the sample only; not extrapolated to the population."
           },
           "examples": null,
@@ -9385,7 +10084,212 @@
           },
           "examples": null,
           "element_context": null,
-          "json_paths": null
+          "json_paths": {
+            "scope": "sample",
+            "source": "sample",
+            "eligible_observations": 1969,
+            "excluded": {
+              "sql_null": 26,
+              "truncated": 5
+            },
+            "counts": {
+              "structured": 1889,
+              "scalar": 0,
+              "json_null_literal": 40,
+              "invalid": 40
+            },
+            "documents": 1889,
+            "max_depth": 3,
+            "depth_truncated": false,
+            "paths_observed": 4,
+            "paths_listed": 4,
+            "paths_omitted": 0,
+            "tracking_truncated": false,
+            "map_like_paths": 0,
+            "heterogeneous_paths": 0,
+            "paths": [
+              {
+                "path": "$.amount",
+                "segments": [
+                  {
+                    "kind": "key",
+                    "name": "amount"
+                  }
+                ],
+                "depth": 1,
+                "present_in": 1853,
+                "presence_ratio": 0.9809422975119111,
+                "occurrences": 1853,
+                "types": {
+                  "number": 1853
+                },
+                "heterogeneous": false,
+                "dominant_type": "number",
+                "map_like": false,
+                "full_scope": {
+                  "status": "measured",
+                  "reason": null,
+                  "metrics": [
+                    {
+                      "name": "path_non_null_count",
+                      "status": "measured",
+                      "value": 1853,
+                      "value_type": "integer",
+                      "unit": "documents",
+                      "scope": "full_snapshot",
+                      "accuracy": "exact",
+                      "source": "aggregate",
+                      "method": "documents where get_json_object returns a value for the path (absent paths and JSON nulls are both excluded)",
+                      "denominator": 1894,
+                      "denominator_unit": "documents",
+                      "details": {
+                        "method": "get_json_object"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "path": "$.channel",
+                "segments": [
+                  {
+                    "kind": "key",
+                    "name": "channel"
+                  }
+                ],
+                "depth": 1,
+                "present_in": 1853,
+                "presence_ratio": 0.9809422975119111,
+                "occurrences": 1853,
+                "types": {
+                  "string": 1853
+                },
+                "heterogeneous": false,
+                "dominant_type": "string",
+                "map_like": false,
+                "full_scope": {
+                  "status": "measured",
+                  "reason": null,
+                  "metrics": [
+                    {
+                      "name": "path_non_null_count",
+                      "status": "measured",
+                      "value": 1853,
+                      "value_type": "integer",
+                      "unit": "documents",
+                      "scope": "full_snapshot",
+                      "accuracy": "exact",
+                      "source": "aggregate",
+                      "method": "documents where get_json_object returns a value for the path (absent paths and JSON nulls are both excluded)",
+                      "denominator": 1894,
+                      "denominator_unit": "documents",
+                      "details": {
+                        "method": "get_json_object"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "path": "$.status",
+                "segments": [
+                  {
+                    "kind": "key",
+                    "name": "status"
+                  }
+                ],
+                "depth": 1,
+                "present_in": 1853,
+                "presence_ratio": 0.9809422975119111,
+                "occurrences": 1853,
+                "types": {
+                  "string": 1853
+                },
+                "heterogeneous": false,
+                "dominant_type": "string",
+                "map_like": false,
+                "full_scope": {
+                  "status": "measured",
+                  "reason": null,
+                  "metrics": [
+                    {
+                      "name": "path_non_null_count",
+                      "status": "measured",
+                      "value": 1858,
+                      "value_type": "integer",
+                      "unit": "documents",
+                      "scope": "full_snapshot",
+                      "accuracy": "exact",
+                      "source": "aggregate",
+                      "method": "documents where get_json_object returns a value for the path (absent paths and JSON nulls are both excluded)",
+                      "denominator": 1894,
+                      "denominator_unit": "documents",
+                      "details": {
+                        "method": "get_json_object"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "path": "$[*]",
+                "segments": [
+                  {
+                    "kind": "items"
+                  }
+                ],
+                "depth": 1,
+                "present_in": 36,
+                "presence_ratio": 0.019057702488088937,
+                "occurrences": 108,
+                "types": {
+                  "number": 108
+                },
+                "heterogeneous": false,
+                "dominant_type": "number",
+                "map_like": false,
+                "full_scope": {
+                  "status": "not_computed",
+                  "reason": "wildcard or unquotable path; not validated",
+                  "metrics": []
+                }
+              }
+            ],
+            "paths_omitted_reason": null,
+            "full_scope": {
+              "method": "get_json_object",
+              "status": "measured",
+              "reason": null,
+              "documents": {
+                "name": "json_documents",
+                "status": "measured",
+                "value": 1894,
+                "value_type": "integer",
+                "unit": "documents",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "values whose root is a JSON object or array",
+                "details": {
+                  "method": "get_json_object"
+                }
+              },
+              "method_description": "get_json_object over the full scope",
+              "limitations": [
+                "get_json_object returns NULL both for a JSON null and for an absent path, so presence counts exclude JSON nulls.",
+                "It cannot tell types apart (numbers and strings both come back as text), so types are not validated.",
+                "Its parser is more lenient than strict JSON."
+              ]
+            },
+            "method": "strict JSON parsing of sampled values; paths walked breadth-first up to deep.max_json_depth; map-like objects collapsed into '*'",
+            "limitations": [
+              "Inferred from 1969 transient sampled value(s); not guaranteed for the whole population.",
+              "Confidence intervals assume independent sampling; they do not remove sampling bias and do not establish business meaning.",
+              "The prefix sample returns the first rows produced by the engine and may be biased.",
+              "Paths inferred from the sample are not a complete or guaranteed schema: paths absent from the sample may exist in the data.",
+              "Values truncated by sampling.max_value_chars are excluded."
+            ]
+          }
         },
         {
           "field_id": "f_8747dc146192",
@@ -10078,7 +10982,7 @@
                     "observed_format": "numeric_string"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
               }
             ]
           },
@@ -10556,7 +11460,7 @@
                     "observed_format": "url"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
               }
             ]
           },
@@ -10711,7 +11615,7 @@
           "evidence": [
             {
               "metric": "approx_distinct_count",
-              "value": 1962
+              "value": 1965
             },
             {
               "metric": "non_null_count",
@@ -10727,7 +11631,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
         },
         {
           "finding_id": "fd_e7abefd97926",
@@ -10860,7 +11764,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
         },
         {
           "finding_id": "fd_49658ba9e3ea",
@@ -10892,7 +11796,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
         }
       ],
       "quality_checks": [],
@@ -10925,11 +11829,11 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
-              "value": 1962
+              "value": 1965
             },
             {
               "metric": "non_null_count",
@@ -11091,7 +11995,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -11194,7 +12098,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -11302,8 +12206,9 @@
             "description": "one shared aggregation over the analysed scope (single agg call; not a guarantee of a single physical scan)",
             "reads_user_data": true,
             "details": {
-              "expressions": 97,
-              "fields": 10
+              "expressions": 101,
+              "fields": 10,
+              "deep_expressions": 4
             }
           }
         ],
@@ -11318,14 +12223,14 @@
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 325,
+            "duration_ms": 31,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 117,
+            "duration_ms": 111,
             "rows_returned": 1,
             "detail": null
           },
@@ -11346,7 +12251,7 @@
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1281,
+            "duration_ms": 1844,
             "rows_returned": 1,
             "detail": null
           }
@@ -11356,16 +12261,55 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 462,
-        "sample": 399,
-        "aggregate": 1392,
-        "total": 2256
+        "metadata": 163,
+        "sample": 421,
+        "aggregate": 1968,
+        "total": 2556
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
       ],
-      "deep": null,
-      "uniqueness": null
+      "deep": {
+        "targets": "all_within_budget",
+        "requested_targets": null,
+        "not_eligible": [],
+        "collections": [],
+        "json_fields": [
+          {
+            "field_id": "f_248e3f664b8a",
+            "display_path": "payload",
+            "status": "catalogued",
+            "reason": null,
+            "paths_listed": 4,
+            "paths_validated": 3,
+            "full_scope_method": "get_json_object"
+          }
+        ],
+        "budget": {
+          "max_extra_passes": 2,
+          "max_explode_rows": 1000,
+          "max_elements": 100000,
+          "max_json_paths": 50,
+          "max_json_depth": 3,
+          "max_json_object_keys": 50
+        },
+        "extra_passes": {
+          "budget": 2,
+          "planned": 0,
+          "aggregate": 0,
+          "element_explode": 0
+        },
+        "expressions": {
+          "planned": 4,
+          "omitted": 0
+        },
+        "element_distinct": null,
+        "limited": [],
+        "notes": [
+          "Element metrics are exact over the analysed scope and computed per row with higher-order functions inside the shared aggregation passes (no explode); their denominators are elements or entries, never rows.",
+          "JSON path catalogues come from the transient sample; they are not a complete schema."
+        ]
+      }
     },
     {
       "table_id": "t_56332bf765b7",
@@ -11386,8 +12330,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic returns: intentionally empty",
-        "created_at": "2026-09-22T08:57:27.113000Z",
-        "last_modified": "2026-09-22T08:57:27.231000Z",
+        "created_at": "2026-09-22T04:12:17.927000Z",
+        "last_modified": "2026-09-22T04:12:18.071000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -11413,7 +12357,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T08:57:37.380Z",
+        "captured_at": "2026-09-22T04:12:38.031Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -11421,7 +12365,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T08:57:27.231000Z",
+        "version_timestamp": "2026-09-22T04:12:18.071000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -12323,7 +13267,8 @@
             "reads_user_data": true,
             "details": {
               "expressions": 40,
-              "fields": 4
+              "fields": 4,
+              "deep_expressions": 0
             }
           }
         ],
@@ -12331,21 +13276,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 11,
+            "duration_ms": 20,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 688,
+            "duration_ms": 36,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 105,
+            "duration_ms": 123,
             "rows_returned": 1,
             "detail": null
           },
@@ -12359,14 +13304,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 272,
+            "duration_ms": 198,
             "rows_returned": 0,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 413,
+            "duration_ms": 454,
             "rows_returned": 1,
             "detail": null
           }
@@ -12376,16 +13321,45 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 810,
-        "sample": 272,
-        "aggregate": 467,
-        "total": 1553
+        "metadata": 187,
+        "sample": 199,
+        "aggregate": 594,
+        "total": 985
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
       ],
-      "deep": null,
-      "uniqueness": null
+      "deep": {
+        "targets": "all_within_budget",
+        "requested_targets": null,
+        "not_eligible": [],
+        "collections": [],
+        "json_fields": [],
+        "budget": {
+          "max_extra_passes": 2,
+          "max_explode_rows": 1000,
+          "max_elements": 100000,
+          "max_json_paths": 50,
+          "max_json_depth": 3,
+          "max_json_object_keys": 50
+        },
+        "extra_passes": {
+          "budget": 2,
+          "planned": 0,
+          "aggregate": 0,
+          "element_explode": 0
+        },
+        "expressions": {
+          "planned": 0,
+          "omitted": 0
+        },
+        "element_distinct": null,
+        "limited": [],
+        "notes": [
+          "Element metrics are exact over the analysed scope and computed per row with higher-order functions inside the shared aggregation passes (no explode); their denominators are elements or entries, never rows.",
+          "JSON path catalogues come from the transient sample; they are not a complete schema."
+        ]
+      }
     }
   ],
   "relationships": [
@@ -12415,20 +13389,8 @@
       "scope": "human_provided",
       "description": "Each order references one customer (stated by the demo author).",
       "notes": [
-        "Provided by a person; the statement alone does not prove the data."
-      ],
-      "validation_detail": {
-        "status": "not_validated",
-        "reason": "referential validation runs only at the deep level",
-        "mode": null,
-        "from": null,
-        "to": null,
-        "operation_id": null,
-        "type_compatibility": [],
-        "target_key_unique": null,
-        "metrics": [],
-        "limitations": []
-      }
+        "Provided by a person; not validated against the data by TableDossier."
+      ]
     },
     {
       "relationship_id": "configuration:events_order",
@@ -12453,20 +13415,8 @@
       "scope": "human_provided",
       "description": "Events reference orders; cardinality intentionally not asserted.",
       "notes": [
-        "Provided by a person; the statement alone does not prove the data."
-      ],
-      "validation_detail": {
-        "status": "not_validated",
-        "reason": "referential validation runs only at the deep level",
-        "mode": null,
-        "from": null,
-        "to": null,
-        "operation_id": null,
-        "type_compatibility": [],
-        "target_key_unique": null,
-        "metrics": [],
-        "limitations": []
-      }
+        "Provided by a person; not validated against the data by TableDossier."
+      ]
     }
   ],
   "summary": {
@@ -12474,7 +13424,7 @@
     "tables_succeeded": 4,
     "tables_partial": 0,
     "tables_failed": 0,
-    "fields_profiled": 40,
+    "fields_profiled": 46,
     "checks": {
       "pass": 3,
       "fail": 1,
@@ -12482,24 +13432,9 @@
       "error": 0
     },
     "findings": {
-      "info": 19,
+      "info": 18,
       "warning": 2
     },
-    "suggested_rules": 43,
-    "uniqueness": {
-      "keys_measured": 0,
-      "unique": 0,
-      "unique_non_null": 0,
-      "duplicates": 0,
-      "empty": 0
-    },
-    "relationships": {
-      "validated": 0,
-      "violated": 0,
-      "not_validated": 2
-    },
-    "relationship_hypotheses": 0
-  },
-  "referential_validation": null,
-  "relationship_hypotheses": null
+    "suggested_rules": 43
+  }
 }

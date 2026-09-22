@@ -129,7 +129,7 @@ def test_metadata_level_notebook_run(spark, demo_tables, notebook, tmp_path):
         )
 
 
-def test_deep_notebook_run_exports_a_valid_1_1_package(
+def test_deep_notebook_run_exports_a_valid_1_2_package(
     spark, spark_mode, demo_tables, notebook, tmp_path
 ):
     namespace = run_notebook(
@@ -147,13 +147,38 @@ def test_deep_notebook_run_exports_a_valid_1_1_package(
     run_dir = Path(export["run_dir"])
     profile = json.loads((run_dir / "profile.json").read_text(encoding="utf-8"))
     assert check_profile(profile) == []
-    assert profile["schema_version"] == "1.1" and profile["run"]["analysis_level"] == "deep"
+    assert profile["schema_version"] == "1.2" and profile["run"]["analysis_level"] == "deep"
     assert profile["run"]["environment"]["spark_connect"] is (spark_mode == "connect")
+    per_run = {"referential_check": 0, "relationship_hypothesis_check": 0}
     for table in profile["tables"]:
         deep = table["deep"]
         assert deep is not None and deep["extra_passes"]["planned"] <= 1
         reads = [op for op in table["operations"]["planned"] if op["reads_user_data"]]
-        assert len(reads) <= 1 + 2 + 1
+        cross = [op for op in reads if op["kind"] in per_run]
+        for op in cross:
+            per_run[op["kind"]] += 1
+        # per table: sample + 2 standard passes + 1 deep extra pass + 1 uniqueness pass (max_passes)
+        assert len(reads) - len(cross) <= 1 + 2 + 1 + 1
+        assert table["uniqueness"]["passes"]["planned"] <= 1
+    # per run: at most max_relationships checks and max_pairs hypothesis pairs (defaults 5 and 5)
+    assert 1 <= per_run["referential_check"] <= 5
+    assert 1 <= per_run["relationship_hypothesis_check"] <= 5
+    assert profile["referential_validation"]["planned"] == per_run["referential_check"]
+    assert (
+        profile["relationship_hypotheses"]["pairs_evaluated"]
+        == per_run["relationship_hypothesis_check"]
+    )
+    statuses = {rel["name"]: rel["validation"] for rel in profile["relationships"]}
+    assert statuses == {"orders_customer": "violated", "events_order": "validated"}
+    hypotheses = profile["relationship_hypotheses"]["hypotheses"]
+    assert [(h["from"]["columns"], h["to"]["columns"]) for h in hypotheses] == [
+        (["referrer_id"], ["customer_id"])
+    ]
+    events = next(t for t in profile["tables"] if t["table_key"] == "analytics.order_events")
+    event_id = next(k for k in events["uniqueness"]["keys"] if k["columns"] == ["event_id"])
+    assert event_id["outcome"] == "duplicates"
+    groups = next(m for m in event_id["metrics"] if m["name"] == "duplicate_key_groups")
+    assert groups["value"] == 3, "three duplicated event ids are planted in the demo data"
     regenerated = build_documents(profile)
     for name, text in regenerated.items():
         assert (run_dir / name).read_text(encoding="utf-8") == text, name

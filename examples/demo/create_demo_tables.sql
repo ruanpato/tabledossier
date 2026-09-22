@@ -16,6 +16,8 @@
 DROP TABLE IF EXISTS customers;
 
 -- Column names with spaces or dots (`display name`, `a.b`) need Delta column mapping.
+-- Planted for the relationship hypothesis demo: referrer_id holds customer ids of other customers
+-- (a self-reference that no configuration declares) for one customer in ten.
 CREATE TABLE customers
 COMMENT 'Synthetic customers (simple types, special column names, all-null and constant columns)'
 TBLPROPERTIES ('delta.columnMapping.mode' = 'name', 'delta.minReaderVersion' = '2', 'delta.minWriterVersion' = '5')
@@ -35,18 +37,21 @@ AS SELECT
   END AS score,
   CAST(NULL AS STRING) AS middle_name,
   concat('Customer ', id + 1) AS `display name`,
-  CASE WHEN id % 2 = 0 THEN 'even' ELSE 'odd' END AS `a.b`
+  CASE WHEN id % 2 = 0 THEN 'even' ELSE 'odd' END AS `a.b`,
+  CASE WHEN id % 10 = 3 THEN pmod(hash(id, 8), 500) + 1 ELSE NULL END AS referrer_id
 FROM range(500);
 
 DROP TABLE IF EXISTS orders;
 
+-- Planted for the referential validation demo: orders 199, 399, 599, 799 and 999 reference
+-- customer ids 501-505, which do not exist in customers (five orphan rows).
 CREATE TABLE orders
 COMMENT 'Synthetic orders with nested structs, arrays and maps'
 AS SELECT
   concat_ws('-', substr(md5(CAST(id AS STRING)), 1, 8), substr(md5(CAST(id AS STRING)), 9, 4),
             substr(md5(CAST(id AS STRING)), 13, 4), substr(md5(CAST(id AS STRING)), 17, 4),
             substr(md5(CAST(id AS STRING)), 21, 12)) AS order_id,
-  pmod(hash(id, 10), 500) + 1 AS customer_id,
+  CASE WHEN id % 200 = 199 THEN 501 + CAST(id DIV 200 AS INT) ELSE pmod(hash(id, 10), 500) + 1 END AS customer_id,
   timestamp_seconds(1735689600 + id * 3600) AS order_ts,
   CASE pmod(hash(id, 11), 5) WHEN 0 THEN 'created' WHEN 1 THEN 'paid' WHEN 2 THEN 'shipped'
        WHEN 3 THEN 'delivered' ELSE 'cancelled' END AS status,
@@ -76,10 +81,12 @@ FROM range(1000);
 
 DROP TABLE IF EXISTS order_events;
 
+-- Planted for the exact uniqueness demo: rows 1997-1999 reuse the event_id of rows 0-2
+-- (three duplicated ids, six rows).
 CREATE TABLE order_events
 COMMENT 'Synthetic order events with a JSON payload stored as STRING'
 AS SELECT
-  concat('evt-', lpad(CAST(id AS STRING), 6, '0')) AS event_id,
+  concat('evt-', lpad(CAST(CASE WHEN id >= 1997 THEN id - 1997 ELSE id END AS STRING), 6, '0')) AS event_id,
   concat_ws('-', substr(md5(CAST(pmod(id, 1000) AS STRING)), 1, 8), substr(md5(CAST(pmod(id, 1000) AS STRING)), 9, 4),
             substr(md5(CAST(pmod(id, 1000) AS STRING)), 13, 4), substr(md5(CAST(pmod(id, 1000) AS STRING)), 17, 4),
             substr(md5(CAST(pmod(id, 1000) AS STRING)), 21, 12)) AS order_id,

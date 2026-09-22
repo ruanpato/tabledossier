@@ -17,6 +17,7 @@ import os
 import platform
 import re
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -27,6 +28,7 @@ from tabledossier.assemble import (
     field_metrics,
     field_profile,
     finalize_table,
+    known_relationships,
     new_table,
     policy_field_ids,
 )
@@ -41,8 +43,27 @@ from tabledossier.deep import (
     plan_json_validation,
 )
 from tabledossier.errors import error_record, sanitize_message
+from tabledossier.integrity import (
+    end_segments,
+    hypotheses_record,
+    hypothesis_evidence,
+    hypothesis_item,
+    not_validated_detail,
+    plan_hypotheses,
+    referential_requested,
+    referential_summary,
+    type_compatibility,
+    validation_detail,
+)
+from tabledossier.keys import (
+    key_columns_problem,
+    plan_uniqueness,
+    requested_keys,
+    uniqueness_record,
+)
 from tabledossier.metrics import measured, not_measured
 from tabledossier.paths import (
+    IdentifierError,
     column_reference_segments,
     field_id,
     parse_table_identifier,
@@ -62,6 +83,7 @@ from tabledossier.planning import (
     select_profile_fields,
 )
 from tabledossier.semantic import (
+    candidate_roles,
     infer_format,
     is_json_like,
     json_shape,
@@ -658,6 +680,119 @@ def run_element_distinct(
             F.countDistinct(slot).alias(f"d{index}"),
         ]
     row = exploded.agg(*aggregates).collect()[0]
+    return {key: (0 if value is None else int(value)) for key, value in row.asDict().items()}
+
+
+def _sp_any_null(columns: Sequence[Any]) -> Any:
+    condition = columns[0].isNull()
+    for column in columns[1:]:
+        condition = condition | column.isNull()
+    return condition
+
+
+def run_uniqueness_pass(
+    frame: Any, keys: Sequence[Mapping[str, Any]], nodes_by_id: Mapping[str, Any]
+) -> dict[int, dict[str, Any]]:
+    """Check several keys exactly in one Spark action and return counts per key position.
+
+    Each row becomes one entry per key: a struct with the key position, a flag
+    for NULL in any key column and one typed slot per key column of every key
+    (only the entry's own slots are set). The entries are exploded once,
+    grouped by position, flag and slots, and the group sizes are aggregated per
+    key. Only counts come back to the driver, never key values.
+    """
+    schema = frame.schema
+    slots: list[tuple[int, Any, Any]] = []
+    for position, key in enumerate(keys):
+        for fid in key["field_ids"]:
+            path = nodes_by_id[fid]["path"]
+            slots.append((position, column_for(path), _sp_data_type(schema, path)))
+    names = [f"s{index}" for index in range(len(slots))]
+
+    def entry(position: int) -> Any:
+        own = [column for owner, column, _ in slots if owner == position]
+        values = [
+            (column if owner == position else F.lit(None).cast(data_type)).alias(names[index])
+            for index, (owner, column, data_type) in enumerate(slots)
+        ]
+        return F.struct(F.lit(position).alias("l"), _sp_any_null(own).alias("z"), *values)
+
+    if len(keys) == 1:
+        exploded = frame.select(entry(0).alias("e"))
+    else:
+        entries = F.array(*[entry(position) for position in range(len(keys))])
+        exploded = frame.select(F.explode(entries).alias("e"))
+    element = F.col("e")
+    flat = exploded.select(*[element.getField(name).alias(name) for name in ("l", "z", *names)])
+    groups = flat.groupBy("l", "z", *names).agg(F.count(F.lit(1)).alias("n"))
+    complete = ~F.col("z")
+    repeated = complete & (F.col("n") > F.lit(1))
+    stats = groups.groupBy("l").agg(
+        F.sum("n").alias("rows"),
+        F.sum(F.when(F.col("z"), F.col("n"))).alias("null_rows"),
+        F.count(F.when(complete, 1)).alias("distinct"),
+        F.count(F.when(repeated, 1)).alias("dup_groups"),
+        F.sum(F.when(repeated, F.col("n"))).alias("dup_rows"),
+        F.max(F.when(complete, F.col("n"))).alias("max_n"),
+    )
+    out: dict[int, dict[str, Any]] = {}
+    for row in stats.collect():
+        values = row.asDict()
+        out[int(values.pop("l"))] = {
+            key: (None if value is None else int(value)) for key, value in values.items()
+        }
+    return out
+
+
+def run_inclusion_check(
+    source: Any,
+    source_columns: Sequence[Any],
+    target: Any,
+    target_columns: Sequence[Any],
+    *,
+    sample: Mapping[str, Any] | None = None,
+) -> dict[str, int]:
+    """Count source rows whose complete key is absent from the target, in one Spark action.
+
+    The target is grouped by its key (distinct values and their multiplicity),
+    the source is left-joined to it and both sides are aggregated; the two
+    single-row aggregates are cross-joined and collected once. With ``sample``
+    the source is limited to a bounded prefix (or random) sample first. Only
+    counts come back to the driver, never key values.
+    """
+    keys = [column.alias(f"k{index}") for index, column in enumerate(source_columns)]
+    rows = source.select(*keys, _sp_any_null(list(source_columns)).alias("z"))
+    if sample is not None:
+        if sample["method"] == "random":
+            rows = rows.sample(
+                withReplacement=False, fraction=float(sample["fraction"]), seed=sample["seed"]
+            )
+        rows = rows.limit(sample["max_rows"])
+    names = [f"t{index}" for index in range(len(target_columns))]
+    aliased = [column.alias(name) for column, name in zip(target_columns, names, strict=True)]
+    groups = (
+        target.select(*aliased, _sp_any_null(list(target_columns)).alias("tz"))
+        .groupBy(*names, "tz")
+        .agg(F.count(F.lit(1)).alias("tn"))
+    )
+    distinct = groups.where(~F.col("tz")).select(*names, "tn")
+    condition = None
+    for index, name in enumerate(names):
+        equal = F.col(f"k{index}") == F.col(name)
+        condition = equal if condition is None else condition & equal
+    joined = rows.join(distinct, on=condition, how="left")
+    source_stats = joined.agg(
+        F.count(F.lit(1)).alias("rows"),
+        F.count(F.when(F.col("z"), 1)).alias("null_rows"),
+        F.count(F.when(~F.col("z") & F.col("tn").isNull(), 1)).alias("orphans"),
+    )
+    target_stats = groups.agg(
+        F.sum("tn").alias("t_rows"),
+        F.sum(F.when(F.col("tz"), F.col("tn"))).alias("t_null_rows"),
+        F.count(F.when(~F.col("tz"), 1)).alias("t_distinct"),
+        F.count(F.when(~F.col("tz") & (F.col("tn") > F.lit(1)), 1)).alias("t_dup_groups"),
+    )
+    row = source_stats.crossJoin(target_stats).collect()[0]
     return {key: (0 if value is None else int(value)) for key, value in row.asDict().items()}
 
 
@@ -1423,9 +1558,8 @@ def profile_table(
 
     scope = scope_label(pinned, bool(filters))
     table["scope"]["scope_label"] = scope
-    frame = base
-    if filters:
-        frame = frame.filter(filter_condition(filters))
+    scoped = base.filter(filter_condition(filters)) if filters else base
+    frame = scoped
     if selected is not None:
         frame = frame.select(*[F.col(quote_name(name)) for name in selected])
 
@@ -1774,6 +1908,12 @@ def profile_table(
             json_unsupported=json_unsupported,
             scope=scope,
         )
+        try:
+            _sp_uniqueness(table, scoped, tree, nodes_by_id, config, scope=scope, log=log)
+        except Exception as exc:  # noqa: BLE001 - uniqueness never costs the table its profile
+            table["errors"].append(error_record(exc, "assemble"))
+            table["uniqueness"] = None
+            log(f"[tabledossier] {key}: uniqueness failed unexpectedly ({type(exc).__name__})")
     timings["total"] = _sp_ms(total_start)
     finalize_table(table, config)
     extra = (
@@ -1789,6 +1929,87 @@ def profile_table(
 
 
 # --------------------------------------------------------------------------- deep helpers
+
+
+def _sp_identifier_candidates(
+    table: Mapping[str, Any], config: Mapping[str, Any]
+) -> list[list[dict[str, Any]]]:
+    """Paths of the fields the standard metrics mark as identifier candidates (schema order)."""
+    out = []
+    for field in table["field_profiles"]:
+        if not field["profiled"] or field.get("element_context") or not field["metrics"]:
+            continue
+        roles = candidate_roles(
+            field["type_kind"],
+            field["metrics"],
+            (field.get("semantics") or {}).get("observed_format"),
+            config["thresholds"],
+            field["physical_type"],
+        )
+        if any(role["role"] == "identifier_candidate" for role in roles):
+            out.append([dict(segment) for segment in field["path"]])
+    return out
+
+
+def _sp_uniqueness(
+    table: dict[str, Any],
+    frame: Any,
+    tree: Mapping[str, Any],
+    nodes_by_id: Mapping[str, Any],
+    config: Mapping[str, Any],
+    *,
+    scope: str,
+    log: Callable[[str], None],
+) -> None:
+    """Plan, run and record the exact uniqueness checks of one table (deep level)."""
+    lookup = table_lookup_key(table["identifier"]["parts"])
+    requested = requested_keys(
+        config, lookup, table["constraints"], _sp_identifier_candidates(table, config)
+    )
+    plan = plan_uniqueness(tree, requested, config)
+    planned = table["operations"]["planned"]
+    observed = table["operations"]["observed"]
+    for number, members in enumerate(plan["passes"], start=1):
+        planned.append(
+            operation(
+                f"op_uniqueness_{number}",
+                "uniqueness_pass",
+                "exact uniqueness of "
+                f"{len(members)} key(s) in one grouped aggregation over the analysed scope (each "
+                "row is exploded once per key; only counts are collected)",
+                reads_user_data=True,
+                keys=len(members),
+                columns=sum(len(plan["keys"][m]["field_ids"]) for m in members),
+            )
+        )
+    results: dict[int, dict[str, Any]] = {}
+    errors: dict[int, str] = {}
+    start = time.perf_counter()
+    for number, members in enumerate(plan["passes"], start=1):
+        op_id = f"op_uniqueness_{number}"
+        pass_start = time.perf_counter()
+        try:
+            raw = run_uniqueness_pass(frame, [plan["keys"][m] for m in members], nodes_by_id)
+        except Exception as exc:  # noqa: BLE001 - a failed pass leaves its keys unmeasured
+            record = error_record(exc, "aggregate")
+            table["errors"].append(record)
+            cause = record["condition"] or record["error_class"]
+            for member in members:
+                errors[member] = "uniqueness pass failed: " + cause
+            observed.append(_sp_observed(op_id, "failed", pass_start, detail=cause))
+            continue
+        for index, member in enumerate(members):
+            results[member] = raw.get(index, {})
+        observed.append(_sp_observed(op_id, "succeeded", pass_start, rows=len(raw)))
+    if plan["passes"]:
+        table["timings_ms"]["uniqueness"] = _sp_ms(start)
+        log(
+            f"[tabledossier] {table['table_key']}: {sum(len(m) for m in plan['passes'])} key(s) "
+            f"checked for exact uniqueness in {len(plan['passes'])} pass(es)"
+        )
+    table["uniqueness"] = uniqueness_record(
+        plan, results, errors, config=config, scope=scope, requested_any=bool(requested)
+    )
 
 
 def _sp_json_method(
@@ -2171,3 +2392,382 @@ def _sp_finish_deep(
         "limited": limited,
         "notes": notes,
     }
+
+
+# --------------------------------------------------------------------------- relationships
+
+
+def _sp_table_frame(spark: Any, table: Mapping[str, Any], *, filtered: bool) -> Any:
+    """Re-read a profiled table at the Delta version recorded in its profile."""
+    quoted = table["identifier"]["quoted"]
+    consistency = table.get("consistency") or {}
+    version = consistency.get("delta_version")
+    if consistency.get("mode") == "pinned_delta_version" and version is not None:
+        frame = spark.sql(f"SELECT * FROM {quoted} VERSION AS OF {int(version)}")
+    else:
+        frame = spark.table(quoted)
+    filters = table["scope"]["filters"]
+    return frame.filter(filter_condition(filters)) if filtered and filters else frame
+
+
+def _sp_side(table: Mapping[str, Any], scope: str) -> dict[str, Any]:
+    consistency = table.get("consistency") or {}
+    return {
+        "table": table["table_key"],
+        "scope": scope,
+        "consistency_mode": consistency.get("mode", "unpinned"),
+        "delta_version": consistency.get("delta_version"),
+    }
+
+
+def _sp_full_scope(table: Mapping[str, Any]) -> str:
+    consistency = table.get("consistency") or {}
+    return "full_snapshot" if consistency.get("mode") == "pinned_delta_version" else "full_table"
+
+
+def _sp_run_tables(spark: Any, tables: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Index profiled tables by their name as given and, when known, by their full name."""
+    index: dict[str, Any] = {}
+    for table in tables:
+        parts = table["identifier"]["parts"]
+        index.setdefault(table_lookup_key(parts), table)
+        full = _sp_full_name(spark, list(parts))
+        if full is not None:
+            index.setdefault(table_lookup_key(full), table)
+    return index
+
+
+def _sp_find_table(index: Mapping[str, Any], text: str) -> Any:
+    try:
+        return index.get(table_lookup_key(parse_table_identifier(text)))
+    except IdentifierError:
+        return None
+
+
+def _sp_end_nodes(
+    relationship: Mapping[str, Any], end: str, table: Mapping[str, Any]
+) -> tuple[list[Any], str]:
+    by_id = {
+        node["field_id"]: node for node in iter_nodes((table["schema"] or {}).get("fields", []))
+    }
+    try:
+        paths = end_segments(relationship, end)
+    except IdentifierError as exc:
+        return [], f"{end} columns: {exc}"
+    nodes = [by_id.get(field_id(path)) for path in paths]
+    problem = key_columns_problem(nodes, [str(c) for c in relationship[end]["columns"]])
+    return nodes, (f"{end} key: {problem}" if problem else "")
+
+
+def _sp_referential_problem(
+    relationship: Mapping[str, Any], index: Mapping[str, Any], config: Mapping[str, Any]
+) -> tuple[str, Any, Any, list[Any], list[Any], list[dict[str, Any]]]:
+    """Return ``(reason, source, target, source nodes, target nodes, compatibility)``."""
+    source = _sp_find_table(index, relationship["from"]["table"])
+    target = _sp_find_table(index, relationship["to"]["table"])
+    empty: list[Any] = []
+    if source is None:
+        return "the source table was not profiled in this run", None, None, empty, empty, []
+    if target is None:
+        return (
+            "the target table was not profiled in this run (tables outside the run are never read)",
+            source,
+            None,
+            empty,
+            empty,
+            [],
+        )
+    for side, table in (("source", source), ("target", target)):
+        if table["status"] == "failed" or table["schema"] is None:
+            return f"the {side} table could not be profiled", source, target, empty, empty, []
+    from_nodes, problem = _sp_end_nodes(relationship, "from", source)
+    to_nodes, other = _sp_end_nodes(relationship, "to", target)
+    if problem or other:
+        return problem or other, source, target, empty, empty, []
+    compatibility = type_compatibility(from_nodes, to_nodes)
+    incompatible = [item for item in compatibility if not item["compatible"]]
+    if incompatible:
+        pairs = "; ".join(
+            f"{item['from_column']} ({item['from_type']}) vs {item['to_column']} "
+            f"({item['to_type']})"
+            for item in incompatible
+        )
+        return f"incompatible column types: {pairs}", source, target, [], [], compatibility
+    settings = config["deep"]["referential"]
+    if settings["mode"] == "sample" and config["sampling"]["method"] == "none":
+        return (
+            "sample mode needs a sampling method (sampling.method = none)",
+            source,
+            target,
+            [],
+            [],
+            compatibility,
+        )
+    return "", source, target, from_nodes, to_nodes, compatibility
+
+
+def validate_relationships(
+    spark: Any,
+    tables: Sequence[dict[str, Any]],
+    config: Mapping[str, Any],
+    *,
+    log: Callable[[str], None] = print,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """Validate the known relationships requested by ``deep.referential``.
+
+    Returns ``(relationships, referential_validation)``. Each check is one
+    Spark action, recorded as a ``referential_check`` operation of the source
+    table and bounded by ``max_relationships`` per run. Both tables are read at
+    the Delta versions recorded when they were profiled; the source keeps its
+    analysed scope, the target is read in full.
+    """
+    relationships = known_relationships(tables, config)
+    if config["analysis_level"] != "deep":
+        return relationships, None
+    settings = config["deep"]["referential"]
+    sampling = config["sampling"]
+    index = _sp_run_tables(spark, tables)
+    planned = 0
+    limited: list[dict[str, str]] = []
+    for relationship in relationships:
+        reason = referential_requested(relationship, config)
+        if reason:
+            relationship["validation_detail"] = not_validated_detail(reason)
+            continue
+        reason, source, target, from_nodes, to_nodes, compatibility = _sp_referential_problem(
+            relationship, index, config
+        )
+        if not reason and planned >= settings["max_relationships"]:
+            reason = f"beyond deep.referential.max_relationships = {settings['max_relationships']}"
+            limited.append(
+                {"item": relationship["name"], "reason": "referential_budget", "detail": reason}
+            )
+        if reason:
+            relationship["validation_detail"] = not_validated_detail(
+                reason, type_compatibility=compatibility
+            )
+            continue
+        planned += 1
+        op_id = f"op_referential_{planned}"
+        sample = (
+            {
+                "method": sampling["method"],
+                "max_rows": settings["max_sample_rows"],
+                "fraction": sampling.get("random_fraction"),
+                "seed": sampling.get("seed"),
+            }
+            if settings["mode"] == "sample"
+            else None
+        )
+        source["operations"]["planned"].append(
+            operation(
+                op_id,
+                "referential_check",
+                f"orphan count of {relationship['name']} against {target['table_key']} (one "
+                "anti join; the target is read in full; only counts are collected)",
+                reads_user_data=True,
+                relationship_id=relationship["relationship_id"],
+                target_table=target["table_key"],
+                mode=settings["mode"],
+                max_sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+        start = time.perf_counter()
+        from_info = _sp_side(source, "sample" if sample else source["scope"]["scope_label"])
+        to_info = _sp_side(target, _sp_full_scope(target))
+        try:
+            raw = run_inclusion_check(
+                _sp_table_frame(spark, source, filtered=True),
+                [column_for(node["path"]) for node in from_nodes],
+                _sp_table_frame(spark, target, filtered=False),
+                [column_for(node["path"]) for node in to_nodes],
+                sample=sample,
+            )
+        except Exception as exc:  # noqa: BLE001 - one failed check never stops the run
+            record = error_record(exc, "aggregate")
+            cause = record["condition"] or record["error_class"]
+            source["operations"]["observed"].append(
+                _sp_observed(op_id, "failed", start, detail=cause)
+            )
+            relationship["validation_detail"] = not_validated_detail(
+                f"the check could not read the data ({cause})",
+                mode=settings["mode"],
+                **{"from": from_info, "to": to_info},
+                type_compatibility=compatibility,
+            )
+            continue
+        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        detail = validation_detail(
+            raw,
+            mode=settings["mode"],
+            sample_rows=settings["max_sample_rows"] if sample else None,
+            from_info=from_info,
+            to_info=to_info,
+            compatibility=compatibility,
+            operation_id=op_id,
+        )
+        relationship["validation"] = detail["status"]
+        relationship["validation_detail"] = detail
+        log(f"[tabledossier] relationship {relationship['name']}: {detail['status']}")
+    return relationships, referential_summary(
+        relationships, config, planned=planned, limited=limited
+    )
+
+
+def evaluate_hypotheses(
+    spark: Any,
+    tables: Sequence[dict[str, Any]],
+    relationships: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    *,
+    log: Callable[[str], None] = print,
+) -> dict[str, Any] | None:
+    """Measure data-driven relationship hypotheses (``deep.relationship_hypotheses``).
+
+    Candidate pairs come from ``plan_hypotheses`` (types, measured ranges and
+    exact unique keys, never names); each evaluated pair is one Spark action
+    recorded as a ``relationship_hypothesis_check`` of the source table. Pairs
+    that reach ``min_inclusion_ratio`` against a target key that is unique over
+    its whole snapshot are listed as hypotheses; the others are counted by
+    reason. Known relationships are never repeated.
+    """
+    if config["analysis_level"] != "deep":
+        return None
+    settings = config["deep"]["relationship_hypotheses"]
+    sampling = config["sampling"]
+    if not settings["enabled"]:
+        return hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="disabled by configuration (deep.relationship_hypotheses.enabled = false)",
+        )
+    sample_mode = settings["inclusion_scope"] == "sample"
+    if sample_mode and sampling["method"] == "none":
+        return hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="sample inclusion needs a sampling method (sampling.method = none)",
+        )
+    usable = [table for table in tables if table["status"] != "failed" and table["schema"]]
+    index = _sp_run_tables(spark, usable)
+    known: set[tuple[str, tuple[str, ...], str, tuple[str, ...]]] = set()
+    for relationship in relationships:
+        source = _sp_find_table(index, relationship["from"]["table"])
+        target = _sp_find_table(index, relationship["to"]["table"])
+        if source is None or target is None:
+            continue
+        from_nodes, problem = _sp_end_nodes(relationship, "from", source)
+        to_nodes, other = _sp_end_nodes(relationship, "to", target)
+        if not problem and not other:
+            known.add(
+                (
+                    table_lookup_key(source["identifier"]["parts"]),
+                    tuple(node["field_id"] for node in from_nodes),
+                    table_lookup_key(target["identifier"]["parts"]),
+                    tuple(node["field_id"] for node in to_nodes),
+                )
+            )
+    plan = plan_hypotheses(usable, known, config)
+    reason = (
+        None
+        if plan["targets"]
+        else "no single-column key was measured exactly unique in this run (deep.uniqueness)"
+    )
+    sample = (
+        {
+            "method": sampling["method"],
+            "max_rows": settings["max_sample_rows"],
+            "fraction": sampling.get("random_fraction"),
+            "seed": sampling.get("seed"),
+        }
+        if sample_mode
+        else None
+    )
+    hypotheses: list[dict[str, Any]] = []
+    rejected: Counter[str] = Counter()
+    evaluated = 0
+    for number, pair in enumerate(plan["pairs"], start=1):
+        source = usable[pair["from_table_index"]]
+        target = usable[pair["to_table_index"]]
+        op_id = f"op_hypothesis_{number}"
+        source["operations"]["planned"].append(
+            operation(
+                op_id,
+                "relationship_hypothesis_check",
+                f"inclusion of {pair['from_node']['display_path']} in the unique key "
+                f"{target['table_key']}.{pair['to_node']['display_path']} (one left join; only "
+                "counts are collected)",
+                reads_user_data=True,
+                target_table=target["table_key"],
+                inclusion_scope=settings["inclusion_scope"],
+                max_sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+        start = time.perf_counter()
+        try:
+            raw = run_inclusion_check(
+                _sp_table_frame(spark, source, filtered=True),
+                [column_for(pair["from_node"]["path"])],
+                _sp_table_frame(spark, target, filtered=False),
+                [column_for(pair["to_node"]["path"])],
+                sample=sample,
+            )
+        except Exception as exc:  # noqa: BLE001 - a failed pair never stops the run
+            record = error_record(exc, "aggregate")
+            cause = record["condition"] or record["error_class"]
+            source["operations"]["observed"].append(
+                _sp_observed(op_id, "failed", start, detail=cause)
+            )
+            rejected["check_failed"] += 1
+            continue
+        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        evaluated += 1
+        scope = "sample" if sample else source["scope"]["scope_label"]
+        metrics, inclusion = hypothesis_evidence(
+            raw, scope=scope, target_scope=_sp_full_scope(target)
+        )
+        if inclusion is None:
+            rejected["no_source_values"] += 1
+            continue
+        if raw.get("t_dup_groups"):
+            rejected["target_not_unique"] += 1
+            continue
+        if inclusion < settings["min_inclusion_ratio"]:
+            rejected["below_threshold"] += 1
+            continue
+        hypotheses.append(
+            hypothesis_item(
+                len(hypotheses) + 1,
+                pair,
+                source_table=source,
+                target_table=target,
+                evidence={
+                    "inclusion_scope": settings["inclusion_scope"],
+                    "from": _sp_side(source, scope),
+                    "to": _sp_side(target, _sp_full_scope(target)),
+                    "metrics": metrics,
+                    "target_key_id": pair["target_key_id"],
+                    "target_key_unique": True,
+                    "type_compatibility": type_compatibility(
+                        [pair["from_node"]], [pair["to_node"]]
+                    ),
+                    "range_relation": pair["range_relation"],
+                    "range_basis": pair["range_basis"],
+                },
+                operation_id=op_id,
+                sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+    log(
+        f"[tabledossier] relationship hypotheses: {evaluated} pair(s) evaluated, "
+        f"{len(hypotheses)} listed"
+    )
+    return hypotheses_record(
+        config, plan, hypotheses, evaluated=evaluated, rejected=dict(rejected), reason=reason
+    )

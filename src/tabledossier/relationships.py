@@ -20,9 +20,9 @@ from tabledossier.paths import (
 
 DECLARED_NOTE = (
     "Declared as a FOREIGN KEY constraint. Unity Catalog primary and foreign keys are "
-    "informational (not enforced); TableDossier did not verify the data against it."
+    "informational (not enforced): the declaration alone does not prove the data."
 )
-PROVIDED_NOTE = "Provided by a person; not validated against the data by TableDossier."
+PROVIDED_NOTE = "Provided by a person; the statement alone does not prove the data."
 
 
 def _rel_table(text: str) -> str:

@@ -8,7 +8,7 @@ You generate a profiling notebook **on your own computer, without any connection
 run it **inside Databricks** with the permissions you already have there, and reuse the exported
 profile **offline** as the single source for a data dictionary, a data quality report (DQR) and an ER diagram.
 
-> Status: early release (0.2.0). The notebook runtime has been executed against local Spark 3.5 and
+> Status: early release (0.3.0). The notebook runtime has been executed against local Spark 3.5 and
 > 4.0, in classic mode and through a local Spark Connect server, with synthetic data; **it has not yet been
 > validated on a Databricks workspace** — see [Compatibility](#11-compatibility-and-troubleshooting).
 > Português: [visão geral](docs/pt-BR/overview.md) e [quickstart](docs/pt-BR/quickstart.md).
@@ -112,6 +112,28 @@ catalogued from the sample and validated over the full scope when the runtime ca
 | `$.amount` | 1,853 (98.09%) | number 1853 | no | non-null 1,853 (97.84%) |
 | `$[*]` | 36 (1.91%) | number 108 | no | _not computed_: wildcard or unquotable path; not validated |
 
+**Deep level, part II** (same run, keys and relationships requested in
+[`demo.config.json`](examples/demo/demo.config.json)): keys are checked exactly, known relationships against the
+data, and hypotheses come from the data only — counts, never values. Three duplicated event ids and five orphan
+orders are planted in the synthetic data ([quality report](examples/demo/output/deep/quality_report.md),
+[relationships](examples/demo/output/deep/relationships.md)):
+
+| Table | Key | Origin | Outcome | Rows in scope | Rows with NULL in the key | Distinct keys | Duplicate groups | Rows in duplicate groups | Most rows per key | Scope |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| analytics.orders | `order_id` | configured, identifier candidate | unique | 1,000 | 0 | 1,000 | 0 | 0 | 1 | filtered rows at a pinned snapshot |
+| analytics.order\_events | `event_id` | configured, identifier candidate | **duplicates** | 2,000 | 0 | 1,997 | 3 | 6 | 2 | all rows at a pinned snapshot |
+
+| Relationship | From | To | Mode | Validation | Source rows with a complete key | Source rows with NULL in the key | Orphan rows | Orphan ratio | Target key unique | Versions read |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `orders_customer` | analytics.orders (customer\_id) | analytics.customers (customer\_id) | full scope | **violated** | 1,000 | 0 | 5 | 0.50% | yes | from v1, to v1 |
+| `events_order` | analytics.order\_events (order\_id) | analytics.orders (order\_id) | full scope | validated | 2,000 | 0 | 0 | 0.00% | yes | from v0, to v1 |
+
+| Hypothesis | From | To | Inclusion | Included rows | Target key unique | Types | Measured range | Versions read |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `hyp_1` | analytics.customers (referrer\_id) | analytics.customers (customer\_id) | 100.00% (sample) | 50 of 50 | yes | same type kind (integer) | contained (values) | from v1, to v1 |
+
+A hypothesis never becomes an ER edge and has no cardinality: `customers.referrer_id` was found from the data (it
+is a planted self-reference), not from its name.
 The generated notebook itself is committed at
 [`examples/demo/output/notebook/profile_databricks.py`](examples/demo/output/notebook/profile_databricks.py).
 
@@ -123,12 +145,13 @@ The generated notebook itself is committed at
 | Self-contained Databricks source notebook (`.py`) with widgets | Implemented; executed locally with Spark 3.5/4.0, classic and Spark Connect; **Databricks validation pending** |
 | Levels `metadata` and `standard` | Implemented |
 | Level `deep`, part I: array/map element metrics, element distinct counts, JSON path catalogue and full-scope validation, with budgets | Implemented (0.2.0); tested locally with Spark 3.5/4.0, classic and Spark Connect |
+| Level `deep`, part II: exact uniqueness of keys, referential validation pinned to the recorded snapshots, data-driven relationship hypotheses, with budgets | Implemented (0.3.0); tested locally with Spark 3.5/4.0, classic and Spark Connect; declared keys tested with a stubbed `information_schema` reader |
 | Delta snapshot pinning (`VERSION AS OF`) for every row read | Implemented; tested with local delta-spark 3.3 |
-| Profile JSON Schema 1.1 (additive; the CLI still reads 1.0), stdlib + formal validation | Implemented |
+| Profile JSON Schema 1.2 (additive; the CLI still reads 1.0 and 1.1), stdlib + formal validation | Implemented |
 | Data dictionary, DQR, relationships, Mermaid ERD, suggested rules | Implemented |
 | Human annotations file | Implemented |
 | Unity Catalog PK/FK from `information_schema` | Implemented; **not testable locally, validation pending** |
-| Exact uniqueness and referential validation (deep part II), PostgreSQL connector, remote Databricks execution, `.ipynb`, profile diff | [Roadmap](docs/roadmap.md) — not available |
+| PostgreSQL connector, remote Databricks execution, `.ipynb`, profile diff | [Roadmap](docs/roadmap.md) — not available |
 
 ## 5. Requirements
 
@@ -149,7 +172,7 @@ The package is not published on PyPI. Install the tagged release from GitHub, or
 ```bash
 python -m venv .venv
 # Activate the environment for your OS (e.g. source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.2.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.3.0"
 
 tabledossier init --output profile.config.json
 tabledossier validate --config profile.config.json
@@ -195,7 +218,7 @@ tabledossier render --input examples/demo/output/run/profile.json \
 | Widget | Meaning |
 | --- | --- |
 | `tables_json` | JSON list of `catalog.schema.table` identifiers; quote unusual names with backticks, e.g. ``demo.analytics.`order events` `` |
-| `analysis_level` | `metadata` (no row reads), `standard` (bounded sample + shared aggregations) or `deep` (standard + budgeted element and JSON path operations) |
+| `analysis_level` | `metadata` (no row reads), `standard` (bounded sample + shared aggregations) or `deep` (standard + budgeted element and JSON path operations, and the uniqueness, referential and hypothesis checks the configuration requests) |
 | `output_dir` | POSIX directory in the execution environment; a new `<run_id>/` folder is created in it |
 | `config_json` | JSON object merged over the generated configuration (limits, sampling, filters, checks…) — never secrets |
 
@@ -226,7 +249,7 @@ that row counts are rows in scope, not business entities. Full reference: [confi
 ```text
 results/<run_id>/
   manifest.json          run manifest: status, file hashes, profile validation result
-  profile.json           canonical profile (schema 1.1) — the source of everything below
+  profile.json           canonical profile (schema 1.2) — the source of everything below
   overview.md            run, environment, tables, sampling, capabilities, errors
   data_dictionary.md     fields, types, descriptions (with their origin), measurements
   quality_report.md      DQR: executed checks, completeness, alerts, proposals, limits
@@ -267,7 +290,18 @@ available with `tabledossier schema profile`; field-by-field documentation is in
     `get_json_object` (presence only; it cannot tell a JSON null from an absent path);
   - at most `deep.max_extra_passes` (default 2) extra Spark actions per table, whatever the number of columns; the
     DQR lists what the deep level covered and what its budgets limited.
-- Exact uniqueness and referential validation are **not** available yet (planned for 0.3.0).
+- **`deep`, part II** (each check opt-in, off by default; [configuration](docs/configuration.md#deepuniqueness)):
+  - **exact uniqueness** of explicit keys (composite included), declared PRIMARY KEY/UNIQUE constraints and identifier
+    candidates: rows in scope, rows with NULL in the key, distinct keys, duplicate groups and rows, in at most
+    `deep.uniqueness.max_passes` actions per table (keys share a pass); `unique` proposals cite the exact evidence;
+  - **referential validation** of configured relationships and declared foreign keys between tables of the run: one
+    action per relationship, both tables read at their recorded Delta versions, orphans and their ratio, target key
+    uniqueness; `validated` only over the full scope without orphans, `violated` with orphans, otherwise
+    `not_validated` with the reason;
+  - **relationship hypotheses** (off by default): unique single-column keys paired with columns of compatible type and
+    overlapping measured ranges — never by names — and kept apart from known relationships, without cardinality and
+    never drawn in the ER diagram;
+  - only counts leave the engine: duplicated keys and orphan values are never collected.
 
 More in [limitations](docs/limitations.md) and [architecture](docs/architecture.md).
 
@@ -284,8 +318,8 @@ anonymized**. Nothing is sent anywhere. Details: [privacy](docs/privacy.md).
 
 | Component | Tested | Pending |
 | --- | --- | --- |
-| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 199 unit tests against the built wheel | Other OS/Python combinations |
-| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (49/46 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, shared/serverless compute, Unity Catalog constraints |
+| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 252 unit tests against the built wheel | Other OS/Python combinations |
+| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (74/70 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, shared/serverless compute, Unity Catalog constraints (declared keys and foreign keys) |
 
 A reproducible remote check is described in [Databricks smoke test](docs/databricks-smoke-test.md).
 
@@ -297,6 +331,8 @@ A reproducible remote check is described in [Databricks smoke test](docs/databri
 | `json_invalid_count` is `unsupported` | The runtime lacks `try_parse_json`; JSON validity is sample-based |
 | Deep metrics are `not_computed` with `deep_budget` | Raise `deep.max_extra_passes` or `limits.max_expressions_per_pass`, or list fewer `deep.targets` |
 | JSON paths shown as `*` | The keys look like data (map-like or rare keys); see [privacy](docs/privacy.md) |
+| A relationship stays `not_validated` | Read `validation_detail.reason`: enable `deep.referential`, profile both tables in the same run, or check the column types |
+| A key is `not_eligible` | Key columns must be atomic and outside arrays and maps; see `uniqueness.keys[].reason` |
 | A column has `not_computed` metrics | The expression budget was reached; raise `limits` or select fewer columns |
 | Consistency is `unpinned` | The source is a view, not Delta, or history was not accessible |
 

@@ -1,48 +1,48 @@
 {
   "kind": "tabledossier.run_manifest",
   "manifest_version": "1.0",
-  "run_id": "20260922T041218Z-d1942137",
+  "run_id": "20260922T085727Z-b5ee4b39",
   "status": "succeeded",
-  "tool_version": "0.2.0",
-  "profile_schema_version": "1.1",
-  "started_at": "2026-09-22T04:12:18.576Z",
-  "finished_at": "2026-09-22T04:12:30.573Z",
-  "generation_id": "sha256:c9cca9ac463f74eb1fc32674e1da24f836eed7b4d1729332295f1ea523faa9d5",
+  "tool_version": "0.3.0",
+  "profile_schema_version": "1.2",
+  "started_at": "2026-09-22T08:57:27.724Z",
+  "finished_at": "2026-09-22T08:57:38.233Z",
+  "generation_id": "sha256:2c25321afc2633083069aa9bfe3280129049b8f08278c535e49c26fd64869569",
   "files": [
     {
       "path": "data_dictionary.md",
-      "sha256": "sha256:d0e9e3c31926e5e627be933c5a678e582decb1601217b6dabf06b4e4c78b8ad4",
-      "bytes": 56885
+      "sha256": "sha256:75c8a8b055c483b40861ca1cc07cdcae65a24dbfb4deb16f3f7e11efef19a855",
+      "bytes": 58259
     },
     {
       "path": "erd.mmd",
-      "sha256": "sha256:1faf59f890e9a7b512cc98967d8aead1a829afe685b3140d01352ed265585c5e",
-      "bytes": 2756
+      "sha256": "sha256:21e52cd03d171537cacd5ba1fd182b2745976ccd1bafa8ab401812d9b91fb245",
+      "bytes": 2807
     },
     {
       "path": "overview.md",
-      "sha256": "sha256:eb6a566a54c9bf5e846f96c5699b7096153f0ebaf9ca9fca80b13b3f7b4b917e",
+      "sha256": "sha256:113593acdad7a2df34193641cefc1acb21ee09edd84e94102cc6295fb4691e80",
       "bytes": 4565
     },
     {
       "path": "profile.json",
-      "sha256": "sha256:c00145c254c33581789783fd53d3baeb6156ca5822c5d5779aeeb25de4636386",
-      "bytes": 400797
+      "sha256": "sha256:b8623acddaa7330947e001cb1e2bea11f3fcda729ab9d510519378e67ee0618b",
+      "bytes": 411931
     },
     {
       "path": "quality_report.md",
-      "sha256": "sha256:f334dde08d8d7c44baa8b45d434ca8d2f26e17cb2c03b020553d62f21fdd6b12",
-      "bytes": 18592
+      "sha256": "sha256:3f10937e61fc0e400ebe0372a53898b2075c4334c399adddd9f5265b4a8b154a",
+      "bytes": 18966
     },
     {
       "path": "relationships.md",
-      "sha256": "sha256:a76ba5977a803473bea15683ec8819607d384d7237b5835738a77d7cc69934da",
-      "bytes": 1898
+      "sha256": "sha256:36beefcc2e88d26ca8b1e0ec9654c528e85a163976190914a7a93a92ee60da60",
+      "bytes": 2542
     },
     {
       "path": "suggested_rules.json",
-      "sha256": "sha256:e3c85d5aeab2e9be2d64524775449dc1076d52836456c48a8f479585a127afd8",
-      "bytes": 23901
+      "sha256": "sha256:b59cd994e61e2283445ac14ad25d8658cd4d307158b815377793c2e4bdd91d92",
+      "bytes": 24009
     }
   ],
   "profile_validation": {

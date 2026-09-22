@@ -8,7 +8,7 @@ com `python -m pip install .`; para máquinas sem internet, veja [instalação o
 ```bash
 python -m venv .venv
 # Ative o ambiente conforme o sistema operacional (ex.: source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.2.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.3.0"
 ```
 
 Requisitos locais: Python 3.10 ou superior. Não é preciso Spark, Java, Docker, drivers de banco, credenciais nem
@@ -66,6 +66,32 @@ Os denominadores das métricas de elementos são elementos ou entradas, nunca li
 da amostra e não é um schema completo. O relatório de qualidade mostra o que o nível deep cobriu e o que ficou
 limitado pelo orçamento. Detalhes em [configuração](../configuration.md#deep) (em inglês).
 
+### Unicidade, integridade referencial e hipóteses (nível `deep`, parte II)
+
+Cada verificação é opcional, tem orçamento e aparece nas operações planejadas do perfil. Exemplo de `config_json`:
+
+```json
+{"deep": {
+  "uniqueness": {"keys": [{"table": "demo.analytics.orders", "columns": ["order_id"]}], "declared_keys": true},
+  "referential": {"configured": true, "declared": true},
+  "relationship_hypotheses": {"enabled": true}
+}}
+```
+
+- `uniqueness`: chaves explícitas (listas de colunas, inclusive compostas), `declared_keys` (PK/UNIQUE do Unity
+  Catalog), `identifier_candidates`, `max_keys` (5) e `max_passes` (1) por tabela. Linhas com NULL em alguma coluna
+  da chave são contadas à parte e nunca contam como duplicadas.
+- `referential`: `configured` (relacionamentos da configuração), `declared` (FKs do Unity Catalog), `mode`
+  (`full_scope` ou `sample`, com `max_sample_rows`) e `max_relationships` (5) por execução. As duas tabelas precisam
+  estar na mesma execução; a origem mantém o escopo filtrado e o destino é lido inteiro, nas versões registradas.
+  Uma amostra só pode provar violação, nunca validar.
+- `relationship_hypotheses`: desligadas por padrão; `max_pairs` (5), `max_sample_rows`, `inclusion_scope` e
+  `min_inclusion_ratio` (0.95). Os pares vêm de tipos compatíveis e de faixas de valores já medidas, nunca de nomes.
+
+O DQR ganha as seções "Uniqueness (exact)" e "Referential integrity"; o `relationships.md` mostra o status da
+validação com evidência e uma seção de hipóteses. Valores duplicados e órfãos nunca são persistidos. Detalhes em
+[configuração](../configuration.md#deepuniqueness) (em inglês).
+
 ## 4. Validar e regenerar a documentação (sem conexão)
 
 ```bash
@@ -91,7 +117,7 @@ tabledossier render --input examples/demo/output/run/profile.json \
 | Arquivo | Conteúdo |
 | --- | --- |
 | `manifest.json` | status da execução, hashes dos arquivos, resultado da validação |
-| `profile.json` | perfil canônico (contrato 1.1) — fonte de todos os documentos |
+| `profile.json` | perfil canônico (contrato 1.2) — fonte de todos os documentos |
 | `overview.md` | execução, ambiente, tabelas, amostragem, erros |
 | `data_dictionary.md` | dicionário de dados com origem de cada descrição |
 | `quality_report.md` | DQR: checks executados, completude, alertas, propostas e limitações |

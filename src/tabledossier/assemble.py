@@ -13,6 +13,12 @@ from tabledossier._version import __version__
 from tabledossier.config import sanitized_config, table_options_for
 from tabledossier.contract import PROFILE_KIND, PROFILE_SCHEMA_VERSION
 from tabledossier.findings import field_findings
+from tabledossier.integrity import (
+    hypotheses_record,
+    not_validated_detail,
+    referential_requested,
+    referential_summary,
+)
 from tabledossier.jsonutil import fingerprint
 from tabledossier.metrics import measured, metric_value, not_measured, ratio
 from tabledossier.paths import (
@@ -602,6 +608,7 @@ def new_table(
         "timings_ms": {},
         "notes": [],
         "deep": None,
+        "uniqueness": None,
     }
 
 
@@ -719,6 +726,40 @@ def value_exposure(config: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def known_relationships(
+    tables: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Return the declared FOREIGN KEYs of the tables plus the configured relationships."""
+    return merge_relationships(
+        declared_relationships(tables),
+        provided_relationships(config.get("relationships", []), "configuration"),
+    )
+
+
+def _as_summary_counts(
+    tables: Sequence[Mapping[str, Any]], relationships: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    keys = [
+        key
+        for table in tables
+        for key in (table.get("uniqueness") or {}).get("keys", [])
+        if key["status"] == "measured"
+    ]
+    statuses = [rel["validation"] for rel in relationships]
+    return {
+        "uniqueness": {
+            "keys_measured": len(keys),
+            **{
+                outcome: sum(1 for key in keys if key["outcome"] == outcome)
+                for outcome in ("unique", "unique_non_null", "duplicates", "empty")
+            },
+        },
+        "relationships": {
+            name: statuses.count(name) for name in ("validated", "violated", "not_validated")
+        },
+    }
+
+
 def build_profile(
     *,
     run_id: str,
@@ -732,8 +773,16 @@ def build_profile(
     generation: Mapping[str, Any],
     capabilities: Mapping[str, Any],
     tables: list[dict[str, Any]],
+    relationships: list[dict[str, Any]] | None = None,
+    referential_validation: dict[str, Any] | None = None,
+    relationship_hypotheses: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble the canonical profile document for a run."""
+    """Assemble the canonical profile document for a run.
+
+    ``relationships`` are the known relationships, with their validation when
+    the deep level checked them; without it they are built here and recorded
+    as ``not_validated`` with the reason.
+    """
     statuses = [table["status"] for table in tables]
     if statuses and all(status == "succeeded" for status in statuses):
         status = "succeeded"
@@ -742,10 +791,25 @@ def build_profile(
     else:
         status = "partial"
     effective = sanitized_config(config)
-    relationships = merge_relationships(
-        declared_relationships(tables),
-        provided_relationships(config.get("relationships", []), "configuration"),
-    )
+    if relationships is None:
+        relationships = known_relationships(tables, config)
+    for relationship in relationships:
+        if relationship.get("validation_detail") is None:
+            relationship["validation_detail"] = not_validated_detail(
+                referential_requested(relationship, config) or "not checked in this run"
+            )
+    deep = config["analysis_level"] == "deep"
+    if deep and referential_validation is None:
+        referential_validation = referential_summary(relationships, config, planned=0, limited=[])
+    if deep and relationship_hypotheses is None:
+        relationship_hypotheses = hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="disabled by configuration (deep.relationship_hypotheses.enabled = false)",
+        )
     checks = [check for table in tables for check in table["quality_checks"]]
     findings = [finding for table in tables for finding in table["findings"]]
     return {
@@ -787,5 +851,9 @@ def build_profile(
                 s: sum(1 for f in findings if f["severity"] == s) for s in ("info", "warning")
             },
             "suggested_rules": sum(len(table["suggested_rules"]) for table in tables),
+            **_as_summary_counts(tables, relationships),
+            "relationship_hypotheses": len((relationship_hypotheses or {}).get("hypotheses", [])),
         },
+        "referential_validation": referential_validation,
+        "relationship_hypotheses": relationship_hypotheses,
     }

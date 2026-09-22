@@ -34,6 +34,6 @@ by default.
 
 - Deep runs cost at most `max_extra_passes` more Spark actions per table, whatever the number of columns.
 - Element distinct counts are usually sample-based and say so; exact full-scope distinct counts, uniqueness and
-  referential checks are left to the next part of the deep level.
+  referential checks are left to the next part of the deep level ([0005](0005-deep-level-part-ii.md)).
 - Some JSON paths are shown only as `*`; users who need names can use explicit targets with a more permissive value
   policy, knowingly.

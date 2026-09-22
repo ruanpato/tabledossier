@@ -1,6 +1,6 @@
 # Limitations
 
-Known limits of release 0.2.0, by design or not yet addressed.
+Known limits of release 0.3.0, by design or not yet addressed.
 
 ## Execution
 
@@ -22,7 +22,8 @@ Known limits of release 0.2.0, by design or not yet addressed.
 ## Metrics and inference
 
 - Distinct counts of columns are approximate (HyperLogLog++); quantiles are approximate (`percentile_approx`).
-  Uniqueness and referential integrity are not verified (planned for the second part of the deep level).
+  Uniqueness and referential integrity are verified only at the deep level, for the keys and relationships requested
+  (see [Deep level, part II](#deep-level-part-ii)).
 - Standard deviation of decimals is computed in double precision.
 - Format detection covers a small set of formats (JSON object/array, UUID, numeric/boolean strings, ISO
   date/timestamp, URL, e-mail candidate). No PII detection is attempted.
@@ -52,12 +53,35 @@ Known limits of release 0.2.0, by design or not yet addressed.
   validated; the `variant` method needs `try_parse_json`, `try_variant_get`, `is_variant_null` and
   `schema_of_variant` (available in local Spark 4.0; not in Spark 3.5).
 
+## Deep level, part II
+
+- Exact uniqueness covers the keys requested (explicit keys, declared keys, identifier candidates) within
+  `deep.uniqueness.max_keys` per table. Key columns must be atomic and outside arrays and maps. Floating-point key
+  columns follow Spark grouping (NaN equals NaN, -0.0 equals 0.0). Each pass explodes every row once per key it
+  checks: many keys in one pass multiply the shuffled rows.
+- Referential validation runs only between tables profiled in the same run (tables outside the run are never read)
+  and within `deep.referential.max_relationships` per run. Key columns must have compatible types (same kind, or
+  integer and decimal); no implicit conversion between strings and numbers is attempted. The target is read in full,
+  without its filters; the source keeps its scope.
+- A `sample` referential check can only find violations; it never validates a relationship. Prefix samples are
+  potentially biased.
+- Tables that are not Delta (views, other formats) are re-read in their current state by referential and hypothesis
+  checks; the validation detail says so.
+- Relationship hypotheses consider single-column targets measured exactly unique only, of integer, scale-0 decimal,
+  string or date type; composite relationships are never hypothesized. Candidate pairs come from type compatibility
+  and ranges measured at the standard level (values or lengths); pairs beyond `max_pairs` are not measured, so a
+  missing hypothesis proves nothing. Inclusion can be coincidental (small integer ranges, codes): a hypothesis is a
+  prompt for a person, not a relationship.
+- Declared PRIMARY KEY, UNIQUE and FOREIGN KEY constraints come from Unity Catalog `information_schema` and have not
+  been validated on a workspace yet (tested locally with a stubbed reader).
+
 ## Documentation
 
 - Business meaning comes only from source comments and human annotations.
 - ER edges are drawn only when a person provided cardinality; declared foreign keys appear in an auxiliary
   diagram. Mermaid entity names are sanitized; original names are listed in comments.
-- Relationships are never validated against data in this release.
+- Relationships are validated against data only at the deep level, when `deep.referential` requests it; a person
+  still provides cardinality, and hypotheses are never drawn.
 - No global quality score is computed.
 
 ## Packaging
