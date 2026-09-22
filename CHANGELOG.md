@@ -3,6 +3,13 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- `docs/compatibility.md` records the first real run of the release workflow (tag `v0.4.0`), which created the draft
+  release with its three files.
+
 ## [0.4.0] - 2026-09-22
 
 "Ready for Databricks": integration with Jobs, Unity Catalog constraints assembled and tested end to end with a
@@ -177,6 +184,7 @@ Databricks item stays pending (see "Not yet validated").
 
 - Execution on Databricks workspaces (see `docs/compatibility.md`).
 
+[Unreleased]: https://github.com/ruanpato/tabledossier/compare/v0.4.0...develop
 [0.4.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.4.0
 [0.3.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.2.0
