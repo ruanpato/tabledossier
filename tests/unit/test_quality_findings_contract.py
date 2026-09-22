@@ -158,7 +158,7 @@ def test_invariants_catch_inconsistencies(demo_profile):
 def test_incompatible_versions_are_rejected_clearly(demo_profile, schemas):
     demo_profile["schema_version"] = "2.0"
     errors = check_profile(demo_profile)
-    assert len(errors) == 1 and "not supported" in errors[0] and "1.0, 1.1" in errors[0]
+    assert len(errors) == 1 and "not supported" in errors[0] and "1.0, 1.1, 1.2" in errors[0]
     assert (
         "not a tabledossier.profile" in validate_profile({"kind": "other"}, schemas["profile"])[0]
     )
@@ -179,8 +179,8 @@ def _element_field(profile):
     raise AssertionError("no element field in the deep profile")
 
 
-def test_deep_profile_is_valid_1_1(deep_profile, schemas):
-    assert deep_profile["schema_version"] == "1.1"
+def test_deep_profile_is_valid_1_2(deep_profile, schemas):
+    assert deep_profile["schema_version"] == "1.2"
     assert validate_profile(deep_profile, schemas["profile"]) == []
     assert check_profile(deep_profile) == []
 
@@ -217,4 +217,10 @@ def test_1_1_invariants_check_json_path_catalogues(deep_profile):
 def test_profile_1_0_is_valid_with_its_frozen_schema(profile_1_0, schemas):
     assert validate_profile(profile_1_0, schemas["profile-1.0"]) == []
     assert check_profile(profile_1_0) == []
-    assert validate_profile(profile_1_0, schemas["profile"]), "the 1.1 schema requires 1.1"
+    assert validate_profile(profile_1_0, schemas["profile"]), "the 1.2 schema requires 1.2"
+
+
+def test_profile_1_1_is_valid_with_its_frozen_schema(profile_1_1, schemas):
+    assert validate_profile(profile_1_1, schemas["profile-1.1"]) == []
+    assert check_profile(profile_1_1) == []
+    assert validate_profile(profile_1_1, schemas["profile"]), "the 1.2 schema requires 1.2"

@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:c9cca9ac463f74eb1fc32674e1da24f836eed7b4d1729332295f1ea523faa9d5`).
+# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:fa764e5225fa840d28c42d0452254dac2dba3c503d80e2925860a1bac14db9d9`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -148,7 +148,22 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
           'max_elements': 100000,
           'max_json_paths': 50,
           'max_json_depth': 3,
-          'max_json_object_keys': 50},
+          'max_json_object_keys': 50,
+          'uniqueness': {'keys': [],
+                         'declared_keys': False,
+                         'identifier_candidates': False,
+                         'max_keys': 5,
+                         'max_passes': 1},
+          'referential': {'configured': False,
+                          'declared': False,
+                          'mode': 'full_scope',
+                          'max_relationships': 5,
+                          'max_sample_rows': 10000},
+          'relationship_hypotheses': {'enabled': False,
+                                      'max_pairs': 5,
+                                      'max_sample_rows': 10000,
+                                      'inclusion_scope': 'sample',
+                                      'min_inclusion_ratio': 0.95}},
  'table_options': {'analytics.customers': {'checks': [{'id': 'customers_email_nulls',
                                                        'type': 'max_null_ratio',
                                                        'column': 'email',
@@ -190,7 +205,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.2.0',
- 'generation_id': 'sha256:c9cca9ac463f74eb1fc32674e1da24f836eed7b4d1729332295f1ea523faa9d5'}
+ 'generation_id': 'sha256:fa764e5225fa840d28c42d0452254dac2dba3c503d80e2925860a1bac14db9d9'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -217,7 +232,7 @@ ensure_widgets(dbutils, TD_WIDGET_DEFAULTS)
 import json
 
 TD_SCHEMAS = {}
-# config.schema.json: sha256:82b7aa24dff27d634da3bf999f0bf793a7887a7a38b54fe2a39ef44afabc9210
+# config.schema.json: sha256:d90470488296d9767f7540c63dcda0749af4307e69153d744e66bc7e31bc545f
 TD_SCHEMAS['config'] = json.loads(r'''{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:tabledossier:schema:config:1.0",
@@ -329,7 +344,7 @@ TD_SCHEMAS['config'] = json.loads(r'''{
       }
     },
     "deep": {
-      "description": "Opt-in operations of the deep level (standard + element and JSON path profiling). Ignored at other levels. See docs/configuration.md.",
+      "description": "Opt-in operations of the deep level (standard + element and JSON path profiling, exact uniqueness, referential validation and relationship hypotheses). Ignored at other levels. See docs/configuration.md.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -349,7 +364,43 @@ TD_SCHEMAS['config'] = json.loads(r'''{
         "max_elements": {"type": "integer", "minimum": 1, "maximum": 100000000},
         "max_json_paths": {"type": "integer", "minimum": 1, "maximum": 1000},
         "max_json_depth": {"type": "integer", "minimum": 1, "maximum": 10},
-        "max_json_object_keys": {"type": "integer", "minimum": 1, "maximum": 1000}
+        "max_json_object_keys": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "uniqueness": {
+          "description": "Exact uniqueness of keys: explicit keys, declared PRIMARY KEY/UNIQUE constraints and identifier candidates, within max_keys and max_passes per table.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "keys": {"type": "array", "items": {"$ref": "#/$defs/uniquenessKey"}, "maxItems": 1000},
+            "declared_keys": {"type": "boolean"},
+            "identifier_candidates": {"type": "boolean"},
+            "max_keys": {"type": "integer", "minimum": 1, "maximum": 100},
+            "max_passes": {"type": "integer", "minimum": 1, "maximum": 10}
+          }
+        },
+        "referential": {
+          "description": "Referential validation of configured relationships and declared foreign keys (one Spark action per relationship, at most max_relationships per run).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "configured": {"type": "boolean"},
+            "declared": {"type": "boolean"},
+            "mode": {"enum": ["full_scope", "sample"]},
+            "max_relationships": {"type": "integer", "minimum": 0, "maximum": 100},
+            "max_sample_rows": {"type": "integer", "minimum": 1, "maximum": 100000000}
+          }
+        },
+        "relationship_hypotheses": {
+          "description": "Data-driven relationship hypotheses (off by default; one Spark action per evaluated pair, at most max_pairs per run).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "max_pairs": {"type": "integer", "minimum": 0, "maximum": 100},
+            "max_sample_rows": {"type": "integer", "minimum": 1, "maximum": 100000000},
+            "inclusion_scope": {"enum": ["sample", "full_scope"]},
+            "min_inclusion_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
       }
     },
     "table_options": {
@@ -420,6 +471,16 @@ TD_SCHEMAS['config'] = json.loads(r'''{
       }
     },
     "cardinality": {"enum": ["zero_or_one", "exactly_one", "zero_or_more", "one_or_more"]},
+    "uniquenessKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table", "columns"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,100}$"},
+        "table": {"type": "string", "minLength": 1},
+        "columns": {"type": "array", "items": {"$ref": "#/$defs/columnRef"}, "minItems": 1, "maxItems": 32}
+      }
+    },
     "relationshipEnd": {
       "type": "object",
       "additionalProperties": false,
@@ -451,18 +512,18 @@ TD_SCHEMAS['config'] = json.loads(r'''{
     }
   }
 }''')
-# profile.schema.json: sha256:449a0707ad1c3f0df958667d9f05fbb477c735884c9557af456a9e4dda2abf41
+# profile.schema.json: sha256:b949f622ebbe2489cae299ba95852d7cb03a7c9e0593808b353c150c9bab77ad
 TD_SCHEMAS['profile'] = json.loads(r'''{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tabledossier:schema:profile:1.1",
+  "$id": "urn:tabledossier:schema:profile:1.2",
   "title": "TableDossier profile",
-  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.1 only adds to 1.0 (deep level). See docs/contract.md.",
+  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.2 only adds to 1.1 (exact uniqueness, referential validation, relationship hypotheses), which only adds to 1.0 (deep level). See docs/contract.md.",
   "type": "object",
   "required": ["kind", "schema_version", "tool", "run", "value_exposure", "tables", "relationships", "summary"],
   "additionalProperties": false,
   "properties": {
     "kind": {"const": "tabledossier.profile"},
-    "schema_version": {"const": "1.1"},
+    "schema_version": {"const": "1.2"},
     "tool": {
       "type": "object",
       "required": ["name", "version"],
@@ -476,7 +537,9 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
     "value_exposure": {"$ref": "#/$defs/valueExposure"},
     "tables": {"type": "array", "items": {"$ref": "#/$defs/table"}},
     "relationships": {"type": "array", "items": {"$ref": "#/$defs/relationship"}},
-    "summary": {"$ref": "#/$defs/summary"}
+    "summary": {"$ref": "#/$defs/summary"},
+    "referential_validation": {"description": "1.2: run-level record of referential validation (null below the deep level).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/referentialValidation"}]},
+    "relationship_hypotheses": {"description": "1.2: data-driven relationship hypotheses, kept apart from known relationships (null below the deep level).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/relationshipHypotheses"}]}
   },
   "$defs": {
     "utcTimestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
@@ -619,7 +682,8 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
         "operations": {"$ref": "#/$defs/operations"},
         "timings_ms": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
         "notes": {"$ref": "#/$defs/stringList"},
-        "deep": {"description": "1.1: what the deep level covered and what its budgets limited (null at other levels).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/deepCoverage"}]}
+        "deep": {"description": "1.1: what the deep level covered and what its budgets limited (null at other levels).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/deepCoverage"}]},
+        "uniqueness": {"description": "1.2: exact uniqueness of keys (null below the deep level).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/uniqueness"}]}
       }
     },
     "source": {
@@ -941,7 +1005,7 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
             "additionalProperties": false,
             "properties": {
               "operation_id": {"type": "string"},
-              "kind": {"enum": ["catalog_metadata", "table_detail", "table_history", "information_schema", "sample_collect", "aggregate_pass", "deep_aggregate_pass", "element_explode_pass"]},
+              "kind": {"enum": ["catalog_metadata", "table_detail", "table_history", "information_schema", "sample_collect", "aggregate_pass", "deep_aggregate_pass", "element_explode_pass", "uniqueness_pass", "referential_check", "relationship_hypothesis_check"]},
               "description": {"type": "string"},
               "reads_user_data": {"type": "boolean"},
               "details": {"type": "object"}
@@ -1223,7 +1287,8 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
         "validation": {"enum": ["not_validated", "validated", "violated"]},
         "scope": {"enum": ["declared_metadata", "human_provided"]},
         "description": {"$ref": "#/$defs/nullableString"},
-        "notes": {"$ref": "#/$defs/stringList"}
+        "notes": {"$ref": "#/$defs/stringList"},
+        "validation_detail": {"description": "1.2: why the relationship is validated, violated or not validated.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/validationDetail"}]}
       }
     },
     "summary": {
@@ -1256,7 +1321,218 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
             "warning": {"type": "integer", "minimum": 0}
           }
         },
-        "suggested_rules": {"type": "integer", "minimum": 0}
+        "suggested_rules": {"type": "integer", "minimum": 0},
+        "uniqueness": {
+          "description": "1.2: measured keys by outcome.",
+          "type": "object",
+          "required": ["keys_measured", "unique", "unique_non_null", "duplicates", "empty"],
+          "additionalProperties": false,
+          "properties": {
+            "keys_measured": {"type": "integer", "minimum": 0},
+            "unique": {"type": "integer", "minimum": 0},
+            "unique_non_null": {"type": "integer", "minimum": 0},
+            "duplicates": {"type": "integer", "minimum": 0},
+            "empty": {"type": "integer", "minimum": 0}
+          }
+        },
+        "relationships": {
+          "description": "1.2: relationships by validation status.",
+          "type": "object",
+          "required": ["validated", "violated", "not_validated"],
+          "additionalProperties": false,
+          "properties": {
+            "validated": {"type": "integer", "minimum": 0},
+            "violated": {"type": "integer", "minimum": 0},
+            "not_validated": {"type": "integer", "minimum": 0}
+          }
+        },
+        "relationship_hypotheses": {"description": "1.2: hypotheses listed.", "type": "integer", "minimum": 0}
+      }
+    },
+    "limitedItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item", "reason", "detail"],
+        "additionalProperties": false,
+        "properties": {"item": {"type": "string"}, "reason": {"type": "string"}, "detail": {"type": "string"}}
+      }
+    },
+    "uniquenessKey": {
+      "description": "1.2: exact uniqueness of one key (one or more columns) over the analysed scope. Only counts are recorded, never key values.",
+      "type": "object",
+      "required": ["key_id", "origins", "names", "columns", "field_ids", "status", "reason", "outcome", "scope", "operation_id", "metrics", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "key_id": {"type": "string", "pattern": "^k_[0-9a-f]{12}$"},
+        "origins": {"type": "array", "minItems": 1, "items": {"enum": ["configured", "declared_primary_key", "declared_unique", "identifier_candidate"]}},
+        "names": {"$ref": "#/$defs/stringList"},
+        "columns": {"$ref": "#/$defs/stringList"},
+        "field_ids": {"type": "array", "items": {"type": "string", "pattern": "^f_[0-9a-f]{12}$"}},
+        "status": {"enum": ["measured", "not_computed", "not_eligible", "error"]},
+        "reason": {"$ref": "#/$defs/nullableString"},
+        "outcome": {"enum": ["unique", "unique_non_null", "duplicates", "empty", null]},
+        "scope": {"enum": ["table_metadata", "full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "sample"]},
+        "operation_id": {"$ref": "#/$defs/nullableString"},
+        "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
+        "limitations": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "uniqueness": {
+      "type": "object",
+      "required": ["keys", "sources", "budget", "passes", "limited", "null_semantics", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "keys": {"type": "array", "items": {"$ref": "#/$defs/uniquenessKey"}},
+        "sources": {
+          "type": "object",
+          "required": ["configured", "declared_keys", "identifier_candidates"],
+          "additionalProperties": false,
+          "properties": {"configured": {"type": "boolean"}, "declared_keys": {"type": "boolean"}, "identifier_candidates": {"type": "boolean"}}
+        },
+        "budget": {
+          "type": "object",
+          "required": ["max_keys", "max_passes"],
+          "additionalProperties": false,
+          "properties": {"max_keys": {"type": "integer", "minimum": 1}, "max_passes": {"type": "integer", "minimum": 1}}
+        },
+        "passes": {
+          "type": "object",
+          "required": ["budget", "planned"],
+          "additionalProperties": false,
+          "properties": {"budget": {"type": "integer", "minimum": 0}, "planned": {"type": "integer", "minimum": 0}}
+        },
+        "limited": {"$ref": "#/$defs/limitedItems"},
+        "null_semantics": {"type": "string"},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "validationSide": {
+      "type": "object",
+      "required": ["table", "scope", "consistency_mode", "delta_version"],
+      "additionalProperties": false,
+      "properties": {
+        "table": {"type": "string"},
+        "scope": {"enum": ["table_metadata", "full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "sample"]},
+        "consistency_mode": {"enum": ["pinned_delta_version", "unpinned", "metadata_only"]},
+        "delta_version": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "typeCompatibility": {
+      "type": "object",
+      "required": ["from_column", "from_type", "to_column", "to_type", "compatible", "rule"],
+      "additionalProperties": false,
+      "properties": {
+        "from_column": {"type": "string"},
+        "from_type": {"type": "string"},
+        "to_column": {"type": "string"},
+        "to_type": {"type": "string"},
+        "compatible": {"type": "boolean"},
+        "rule": {"type": "string"}
+      }
+    },
+    "validationDetail": {
+      "type": "object",
+      "required": ["status", "reason", "mode", "from", "to", "operation_id", "type_compatibility", "target_key_unique", "metrics", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["not_validated", "validated", "violated"]},
+        "reason": {"$ref": "#/$defs/nullableString"},
+        "mode": {"enum": ["full_scope", "sample", null]},
+        "from": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/validationSide"}]},
+        "to": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/validationSide"}]},
+        "operation_id": {"$ref": "#/$defs/nullableString"},
+        "type_compatibility": {"type": "array", "items": {"$ref": "#/$defs/typeCompatibility"}},
+        "target_key_unique": {"type": ["boolean", "null"]},
+        "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
+        "limitations": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "referentialValidation": {
+      "type": "object",
+      "required": ["requested", "mode", "budget", "planned", "validated", "violated", "not_validated", "limited", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "requested": {
+          "type": "object",
+          "required": ["configured", "declared"],
+          "additionalProperties": false,
+          "properties": {"configured": {"type": "boolean"}, "declared": {"type": "boolean"}}
+        },
+        "mode": {"enum": ["full_scope", "sample"]},
+        "budget": {
+          "type": "object",
+          "required": ["max_relationships", "max_sample_rows"],
+          "additionalProperties": false,
+          "properties": {"max_relationships": {"type": "integer", "minimum": 0}, "max_sample_rows": {"type": "integer", "minimum": 1}}
+        },
+        "planned": {"type": "integer", "minimum": 0},
+        "validated": {"type": "integer", "minimum": 0},
+        "violated": {"type": "integer", "minimum": 0},
+        "not_validated": {"type": "integer", "minimum": 0},
+        "limited": {"$ref": "#/$defs/limitedItems"},
+        "notes": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "hypothesis": {
+      "description": "1.2: a data-driven relationship hypothesis. It is never a known relationship, has no cardinality and is never drawn as an ER edge.",
+      "type": "object",
+      "required": ["hypothesis_id", "status", "from", "to", "cardinality", "evidence", "operation_id", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "hypothesis_id": {"type": "string", "pattern": "^hyp_[0-9]+$"},
+        "status": {"const": "hypothesis"},
+        "from": {"$ref": "#/$defs/relationshipEnd"},
+        "to": {"$ref": "#/$defs/relationshipEnd"},
+        "cardinality": {"type": "null"},
+        "evidence": {
+          "type": "object",
+          "required": ["inclusion_scope", "from", "to", "metrics", "target_key_id", "target_key_unique", "type_compatibility", "range_relation", "range_basis"],
+          "additionalProperties": false,
+          "properties": {
+            "inclusion_scope": {"enum": ["sample", "full_scope"]},
+            "from": {"$ref": "#/$defs/validationSide"},
+            "to": {"$ref": "#/$defs/validationSide"},
+            "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
+            "target_key_id": {"type": "string", "pattern": "^k_[0-9a-f]{12}$"},
+            "target_key_unique": {"type": "boolean"},
+            "type_compatibility": {"type": "array", "items": {"$ref": "#/$defs/typeCompatibility"}},
+            "range_relation": {"enum": ["contained", "overlapping", "not_compared"]},
+            "range_basis": {"enum": ["values", "lengths"]}
+          }
+        },
+        "operation_id": {"type": "string"},
+        "limitations": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "relationshipHypotheses": {
+      "type": "object",
+      "required": ["enabled", "reason", "budget", "targets", "pairs_considered", "pairs_evaluated", "pairs_not_evaluated", "pairs_known_excluded", "pairs_disjoint_excluded", "pairs_rejected", "hypotheses", "method", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "reason": {"$ref": "#/$defs/nullableString"},
+        "budget": {
+          "type": "object",
+          "required": ["max_pairs", "max_sample_rows", "inclusion_scope", "min_inclusion_ratio"],
+          "additionalProperties": false,
+          "properties": {
+            "max_pairs": {"type": "integer", "minimum": 0},
+            "max_sample_rows": {"type": "integer", "minimum": 1},
+            "inclusion_scope": {"enum": ["sample", "full_scope"]},
+            "min_inclusion_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "targets": {"type": "integer", "minimum": 0},
+        "pairs_considered": {"type": "integer", "minimum": 0},
+        "pairs_evaluated": {"type": "integer", "minimum": 0},
+        "pairs_not_evaluated": {"type": "integer", "minimum": 0},
+        "pairs_known_excluded": {"type": "integer", "minimum": 0},
+        "pairs_disjoint_excluded": {"type": "integer", "minimum": 0},
+        "pairs_rejected": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "hypotheses": {"type": "array", "items": {"$ref": "#/$defs/hypothesis"}},
+        "method": {"type": "string"},
+        "limitations": {"$ref": "#/$defs/stringList"}
       }
     }
   }
@@ -1929,7 +2205,7 @@ def field_id(segments: list[dict[str, Any]]) -> str:
 
 # DBTITLE 1,Runtime: tabledossier.config
 # TableDossier 0.2.0 embedded runtime: module tabledossier.config
-# Source: src/tabledossier/config.py (sha256:ad5154752a5a99e2241c255259a11272095807d7aaf0711decb54532537a335c)
+# Source: src/tabledossier/config.py (sha256:75448e0ce0a5f3d51b79efeb7ebeed694da6b5aa63485b975fd074edfb5a55ef)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -2041,6 +2317,27 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_json_paths": 50,
         "max_json_depth": 3,
         "max_json_object_keys": 50,
+        "uniqueness": {
+            "keys": [],
+            "declared_keys": False,
+            "identifier_candidates": False,
+            "max_keys": 5,
+            "max_passes": 1,
+        },
+        "referential": {
+            "configured": False,
+            "declared": False,
+            "mode": "full_scope",
+            "max_relationships": 5,
+            "max_sample_rows": 10000,
+        },
+        "relationship_hypotheses": {
+            "enabled": False,
+            "max_pairs": 5,
+            "max_sample_rows": 10000,
+            "inclusion_scope": "sample",
+            "min_inclusion_ratio": 0.95,
+        },
     },
     "table_options": {},
     "relationships": [],
@@ -2241,6 +2538,17 @@ def config_errors(config: Mapping[str, Any], schema: Mapping[str, Any]) -> list[
                 parse_display_path(item["column"])
             except IdentifierError as exc:
                 errors.append(f"{where}.column: {exc}")
+
+    key_ids: set[str] = set()
+    for index, item in enumerate(config.get("deep", {}).get("uniqueness", {}).get("keys", [])):
+        where = f"$.deep.uniqueness.keys[{index}]"
+        _cfg_check_table(item["table"], where, errors)
+        for col_index, column in enumerate(item["columns"]):
+            _cfg_check_column_ref(column, f"{where}.columns[{col_index}]", errors)
+        if item.get("id") is not None:
+            if item["id"] in key_ids:
+                errors.append(f"{where}: duplicate key id {item['id']!r}")
+            key_ids.add(item["id"])
 
     policy = config.get("value_policy", {})
     for list_name in ("example_columns", "redact_columns"):
@@ -4580,6 +4888,393 @@ def _dp_json_metric(
 
 # COMMAND ----------
 
+# DBTITLE 1,Runtime: tabledossier.keys
+# TableDossier 0.2.0 embedded runtime: module tabledossier.keys
+# Source: src/tabledossier/keys.py (sha256:cd5b7197cf6bbd598747fa04983b63db747f81ffc748b58b36589fe9f06cbbf2)
+# Copyright 2026 ruanpato and TableDossier contributors.
+# Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
+# Intra-package imports were removed at generation time; the names they
+# provided are defined by earlier cells. Do not edit: regenerate instead.
+
+"""Deep level, part II: exact uniqueness of keys.
+
+Part of the embedded runtime (standard library only). Like ``planning`` and
+``deep``, this module only *describes* work; the Spark adapter executes it.
+
+A key is one or more columns of a table. Keys come from the configuration
+(``deep.uniqueness.keys``), from declared PRIMARY KEY/UNIQUE constraints
+(``declared_keys``) and, within the budget, from the identifier candidates of
+the standard level (``identifier_candidates``). Every key is checked exactly
+over the analysed scope with a grouped aggregation; several keys share one
+Spark action (each row is exploded once per key it checks), so the number of
+actions per table is bounded by ``deep.uniqueness.max_passes``.
+
+Only counts leave the engine: duplicated values are never collected.
+"""
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+
+KEY_ORIGINS = ("configured", "declared_primary_key", "declared_unique", "identifier_candidate")
+# Atomic kinds whose values can be grouped exactly (maps, structs and variants cannot).
+KEY_KINDS = ORDERABLE_KINDS
+KEY_OUTCOMES = ("unique", "unique_non_null", "duplicates", "empty")
+NULL_KEY_SEMANTICS = (
+    "A row with NULL in any key column is counted in rows_with_null_key and excluded from the "
+    "distinct and duplicate counts: NULLs are not treated as equal, as in a SQL UNIQUE "
+    "constraint. A PRIMARY KEY also forbids NULLs, so it holds only when the outcome is 'unique'."
+)
+_KY_FLOAT_NOTE = (
+    "Floating-point key columns are compared as Spark groups them: NaN equals NaN and -0.0 equals "
+    "0.0."
+)
+
+
+def _ky_segments_of_config(columns: Sequence[Any]) -> list[list[dict[str, Any]]] | None:
+    try:
+        return [column_reference_segments(column) for column in columns]
+    except IdentifierError:
+        return None
+
+
+def requested_keys(
+    config: Mapping[str, Any],
+    table_lookup: str,
+    constraints: Sequence[Mapping[str, Any]],
+    candidate_paths: Sequence[Sequence[Mapping[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Return the keys requested for one table, in priority order.
+
+    Configured keys come first, then declared PRIMARY KEY and UNIQUE
+    constraints (when ``declared_keys``), then single-column identifier
+    candidates (when ``identifier_candidates``). ``candidate_paths`` are the
+    typed paths of the table's identifier candidates, in schema order.
+    """
+    settings = config["deep"]["uniqueness"]
+    out: list[dict[str, Any]] = []
+    for item in settings["keys"]:
+        try:
+            if table_lookup_key(parse_table_identifier(item["table"])) != table_lookup:
+                continue
+        except IdentifierError:
+            continue
+        out.append(
+            {
+                "origin": "configured",
+                "name": item.get("id"),
+                "segments": _ky_segments_of_config(item["columns"]),
+                "requested": [
+                    column if isinstance(column, str) else ".".join(column)
+                    for column in item["columns"]
+                ],
+            }
+        )
+    if settings["declared_keys"]:
+        for kind, origin in (
+            ("primary_key", "declared_primary_key"),
+            ("unique", "declared_unique"),
+        ):
+            for constraint in constraints:
+                if constraint.get("constraint_type") != kind:
+                    continue
+                columns = [str(column) for column in constraint.get("columns", [])]
+                out.append(
+                    {
+                        "origin": origin,
+                        "name": constraint.get("name"),
+                        "segments": [[field_segment(column)] for column in columns] or None,
+                        "requested": columns,
+                    }
+                )
+    if settings["identifier_candidates"]:
+        for path in candidate_paths:
+            out.append(
+                {
+                    "origin": "identifier_candidate",
+                    "name": None,
+                    "segments": [[dict(segment) for segment in path]],
+                    "requested": [display_path([dict(segment) for segment in path])],
+                }
+            )
+    return out
+
+
+def _ky_eligibility(nodes: Sequence[Mapping[str, Any] | None], requested: Sequence[str]) -> str:
+    for node, text in zip(nodes, requested, strict=False):
+        if node is None:
+            return f"column {text!r} is not in the documented schema tree"
+        if any(segment["kind"] != "field" for segment in node["path"]):
+            return f"column {node['display_path']!r} is inside an array or map"
+        if node["type"]["kind"] not in KEY_KINDS:
+            return (
+                f"column {node['display_path']!r} has type {node['type']['physical_type']}, which "
+                "cannot be compared exactly as a key part"
+            )
+    ids = [node["field_id"] for node in nodes if node is not None]
+    if len(ids) != len(set(ids)):
+        return "a column is listed more than once"
+    return ""
+
+
+def plan_uniqueness(
+    tree: Mapping[str, Any], requested: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Resolve requested keys against the schema tree and apply the budget.
+
+    Keys with the same set of columns are merged (their origins are kept).
+    The first ``max_keys`` eligible keys are planned and split into at most
+    ``max_passes`` passes of contiguous keys; the others are recorded as
+    ``not_computed`` (budget) or ``not_eligible`` with a reason.
+    """
+    settings = config["deep"]["uniqueness"]
+    by_id = {node["field_id"]: node for node in iter_nodes(list(tree.get("fields", [])))}
+    keys: list[dict[str, Any]] = []
+    index_by_set: dict[tuple[str, ...], int] = {}
+    for item in requested:
+        segments = item["segments"]
+        if not segments:
+            keys.append(
+                _ky_key(item, [], [], "not_eligible", "the key lists no valid column reference")
+            )
+            continue
+        nodes = [by_id.get(field_id(list(path))) for path in segments]
+        reason = _ky_eligibility(nodes, item["requested"])
+        columns = [
+            node["display_path"] if node is not None else text
+            for node, text in zip(nodes, item["requested"], strict=False)
+        ]
+        ids = [node["field_id"] for node in nodes if node is not None]
+        if reason:
+            keys.append(_ky_key(item, columns, ids, "not_eligible", reason))
+            continue
+        identity = tuple(sorted(ids))
+        if identity in index_by_set:
+            existing = keys[index_by_set[identity]]
+            if item["origin"] not in existing["origins"]:
+                existing["origins"].append(item["origin"])
+            if item.get("name") and item["name"] not in existing["names"]:
+                existing["names"].append(item["name"])
+            continue
+        index_by_set[identity] = len(keys)
+        keys.append(_ky_key(item, columns, ids, "planned", None))
+        keys[-1]["kinds"] = [by_id[fid]["type"]["kind"] for fid in ids]
+    planned = [position for position, key in enumerate(keys) if key["status"] == "planned"]
+    limited: list[dict[str, str]] = []
+    for position in planned[settings["max_keys"] :]:
+        key = keys[position]
+        key["status"] = "not_computed"
+        key["reason"] = f"beyond deep.uniqueness.max_keys = {settings['max_keys']}"
+        limited.append(
+            {
+                "item": ", ".join(key["columns"]),
+                "reason": "uniqueness_budget",
+                "detail": key["reason"],
+            }
+        )
+    planned = planned[: settings["max_keys"]]
+    passes: list[list[int]] = []
+    if planned:
+        count = min(settings["max_passes"], len(planned))
+        size = -(-len(planned) // count)
+        passes = [planned[start : start + size] for start in range(0, len(planned), size)]
+    for number, members in enumerate(passes, start=1):
+        for position in members:
+            keys[position]["operation_id"] = f"op_uniqueness_{number}"
+    return {"keys": keys, "passes": passes, "limited": limited}
+
+
+def _ky_key(
+    item: Mapping[str, Any], columns: list[str], ids: list[str], status: str, reason: str | None
+) -> dict[str, Any]:
+    return {
+        "key_id": "k_" + short_hash(sorted(ids) or list(item["requested"])),
+        "origins": [item["origin"]],
+        "names": [item["name"]] if item.get("name") else [],
+        "columns": columns,
+        "field_ids": ids,
+        "status": status,
+        "reason": reason,
+        "operation_id": None,
+        "kinds": [],
+    }
+
+
+def uniqueness_metrics(raw: Mapping[str, Any], scope: str) -> tuple[list[dict[str, Any]], str]:
+    """Build the metrics and the outcome of one key from the counts of its pass.
+
+    ``raw`` holds ``rows``, ``null_rows``, ``distinct``, ``dup_groups``,
+    ``dup_rows`` and ``max_n`` (largest number of rows sharing one complete key).
+    """
+    rows = int(raw.get("rows") or 0)
+    null_rows = int(raw.get("null_rows") or 0)
+    distinct = int(raw.get("distinct") or 0)
+    dup_groups = int(raw.get("dup_groups") or 0)
+    dup_rows = int(raw.get("dup_rows") or 0)
+    complete = rows - null_rows
+
+    def count(name: str, value: int, unit: str, method: str, **extra: Any) -> dict[str, Any]:
+        source = extra.pop("source", "aggregate")
+        return measured(
+            name,
+            value,
+            unit=unit,
+            scope=scope,
+            accuracy="exact",
+            source=source,
+            method=method,
+            **extra,
+        )
+
+    metrics = [
+        count("rows_in_scope", rows, "rows", "rows read by the uniqueness pass (analysed scope)"),
+        count(
+            "rows_with_null_key",
+            null_rows,
+            "rows",
+            "rows with NULL in at least one key column",
+            **({"denominator": rows, "denominator_unit": "rows"} if rows else {}),
+        ),
+        count(
+            "rows_with_complete_key",
+            complete,
+            "rows",
+            "rows_in_scope - rows_with_null_key",
+            source="derived",
+            **({"denominator": rows, "denominator_unit": "rows"} if rows else {}),
+        ),
+        count(
+            "distinct_keys",
+            distinct,
+            "keys",
+            "exact count of distinct key values among rows with a complete key (grouped "
+            "aggregation)",
+        ),
+        count(
+            "duplicate_key_groups",
+            dup_groups,
+            "keys",
+            "key values that occur in more than one row",
+            **({"denominator": distinct, "denominator_unit": "keys"} if distinct else {}),
+        ),
+        count(
+            "rows_in_duplicate_groups",
+            dup_rows,
+            "rows",
+            "rows whose key value occurs in more than one row",
+            **({"denominator": complete, "denominator_unit": "rows"} if complete else {}),
+        ),
+        count(
+            "surplus_duplicate_rows",
+            complete - distinct,
+            "rows",
+            "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+            source="derived",
+            **({"denominator": complete, "denominator_unit": "rows"} if complete else {}),
+        ),
+    ]
+    if complete and raw.get("max_n") is not None:
+        metrics.append(
+            count(
+                "max_rows_per_key",
+                int(raw["max_n"]),
+                "rows",
+                "largest number of rows sharing one complete key value",
+            )
+        )
+    else:
+        metrics.append(
+            not_measured(
+                "max_rows_per_key",
+                "insufficient_data",
+                "no rows with a complete key in scope",
+                scope=scope,
+                source="aggregate",
+            )
+        )
+    if complete == 0:
+        outcome = "empty"
+    elif dup_groups:
+        outcome = "duplicates"
+    elif null_rows:
+        outcome = "unique_non_null"
+    else:
+        outcome = "unique"
+    return metrics, outcome
+
+
+def uniqueness_record(
+    plan: Mapping[str, Any],
+    results: Mapping[int, Mapping[str, Any]],
+    errors: Mapping[int, str],
+    *,
+    config: Mapping[str, Any],
+    scope: str,
+    requested_any: bool,
+) -> dict[str, Any]:
+    """Return the table's ``uniqueness`` record (contract 1.2).
+
+    ``results`` maps key positions to raw counts; ``errors`` maps key
+    positions of failed passes to a sanitized reason.
+    """
+    settings = config["deep"]["uniqueness"]
+    keys = []
+    for position, key in enumerate(plan["keys"]):
+        record: dict[str, Any] = {
+            "key_id": key["key_id"],
+            "origins": list(key["origins"]),
+            "names": list(key["names"]),
+            "columns": list(key["columns"]),
+            "field_ids": list(key["field_ids"]),
+            "status": key["status"],
+            "reason": key["reason"],
+            "outcome": None,
+            "scope": scope,
+            "operation_id": key["operation_id"],
+            "metrics": [],
+            "limitations": [],
+        }
+        if key["status"] == "planned":
+            if position in errors:
+                record["status"] = "error"
+                record["reason"] = errors[position]
+            else:
+                metrics, outcome = uniqueness_metrics(results.get(position, {}), scope)
+                record.update({"status": "measured", "metrics": metrics, "outcome": outcome})
+                if "float" in key["kinds"]:
+                    record["limitations"].append(_KY_FLOAT_NOTE)
+        keys.append(record)
+    notes = []
+    if not requested_any:
+        notes.append(
+            "No key was requested for this table (deep.uniqueness.keys, declared_keys, "
+            "identifier_candidates)."
+        )
+    return {
+        "keys": keys,
+        "sources": {
+            "configured": any("configured" in key["origins"] for key in plan["keys"]),
+            "declared_keys": bool(settings["declared_keys"]),
+            "identifier_candidates": bool(settings["identifier_candidates"]),
+        },
+        "budget": {"max_keys": settings["max_keys"], "max_passes": settings["max_passes"]},
+        "passes": {"budget": settings["max_passes"], "planned": len(plan["passes"])},
+        "limited": list(plan["limited"]),
+        "null_semantics": NULL_KEY_SEMANTICS,
+        "notes": notes,
+    }
+
+
+def measured_keys(table: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Return the measured key records of a table profile (empty before contract 1.2)."""
+    return [
+        key
+        for key in (table.get("uniqueness") or {}).get("keys", [])
+        if key["status"] == "measured"
+    ]
+
+# COMMAND ----------
+
 # DBTITLE 1,Runtime: tabledossier.findings
 # TableDossier 0.2.0 embedded runtime: module tabledossier.findings
 # Source: src/tabledossier/findings.py (sha256:84323f45be940c19f955304d9b2f5d9a767d49e063817ae65f3eeb9216621b4a)
@@ -5196,7 +5891,7 @@ def suggested_rules_document(profile: Mapping[str, Any]) -> dict[str, Any]:
 
 # DBTITLE 1,Runtime: tabledossier.relationships
 # TableDossier 0.2.0 embedded runtime: module tabledossier.relationships
-# Source: src/tabledossier/relationships.py (sha256:cdddc14c83f71fea922b6eb3f37720e45e5873a8ffea373b2707fe08f034c645)
+# Source: src/tabledossier/relationships.py (sha256:1ce3c756ef6905f9ad5f3d79841e257da7e65b4317cc986c378e405a58678ac7)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5218,9 +5913,9 @@ from typing import Any
 
 DECLARED_NOTE = (
     "Declared as a FOREIGN KEY constraint. Unity Catalog primary and foreign keys are "
-    "informational (not enforced); TableDossier did not verify the data against it."
+    "informational (not enforced): the declaration alone does not prove the data."
 )
-PROVIDED_NOTE = "Provided by a person; not validated against the data by TableDossier."
+PROVIDED_NOTE = "Provided by a person; the statement alone does not prove the data."
 
 
 def _rel_table(text: str) -> str:
@@ -5304,9 +5999,557 @@ def merge_relationships(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, 
 
 # COMMAND ----------
 
+# DBTITLE 1,Runtime: tabledossier.integrity
+# TableDossier 0.2.0 embedded runtime: module tabledossier.integrity
+# Source: src/tabledossier/integrity.py (sha256:42988273fd026fa8e812d4179d1342be2a24ec0b32ec6f68c89ae9d1a46c7a99)
+# Copyright 2026 ruanpato and TableDossier contributors.
+# Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
+# Intra-package imports were removed at generation time; the names they
+# provided are defined by earlier cells. Do not edit: regenerate instead.
+
+"""Deep level, part II: referential validation and relationship hypotheses.
+
+Part of the embedded runtime (standard library only). The Spark adapter runs
+one inclusion check per relationship or hypothesis pair; this module decides
+what is checked (within the budgets), which column types can be compared and
+how the counts become contract records.
+
+* **Referential validation** checks known relationships (declared FOREIGN
+  KEYs, relationships in the configuration): source rows with a complete key
+  whose key is absent from the target are *orphans*. Both tables are read at
+  the Delta versions recorded when they were profiled. A full-scope check can
+  validate or violate a relationship; a sample can only violate it.
+* **Relationship hypotheses** are data-driven and kept apart from known
+  relationships. Only single-column keys measured exactly unique are targets;
+  source columns are chosen by type compatibility and by the value (or length)
+  ranges measured at the standard level, never by their names. A hypothesis
+  never gets a cardinality and is never drawn as an ER edge.
+
+Only counts leave the engine: orphan or matching values are never collected.
+"""
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+
+VALIDATION_MODES = ("full_scope", "sample")
+HYPOTHESIS_KINDS = ("integer", "decimal", "string", "date")
+TARGET_SCOPE_NOTE = (
+    "The target is read in full at its recorded version (the target table's filters are not "
+    "applied): a reference is valid when its key exists anywhere in the target table."
+)
+_IG_EXACT_NUMERIC = ("integer", "decimal")
+
+
+def _ig_scale(node: Mapping[str, Any]) -> int | None:
+    scale = node["type"].get("scale")
+    return int(scale) if isinstance(scale, int) else None
+
+
+def compatible_kinds(left: Mapping[str, Any], right: Mapping[str, Any]) -> tuple[bool, str]:
+    """Return ``(compatible, rule)`` for comparing two key columns by equality.
+
+    Same kinds compare (except structures); integers and decimals compare as
+    exact numbers. Floating point only compares with floating point, and
+    timestamps with and without time zone never compare.
+    """
+    a, b = left["type"]["kind"], right["type"]["kind"]
+    if a in ("struct", "array", "map", "variant", "interval", "null", "other") or b in (
+        "struct",
+        "array",
+        "map",
+        "variant",
+        "interval",
+        "null",
+        "other",
+    ):
+        return False, f"{a} and {b} values are not compared as keys"
+    if a == b:
+        return True, f"same type kind ({a})"
+    if a in _IG_EXACT_NUMERIC and b in _IG_EXACT_NUMERIC:
+        return True, "exact numbers (integer and decimal)"
+    return False, f"{a} and {b} are not compared by equality (no implicit conversion)"
+
+
+def type_compatibility(
+    from_nodes: Sequence[Mapping[str, Any]], to_nodes: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return one compatibility record per pair of key columns."""
+    out = []
+    for left, right in zip(from_nodes, to_nodes, strict=False):
+        ok, rule = compatible_kinds(left, right)
+        out.append(
+            {
+                "from_column": left["display_path"],
+                "from_type": left["type"]["physical_type"],
+                "to_column": right["display_path"],
+                "to_type": right["type"]["physical_type"],
+                "compatible": ok,
+                "rule": rule,
+            }
+        )
+    return out
+
+
+def end_segments(relationship: Mapping[str, Any], end: str) -> list[list[dict[str, Any]]]:
+    """Typed paths of one end of a relationship record.
+
+    Declared constraints list literal top-level column names; configured and
+    annotated relationships list display paths.
+    """
+    columns = relationship[end]["columns"]
+    if relationship["origin"] == "declared_constraint":
+        return [[field_segment(str(column))] for column in columns]
+    return [parse_display_path(column) for column in columns]
+
+
+def referential_requested(relationship: Mapping[str, Any], config: Mapping[str, Any]) -> str:
+    """Return why a relationship is not requested for validation ('' when it is)."""
+    if config.get("analysis_level") != "deep":
+        return "referential validation runs only at the deep level"
+    settings = config["deep"]["referential"]
+    if relationship["origin"] == "declared_constraint" and not settings["declared"]:
+        return "declared foreign keys are not validated (deep.referential.declared = false)"
+    if relationship["origin"] == "configuration" and not settings["configured"]:
+        return "configured relationships are not validated (deep.referential.configured = false)"
+    if relationship["origin"] not in ("declared_constraint", "configuration"):
+        return "only declared and configured relationships are validated"
+    return ""
+
+
+def not_validated_detail(reason: str, **known: Any) -> dict[str, Any]:
+    """Return the validation detail of a relationship not checked against the data."""
+    detail: dict[str, Any] = {
+        "status": "not_validated",
+        "reason": reason,
+        "mode": None,
+        "from": None,
+        "to": None,
+        "operation_id": None,
+        "type_compatibility": [],
+        "target_key_unique": None,
+        "metrics": [],
+        "limitations": [],
+    }
+    detail.update(known)
+    return detail
+
+
+def _ig_side_metrics(raw: Mapping[str, Any], scope: str, target_scope: str) -> list[dict[str, Any]]:
+    rows = int(raw.get("rows") or 0)
+    nulls = int(raw.get("null_rows") or 0)
+    complete = rows - nulls
+    t_rows = int(raw.get("t_rows") or 0)
+    t_nulls = int(raw.get("t_null_rows") or 0)
+    t_distinct = int(raw.get("t_distinct") or 0)
+
+    def count(name: str, value: int, unit: str, method: str, where: str, **extra: Any) -> Any:
+        source = extra.pop("source", "aggregate")
+        return measured(
+            name,
+            value,
+            unit=unit,
+            scope=where,
+            accuracy="exact",
+            source=source,
+            method=method,
+            **extra,
+        )
+
+    def denominator(value: int, unit: str = "rows") -> dict[str, Any]:
+        return {"denominator": value, "denominator_unit": unit} if value else {}
+
+    return [
+        count("source_rows", rows, "rows", "source rows examined", scope),
+        count(
+            "source_rows_with_null_key",
+            nulls,
+            "rows",
+            "source rows with NULL in at least one key column (never orphans)",
+            scope,
+            **denominator(rows),
+        ),
+        count(
+            "source_rows_with_complete_key",
+            complete,
+            "rows",
+            "source_rows - source_rows_with_null_key",
+            scope,
+            source="derived",
+            **denominator(rows),
+        ),
+        count("target_rows", t_rows, "rows", "rows of the target table read", target_scope),
+        count(
+            "target_rows_with_null_key",
+            t_nulls,
+            "rows",
+            "target rows with NULL in at least one key column (never matched)",
+            target_scope,
+            **denominator(t_rows),
+        ),
+        count(
+            "target_distinct_keys",
+            t_distinct,
+            "keys",
+            "exact count of distinct complete key values in the target",
+            target_scope,
+        ),
+        count(
+            "target_duplicate_key_groups",
+            int(raw.get("t_dup_groups") or 0),
+            "keys",
+            "target key values that occur in more than one row",
+            target_scope,
+            **denominator(t_distinct, "keys"),
+        ),
+    ]
+
+
+def validation_detail(
+    raw: Mapping[str, Any],
+    *,
+    mode: str,
+    sample_rows: int | None,
+    from_info: Mapping[str, Any],
+    to_info: Mapping[str, Any],
+    compatibility: list[dict[str, Any]],
+    operation_id: str,
+) -> dict[str, Any]:
+    """Turn the counts of one referential check into a validation detail.
+
+    A full-scope check with no orphan validates the relationship and any orphan
+    violates it. A sample can prove a violation (an orphan of the sample is an
+    orphan of the table) but never validates the whole scope.
+    """
+    scope = "sample" if mode == "sample" else from_info["scope"]
+    metrics = _ig_side_metrics(raw, scope, to_info["scope"])
+    complete = int(raw.get("rows") or 0) - int(raw.get("null_rows") or 0)
+    orphans = int(raw.get("orphans") or 0)
+    metrics[3:3] = [
+        measured(
+            "orphan_rows",
+            orphans,
+            unit="rows",
+            scope=scope,
+            accuracy="exact",
+            source="aggregate",
+            method="source rows with a complete key that no target row has (anti join)",
+            denominator=complete or None,
+            denominator_unit="rows" if complete else None,
+        ),
+        ratio(
+            "orphan_ratio",
+            orphans,
+            complete,
+            scope=scope,
+            source="derived",
+            method="orphan_rows / source_rows_with_complete_key",
+            denominator_unit="rows",
+        ),
+    ]
+    limitations = [TARGET_SCOPE_NOTE]
+    reason = None
+    if complete == 0:
+        status = "not_validated"
+        reason = "no source row with a complete key was examined"
+    elif orphans:
+        status = "violated"
+    elif mode == "sample":
+        status = "not_validated"
+        reason = (
+            f"no orphan in a {mode} of at most {sample_rows} source rows; a sample cannot validate "
+            "the whole scope"
+        )
+    else:
+        status = "validated"
+    if mode == "sample":
+        limitations.append(
+            "Source rows come from a bounded sample (potentially biased for prefix samples); the "
+            "counts describe the sample only."
+        )
+    for side in (from_info, to_info):
+        if side.get("consistency_mode") != "pinned_delta_version":
+            limitations.append(
+                f"{side['table']} is not pinned to a Delta version; it was read in its current "
+                "state."
+            )
+    t_dups = int(raw.get("t_dup_groups") or 0)
+    return {
+        "status": status,
+        "reason": reason,
+        "mode": mode,
+        "from": dict(from_info),
+        "to": dict(to_info),
+        "operation_id": operation_id,
+        "type_compatibility": compatibility,
+        "target_key_unique": t_dups == 0 if int(raw.get("t_distinct") or 0) else None,
+        "metrics": metrics,
+        "limitations": limitations,
+    }
+
+
+def referential_summary(
+    relationships: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    *,
+    planned: int,
+    limited: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Run-level record of referential validation (contract 1.2)."""
+    settings = config["deep"]["referential"]
+    statuses = [rel["validation"] for rel in relationships]
+    return {
+        "requested": {"configured": settings["configured"], "declared": settings["declared"]},
+        "mode": settings["mode"],
+        "budget": {
+            "max_relationships": settings["max_relationships"],
+            "max_sample_rows": settings["max_sample_rows"],
+        },
+        "planned": planned,
+        "validated": statuses.count("validated"),
+        "violated": statuses.count("violated"),
+        "not_validated": statuses.count("not_validated"),
+        "limited": limited,
+        "notes": [
+            TARGET_SCOPE_NOTE,
+            "Orphan values are never collected; only counts are recorded.",
+        ],
+    }
+
+
+# --------------------------------------------------------------------------- hypotheses
+
+
+def _ig_profile_nodes(table: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    nodes: dict[str, Mapping[str, Any]] = {}
+    stack = list((table.get("schema") or {}).get("fields", []))
+    while stack:
+        node = stack.pop()
+        nodes[node["field_id"]] = node
+        stack.extend(node.get("children", []))
+    return nodes
+
+
+def _ig_hypothesis_kind(node: Mapping[str, Any]) -> bool:
+    kind = node["type"]["kind"]
+    if kind == "decimal":
+        return _ig_scale(node) == 0
+    return kind in HYPOTHESIS_KINDS
+
+
+def _ig_range(metrics: Sequence[Mapping[str, Any]], kind: str) -> tuple[Any, Any] | None:
+    if kind == "string":
+        low, high = metric_value(metrics, "min_length"), metric_value(metrics, "max_length")
+    elif kind == "date":
+        low, high = metric_value(metrics, "min"), metric_value(metrics, "max")
+    else:
+        low, high = numeric_value(metrics, "min"), numeric_value(metrics, "max")
+    return None if low is None or high is None else (low, high)
+
+
+def _ig_compare_ranges(source: tuple[Any, Any] | None, target: tuple[Any, Any] | None) -> str:
+    if source is None or target is None:
+        return "not_compared"
+    if source[1] < target[0] or source[0] > target[1]:
+        return "disjoint"
+    if target[0] <= source[0] and source[1] <= target[1]:
+        return "contained"
+    return "overlapping"
+
+
+def plan_hypotheses(
+    tables: Sequence[Mapping[str, Any]],
+    known: set[tuple[str, tuple[str, ...], str, tuple[str, ...]]],
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Choose the column pairs whose inclusion is measured, within ``max_pairs``.
+
+    Targets are single-column keys measured exactly unique in this run.
+    Sources are profiled, non-empty columns of a compatible type whose measured
+    range (values for numbers and dates, lengths for strings) is not disjoint
+    from the target's. Column names are never used. Pairs already known as
+    relationships are skipped. Pairs whose source range lies inside the target
+    range come first, then schema order.
+    """
+    settings = config["deep"]["relationship_hypotheses"]
+    targets = []
+    for t_index, table in enumerate(tables):
+        nodes = _ig_profile_nodes(table)
+        fields = {f["field_id"]: f for f in table.get("field_profiles", [])}
+        for key in (table.get("uniqueness") or {}).get("keys", []):
+            if key["status"] != "measured" or key["outcome"] not in ("unique", "unique_non_null"):
+                continue
+            if len(key["field_ids"]) != 1 or key["field_ids"][0] not in nodes:
+                continue
+            node = nodes[key["field_ids"][0]]
+            if _ig_hypothesis_kind(node):
+                targets.append((t_index, table, node, fields.get(node["field_id"]), key))
+    counts = {"known": 0, "disjoint": 0}
+    pairs = []
+    for t_index, target_table, target, target_field, key in targets:
+        target_range = _ig_range((target_field or {}).get("metrics", []), target["type"]["kind"])
+        for s_index, table in enumerate(tables):
+            nodes = _ig_profile_nodes(table)
+            for field in table.get("field_profiles", []):
+                if not field.get("profiled") or field.get("element_context"):
+                    continue
+                found = nodes.get(field["field_id"])
+                if found is None or any(s["kind"] != "field" for s in found["path"]):
+                    continue
+                node = found
+                if s_index == t_index and node["field_id"] == target["field_id"]:
+                    continue
+                if not _ig_hypothesis_kind(node) or not compatible_kinds(node, target)[0]:
+                    continue
+                if metric_value(field["metrics"], "non_null_count") == 0:
+                    continue
+                identity = (
+                    table_lookup_key(table["identifier"]["parts"]),
+                    (node["field_id"],),
+                    table_lookup_key(target_table["identifier"]["parts"]),
+                    (target["field_id"],),
+                )
+                if identity in known:
+                    counts["known"] += 1
+                    continue
+                relation = _ig_compare_ranges(
+                    _ig_range(field["metrics"], node["type"]["kind"]), target_range
+                )
+                if relation == "disjoint":
+                    counts["disjoint"] += 1
+                    continue
+                pairs.append(
+                    {
+                        "from_table_index": s_index,
+                        "from_node": node,
+                        "to_table_index": t_index,
+                        "to_node": target,
+                        "target_key_id": key["key_id"],
+                        "range_relation": relation,
+                        "range_basis": "lengths" if node["type"]["kind"] == "string" else "values",
+                    }
+                )
+    ranked = sorted(pairs, key=lambda pair: 0 if pair["range_relation"] == "contained" else 1)
+    selected = ranked[: settings["max_pairs"]]
+    return {
+        "targets": len(targets),
+        "pairs": selected,
+        "considered": len(pairs),
+        "not_evaluated": len(pairs) - len(selected),
+        "known_excluded": counts["known"],
+        "disjoint_excluded": counts["disjoint"],
+    }
+
+
+def hypothesis_evidence(
+    raw: Mapping[str, Any],
+    *,
+    scope: str,
+    target_scope: str,
+) -> tuple[list[dict[str, Any]], float | None]:
+    """Inclusion metrics of one evaluated pair and the inclusion ratio (None if undefined)."""
+    metrics = _ig_side_metrics(raw, scope, target_scope)
+    complete = int(raw.get("rows") or 0) - int(raw.get("null_rows") or 0)
+    included = complete - int(raw.get("orphans") or 0)
+    inclusion = ratio(
+        "inclusion_ratio",
+        included,
+        complete,
+        scope=scope,
+        source="derived",
+        method="included_rows / source_rows_with_complete_key",
+        denominator_unit="rows",
+    )
+    metrics[3:3] = [
+        measured(
+            "included_rows",
+            included,
+            unit="rows",
+            scope=scope,
+            accuracy="exact",
+            source="aggregate",
+            method="source rows with a complete key found among the target key values",
+            denominator=complete or None,
+            denominator_unit="rows" if complete else None,
+        ),
+        inclusion,
+    ]
+    value = inclusion["value"] if inclusion["status"] == "measured" else None
+    return metrics, value
+
+
+def hypotheses_record(
+    config: Mapping[str, Any],
+    plan: Mapping[str, Any] | None,
+    hypotheses: list[dict[str, Any]],
+    *,
+    evaluated: int,
+    rejected: Mapping[str, int],
+    reason: str | None,
+) -> dict[str, Any]:
+    """Run-level record of relationship hypotheses (contract 1.2)."""
+    settings = config["deep"]["relationship_hypotheses"]
+    return {
+        "enabled": bool(settings["enabled"]),
+        "reason": reason,
+        "budget": {
+            "max_pairs": settings["max_pairs"],
+            "max_sample_rows": settings["max_sample_rows"],
+            "inclusion_scope": settings["inclusion_scope"],
+            "min_inclusion_ratio": settings["min_inclusion_ratio"],
+        },
+        "targets": plan["targets"] if plan else 0,
+        "pairs_considered": plan["considered"] if plan else 0,
+        "pairs_evaluated": evaluated,
+        "pairs_not_evaluated": plan["not_evaluated"] if plan else 0,
+        "pairs_known_excluded": plan["known_excluded"] if plan else 0,
+        "pairs_disjoint_excluded": plan["disjoint_excluded"] if plan else 0,
+        "pairs_rejected": dict(rejected),
+        "hypotheses": hypotheses,
+        "method": (
+            "Targets: single-column keys measured exactly unique in this run. Sources: profiled "
+            "columns of a compatible type whose measured value or length range is not disjoint "
+            "from the target's; column names are not used. Each pair is one inclusion check "
+            "(left join against the distinct target keys)."
+        ),
+        "limitations": [
+            "A hypothesis is an observation about data, not a relationship: it has no cardinality, "
+            "is never drawn in the ER diagram and must be confirmed by a person.",
+            "Inclusion measured on a sample describes that sample only.",
+            "Only single-column keys are considered; composite relationships are not hypothesized.",
+        ],
+    }
+
+
+def relationship_identity(
+    relationship: Mapping[str, Any],
+    resolve: Any,
+) -> tuple[str, tuple[str, ...], str, tuple[str, ...]] | None:
+    """``(from table, from field ids, to table, to field ids)`` of a known relationship.
+
+    ``resolve(end)`` returns ``(table lookup key, field ids)`` or None.
+    """
+    left = resolve("from")
+    right = resolve("to")
+    if left is None or right is None:
+        return None
+    return (left[0], tuple(left[1]), right[0], tuple(right[1]))
+
+
+def key_metric(detail: Mapping[str, Any], name: str) -> Any:
+    """Value of a measured metric of a validation detail or hypothesis evidence."""
+    return metric_value(detail.get("metrics", []), name)
+
+
+def key_metric_record(detail: Mapping[str, Any], name: str) -> Mapping[str, Any] | None:
+    """Metric record of a validation detail or hypothesis evidence."""
+    return find_metric(detail.get("metrics", []), name)
+
+# COMMAND ----------
+
 # DBTITLE 1,Runtime: tabledossier.contract
 # TableDossier 0.2.0 embedded runtime: module tabledossier.contract
-# Source: src/tabledossier/contract.py (sha256:3b4f82f4235ef657f25fa49428dc76e76159a0471bf0fc1592ca3dbceba24ae5)
+# Source: src/tabledossier/contract.py (sha256:3bfbddb4e8b773682a366f74d6dc1e74976e1ce3d3f6c723067593c4ae0c19aa)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5325,9 +6568,10 @@ from typing import Any
 
 PROFILE_KIND = "tabledossier.profile"
 # The notebook writes the latest version; readers (CLI, renderer) accept every listed one.
-# 1.1 only adds to 1.0 (deep level, element fields, JSON paths, deep coverage).
-PROFILE_SCHEMA_VERSION = "1.1"
-SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1")
+# 1.1 only adds to 1.0 (deep level, element fields, JSON paths, deep coverage); 1.2 only adds
+# to 1.1 (exact uniqueness, referential validation evidence, relationship hypotheses).
+PROFILE_SCHEMA_VERSION = "1.2"
+SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1", "1.2")
 ANNOTATIONS_KIND = "tabledossier.annotations"
 SUPPORTED_ANNOTATION_VERSIONS = ("1.0",)
 COUNT_METRICS_WITH_ROW_DENOMINATOR = ("null_count", "non_null_count")
@@ -5372,6 +6616,7 @@ def _ct_metric_errors(metric: Mapping[str, Any], where: str, row_count: int | No
         "elements",
         "entries",
         "documents",
+        "keys",
     )
     if is_count and isinstance(value, int) and value < 0:
         errors.append(f"{where}: counts cannot be negative")
@@ -5462,6 +6707,136 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
                 errors.append(
                     f"{where}.findings[{d_index}]: unknown field_id {finding['field_id']}"
                 )
+        planned_ids = {op["operation_id"] for op in table["operations"]["planned"]}
+        if table.get("uniqueness"):
+            errors.extend(
+                _ct_uniqueness_errors(table["uniqueness"], f"{where}.uniqueness", planned_ids)
+            )
+    planned_by_table = {
+        table["table_key"]: {op["operation_id"] for op in table["operations"]["planned"]}
+        for table in profile["tables"]
+    }
+    known = set()
+    for r_index, relationship in enumerate(profile["relationships"]):
+        known.add(_ct_relationship_ends(relationship))
+        detail = relationship.get("validation_detail")
+        if detail:
+            errors.extend(
+                _ct_validation_errors(
+                    relationship, detail, f"$.relationships[{r_index}]", planned_by_table
+                )
+            )
+    hypotheses = profile.get("relationship_hypotheses")
+    if hypotheses:
+        errors.extend(_ct_hypothesis_errors(hypotheses, known, planned_by_table))
+    return errors
+
+
+def _ct_values(metrics: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {m["name"]: m["value"] for m in metrics if m.get("status") == "measured"}
+
+
+def _ct_uniqueness_errors(
+    record: Mapping[str, Any], where: str, planned_ids: set[str]
+) -> list[str]:
+    """Check that the counts of each key agree with each other and with its outcome."""
+    errors: list[str] = []
+    for index, key in enumerate(record["keys"]):
+        k_where = f"{where}.keys[{index}]"
+        if key["status"] != "measured":
+            if key["outcome"] is not None or key["metrics"]:
+                errors.append(f"{k_where}: only measured keys have an outcome and metrics")
+            if not key["reason"]:
+                errors.append(f"{k_where}: a key that was not measured needs a reason")
+            continue
+        if key["operation_id"] not in planned_ids:
+            errors.append(f"{k_where}: operation_id is not a planned operation of the table")
+        values = _ct_values(key["metrics"])
+        needed = ("rows_in_scope", "rows_with_null_key", "distinct_keys", "duplicate_key_groups")
+        if any(not isinstance(values.get(name), int) for name in needed) or not isinstance(
+            values.get("rows_in_duplicate_groups"), int
+        ):
+            errors.append(f"{k_where}: a measured key needs its row, key and duplicate counts")
+            continue
+        rows, nulls = values["rows_in_scope"], values["rows_with_null_key"]
+        distinct, groups = values["distinct_keys"], values["duplicate_key_groups"]
+        duplicated = values["rows_in_duplicate_groups"]
+        complete = rows - nulls
+        if nulls > rows or distinct > complete or groups > distinct or duplicated > complete:
+            errors.append(f"{k_where}: inconsistent uniqueness counts")
+        if duplicated < 2 * groups or (groups == 0) != (duplicated == 0):
+            errors.append(f"{k_where}: duplicate groups and duplicated rows disagree")
+        expected = (
+            "empty"
+            if complete == 0
+            else "duplicates"
+            if groups
+            else "unique_non_null"
+            if nulls
+            else "unique"
+        )
+        if key["outcome"] != expected:
+            errors.append(f"{k_where}: outcome {key['outcome']!r} contradicts its counts")
+    return errors
+
+
+def _ct_relationship_ends(relationship: Mapping[str, Any]) -> tuple[str, ...]:
+    return (
+        relationship["from"]["table"],
+        *relationship["from"]["columns"],
+        "->",
+        relationship["to"]["table"],
+        *relationship["to"]["columns"],
+    )
+
+
+def _ct_validation_errors(
+    relationship: Mapping[str, Any],
+    detail: Mapping[str, Any],
+    where: str,
+    planned_by_table: Mapping[str, set[str]],
+) -> list[str]:
+    """Check that ``validated``/``violated`` follow from the orphan count of a real check."""
+    errors: list[str] = []
+    status = relationship["validation"]
+    if detail["status"] != status:
+        errors.append(f"{where}.validation_detail: status differs from validation")
+    if status == "not_validated":
+        if not detail["reason"]:
+            errors.append(f"{where}.validation_detail: not_validated requires a reason")
+        return errors
+    source_ops = planned_by_table.get(relationship["from"]["table"], set())
+    if detail["operation_id"] not in source_ops:
+        errors.append(f"{where}.validation_detail: operation_id is not planned by the source")
+    orphans = _ct_values(detail["metrics"]).get("orphan_rows")
+    if not isinstance(orphans, int):
+        errors.append(f"{where}.validation_detail: {status} requires a measured orphan_rows")
+    elif status == "validated" and (orphans != 0 or detail["mode"] != "full_scope"):
+        errors.append(f"{where}.validation_detail: validated requires 0 orphans in full scope")
+    elif status == "violated" and orphans == 0:
+        errors.append(f"{where}.validation_detail: violated requires at least one orphan")
+    return errors
+
+
+def _ct_hypothesis_errors(
+    record: Mapping[str, Any],
+    known: set[tuple[str, ...]],
+    planned_by_table: Mapping[str, set[str]],
+) -> list[str]:
+    """Check that hypotheses stay apart from known relationships and meet the threshold."""
+    errors: list[str] = []
+    threshold = record["budget"]["min_inclusion_ratio"]
+    for index, item in enumerate(record["hypotheses"]):
+        where = f"$.relationship_hypotheses.hypotheses[{index}]"
+        if _ct_relationship_ends(item) in known:
+            errors.append(f"{where}: a hypothesis repeats a known relationship")
+        if item["operation_id"] not in planned_by_table.get(item["from"]["table"], set()):
+            errors.append(f"{where}: operation_id is not planned by the source table")
+        inclusion = _ct_values(item["evidence"]["metrics"]).get("inclusion_ratio")
+        if not isinstance(inclusion, (int, float)) or inclusion < threshold:
+            errors.append(f"{where}: inclusion_ratio is below min_inclusion_ratio")
+        if not item["evidence"]["target_key_unique"]:
+            errors.append(f"{where}: the target key of a hypothesis must be unique")
     return errors
 
 
@@ -7121,7 +8496,7 @@ def write_files(
 
 # DBTITLE 1,Runtime: tabledossier.assemble
 # TableDossier 0.2.0 embedded runtime: module tabledossier.assemble
-# Source: src/tabledossier/assemble.py (sha256:c5aea9af50cadbdcd5f785bbbc594c6499e1c6bf5eff3ca41e5af77fddf03892)
+# Source: src/tabledossier/assemble.py (sha256:b868890b99e2be458e6d45f6fd6f0cae5f8a63a76906122de9d794e5647baf96)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -7711,6 +9086,7 @@ def new_table(
         "timings_ms": {},
         "notes": [],
         "deep": None,
+        "uniqueness": None,
     }
 
 
@@ -7828,6 +9204,40 @@ def value_exposure(config: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def known_relationships(
+    tables: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Return the declared FOREIGN KEYs of the tables plus the configured relationships."""
+    return merge_relationships(
+        declared_relationships(tables),
+        provided_relationships(config.get("relationships", []), "configuration"),
+    )
+
+
+def _as_summary_counts(
+    tables: Sequence[Mapping[str, Any]], relationships: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    keys = [
+        key
+        for table in tables
+        for key in (table.get("uniqueness") or {}).get("keys", [])
+        if key["status"] == "measured"
+    ]
+    statuses = [rel["validation"] for rel in relationships]
+    return {
+        "uniqueness": {
+            "keys_measured": len(keys),
+            **{
+                outcome: sum(1 for key in keys if key["outcome"] == outcome)
+                for outcome in ("unique", "unique_non_null", "duplicates", "empty")
+            },
+        },
+        "relationships": {
+            name: statuses.count(name) for name in ("validated", "violated", "not_validated")
+        },
+    }
+
+
 def build_profile(
     *,
     run_id: str,
@@ -7841,8 +9251,16 @@ def build_profile(
     generation: Mapping[str, Any],
     capabilities: Mapping[str, Any],
     tables: list[dict[str, Any]],
+    relationships: list[dict[str, Any]] | None = None,
+    referential_validation: dict[str, Any] | None = None,
+    relationship_hypotheses: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble the canonical profile document for a run."""
+    """Assemble the canonical profile document for a run.
+
+    ``relationships`` are the known relationships, with their validation when
+    the deep level checked them; without it they are built here and recorded
+    as ``not_validated`` with the reason.
+    """
     statuses = [table["status"] for table in tables]
     if statuses and all(status == "succeeded" for status in statuses):
         status = "succeeded"
@@ -7851,10 +9269,25 @@ def build_profile(
     else:
         status = "partial"
     effective = sanitized_config(config)
-    relationships = merge_relationships(
-        declared_relationships(tables),
-        provided_relationships(config.get("relationships", []), "configuration"),
-    )
+    if relationships is None:
+        relationships = known_relationships(tables, config)
+    for relationship in relationships:
+        if relationship.get("validation_detail") is None:
+            relationship["validation_detail"] = not_validated_detail(
+                referential_requested(relationship, config) or "not checked in this run"
+            )
+    deep = config["analysis_level"] == "deep"
+    if deep and referential_validation is None:
+        referential_validation = referential_summary(relationships, config, planned=0, limited=[])
+    if deep and relationship_hypotheses is None:
+        relationship_hypotheses = hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="disabled by configuration (deep.relationship_hypotheses.enabled = false)",
+        )
     checks = [check for table in tables for check in table["quality_checks"]]
     findings = [finding for table in tables for finding in table["findings"]]
     return {
@@ -7896,7 +9329,11 @@ def build_profile(
                 s: sum(1 for f in findings if f["severity"] == s) for s in ("info", "warning")
             },
             "suggested_rules": sum(len(table["suggested_rules"]) for table in tables),
+            **_as_summary_counts(tables, relationships),
+            "relationship_hypotheses": len((relationship_hypotheses or {}).get("hypotheses", [])),
         },
+        "referential_validation": referential_validation,
+        "relationship_hypotheses": relationship_hypotheses,
     }
 
 # COMMAND ----------

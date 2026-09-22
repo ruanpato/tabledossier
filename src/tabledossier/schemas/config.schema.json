@@ -109,7 +109,7 @@
       }
     },
     "deep": {
-      "description": "Opt-in operations of the deep level (standard + element and JSON path profiling). Ignored at other levels. See docs/configuration.md.",
+      "description": "Opt-in operations of the deep level (standard + element and JSON path profiling, exact uniqueness, referential validation and relationship hypotheses). Ignored at other levels. See docs/configuration.md.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -129,7 +129,43 @@
         "max_elements": {"type": "integer", "minimum": 1, "maximum": 100000000},
         "max_json_paths": {"type": "integer", "minimum": 1, "maximum": 1000},
         "max_json_depth": {"type": "integer", "minimum": 1, "maximum": 10},
-        "max_json_object_keys": {"type": "integer", "minimum": 1, "maximum": 1000}
+        "max_json_object_keys": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "uniqueness": {
+          "description": "Exact uniqueness of keys: explicit keys, declared PRIMARY KEY/UNIQUE constraints and identifier candidates, within max_keys and max_passes per table.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "keys": {"type": "array", "items": {"$ref": "#/$defs/uniquenessKey"}, "maxItems": 1000},
+            "declared_keys": {"type": "boolean"},
+            "identifier_candidates": {"type": "boolean"},
+            "max_keys": {"type": "integer", "minimum": 1, "maximum": 100},
+            "max_passes": {"type": "integer", "minimum": 1, "maximum": 10}
+          }
+        },
+        "referential": {
+          "description": "Referential validation of configured relationships and declared foreign keys (one Spark action per relationship, at most max_relationships per run).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "configured": {"type": "boolean"},
+            "declared": {"type": "boolean"},
+            "mode": {"enum": ["full_scope", "sample"]},
+            "max_relationships": {"type": "integer", "minimum": 0, "maximum": 100},
+            "max_sample_rows": {"type": "integer", "minimum": 1, "maximum": 100000000}
+          }
+        },
+        "relationship_hypotheses": {
+          "description": "Data-driven relationship hypotheses (off by default; one Spark action per evaluated pair, at most max_pairs per run).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "max_pairs": {"type": "integer", "minimum": 0, "maximum": 100},
+            "max_sample_rows": {"type": "integer", "minimum": 1, "maximum": 100000000},
+            "inclusion_scope": {"enum": ["sample", "full_scope"]},
+            "min_inclusion_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
       }
     },
     "table_options": {
@@ -200,6 +236,16 @@
       }
     },
     "cardinality": {"enum": ["zero_or_one", "exactly_one", "zero_or_more", "one_or_more"]},
+    "uniquenessKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table", "columns"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,100}$"},
+        "table": {"type": "string", "minLength": 1},
+        "columns": {"type": "array", "items": {"$ref": "#/$defs/columnRef"}, "minItems": 1, "maxItems": 32}
+      }
+    },
     "relationshipEnd": {
       "type": "object",
       "additionalProperties": false,
