@@ -27,11 +27,47 @@ are samples, business meaning stays unknown unless a source comment or a person 
 
 ## 2. How it works
 
-```text
-YOUR COMPUTER (offline)                  DATABRICKS (your permissions)             YOUR COMPUTER (offline)
-tabledossier init / generate  ──import──▶  notebook: widgets → validate →   ──copy──▶  tabledossier validate
-  profile.config.json                      metadata, sample, aggregations            tabledossier render
-  dist/profile_databricks.py               → results/<run_id>/profile.json …         → docs (+ your annotations)
+```mermaid
+flowchart LR
+    subgraph LOCAL1["YOUR COMPUTER (offline)"]
+        A["tabledossier init / generate"]
+        A1["profile.config.json"]
+        A2["dist/profile_databricks.py"]
+
+        A --> A1
+        A --> A2
+    end
+
+    subgraph DBX["DATABRICKS (your permissions)"]
+        B["Notebook"]
+        B1["Widgets"]
+        B2["Validate"]
+        B3["Metadata"]
+        B4["Sample"]
+        B5["Aggregations"]
+        B6["results/&lt;run_id&gt;/profile.json …"]
+
+        B --> B1
+        B1 --> B2
+        B2 --> B3
+        B2 --> B4
+        B2 --> B5
+        B3 --> B6
+        B4 --> B6
+        B5 --> B6
+    end
+
+    subgraph LOCAL2["YOUR COMPUTER (offline)"]
+        C["tabledossier validate"]
+        D["tabledossier render"]
+        E["docs<br/>(+ your annotations)"]
+
+        C --> D
+        D --> E
+    end
+
+    A2 -- "import" --> B
+    B6 -- "copy" --> C
 ```
 
 A generated notebook contains **no results**: it has a generation manifest, not metrics. Metrics
@@ -192,7 +228,7 @@ Then, in Databricks:
 4. **Fill the widgets** at the top: `tables_json` = `["demo.analytics.orders"]` (your tables or the demo
    ones) and `output_dir` = a directory you can write, e.g. `/Volumes/<catalog>/<schema>/<volume>/tabledossier`.
    Then *Run all*.
-5. **Find the results** in `output_dir/<run_id>/`. The last cell prints the exact path and copy commands,
+5. **Find the results** in `output_dir/<run_id>/`. The export cell prints the exact path and copy commands,
    for example `databricks fs cp -r dbfs:/Volumes/<catalog>/<schema>/<volume>/tabledossier/<run_id> ./downloaded/<run_id>`,
    or download the files from Catalog Explorer.
 6. **Validate and regenerate the documentation offline**:
@@ -224,6 +260,11 @@ tabledossier render --input examples/demo/output/run/profile.json \
 
 Precedence: **built-in defaults < generated configuration < `config_json` < the three dedicated widgets**.
 Widgets are created only when missing, so values typed by you or passed by a Job are never reset.
+
+**As a Databricks Job**, pass the four names as notebook task parameters. The last cell returns a small JSON summary
+(run id, status, results directory and counts) with `dbutils.notebook.exit` for the Job or the notebook that ran it
+(`jobs.exit_summary`, on by default). See [running as a Job](docs/databricks-jobs.md); not yet validated on a
+workspace.
 
 Per-table options (in the config file or `config_json`) select columns, apply **structured filters**
 (`eq`, `ne`, `lt`, `le`, `gt`, `ge`, `in`, `not_in`, `between`, `is_null`, `is_not_null`, `like`) and declare

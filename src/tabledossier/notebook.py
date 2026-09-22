@@ -288,9 +288,13 @@ def generate_notebook(config: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
                 "3. Profiles each table sequentially: catalog metadata and, at the `standard` "
                 "level, one bounded "
                 "sample and a bounded number of shared aggregation passes. The `deep` level adds "
-                "array/map element metrics and JSON paths within explicit budgets.",
+                "array/map element metrics and JSON paths within explicit budgets and, when the "
+                "configuration requests them, exact uniqueness of keys, referential validation "
+                "and relationship hypotheses (counts only).",
                 "4. Writes `profile.json`, `manifest.json` and the derived documentation to the "
                 "results directory.",
+                "5. Returns a small JSON job summary with `dbutils.notebook.exit` in its last cell "
+                "(`jobs.exit_summary`, on by default), for a Job or a notebook that runs this one.",
                 "",
                 "**Safety.** Sources are only read. The notebook never alters schemas or "
                 "constraints, never runs "
@@ -325,7 +329,8 @@ def generate_notebook(config: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
                 "| `tables_json` | JSON list of `catalog.schema.table` identifiers (quote unusual "
                 "names with backticks). |",
                 "| `analysis_level` | `metadata` (no row reads), `standard` (sample + "
-                "aggregations) or `deep` (standard + elements and JSON paths, budgeted). |",
+                "aggregations) or `deep` (standard + budgeted element, JSON path, key and "
+                "relationship checks). |",
                 "| `output_dir` | Directory where a new `<run_id>/` folder is created. |",
                 "| `config_json` | Optional JSON object merged over the generated configuration "
                 "(no secrets). |",
@@ -333,7 +338,7 @@ def generate_notebook(config: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
                 "Precedence: built-in defaults < generated configuration < `config_json` < the "
                 "three dedicated "
                 "widgets. Existing widget values (typed by you or passed by a Job) are never "
-                "reset.",
+                "reset: a Job passes these four names as notebook task parameters.",
             ]
         )
     )
@@ -455,6 +460,21 @@ def generate_notebook(config: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
                 '    for td_error in td_export["validation_errors"][:20]:',
                 '        print("  -", td_error)',
                 'print(transfer_instructions(td_export["run_dir"], td_ctx["run_id"]))',
+            ],
+        ),
+        (
+            "## 10. Job summary",
+            "Returns a small JSON summary (run id, status, results directory and counts) to the "
+            "Job or notebook that ran this one, with `dbutils.notebook.exit`. It ends the "
+            "notebook, so it is the last cell; everything above was already written. Set "
+            '`config_json` to `{"jobs": {"exit_summary": false}}` to skip it.',
+            [
+                "# DBTITLE 1,Job summary",
+                "td_exit_value, td_exit_message = job_exit_value(td_ctx, td_profile, td_export, "
+                "dbutils)",
+                "print(td_exit_message)",
+                "if td_exit_value is not None:",
+                "    dbutils.notebook.exit(td_exit_value)",
             ],
         ),
     ]

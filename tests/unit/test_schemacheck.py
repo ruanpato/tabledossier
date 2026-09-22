@@ -17,6 +17,7 @@ SCHEMA_NAMES = [
     "annotations",
     "suggested_rules",
     "manifest",
+    "job_summary",
 ]
 
 

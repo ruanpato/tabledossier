@@ -21,8 +21,14 @@ from tabledossier.config import ConfigError, execution_errors, resolve_parameter
 from tabledossier.contract import validate_profile
 from tabledossier.errors import error_record
 from tabledossier.integrity import hypotheses_record, not_validated_detail, referential_summary
-from tabledossier.jsonutil import format_utc, pretty_json, utc_now
-from tabledossier.package import build_documents, run_manifest, running_manifest, write_files
+from tabledossier.jsonutil import canonical_json, format_utc, pretty_json, utc_now
+from tabledossier.package import (
+    build_documents,
+    job_summary,
+    run_manifest,
+    running_manifest,
+    write_files,
+)
 from tabledossier.paths import parse_table_identifier, quote_table_identifier, table_id, table_key
 from tabledossier.runtime.spark import (
     detect_capabilities,
@@ -367,6 +373,28 @@ def export_run(
         "validation_errors": errors,
         "duration_ms": max(0, int((time.perf_counter() - start) * 1000)),
     }
+
+
+def job_exit_value(
+    ctx: Mapping[str, Any], profile: Mapping[str, Any], export: Mapping[str, Any], dbutils: Any
+) -> tuple[str | None, str]:
+    """Return ``(value, message)`` for the last cell of the notebook.
+
+    ``value`` is the compact JSON job summary to pass to
+    ``dbutils.notebook.exit``, or ``None`` when ``jobs.exit_summary`` is off or
+    ``dbutils.notebook.exit`` does not exist; ``message`` says which. The
+    notebook calls ``exit`` itself, outside any ``try`` block, because it may be
+    implemented by raising an exception.
+    """
+    if not ctx["config"]["jobs"]["exit_summary"]:
+        return None, "Job summary not returned (jobs.exit_summary = false)."
+    if not callable(getattr(getattr(dbutils, "notebook", None), "exit", None)):
+        return None, "Job summary not returned: dbutils.notebook.exit is not available here."
+    value = canonical_json(job_summary(profile, export["run_dir"], export["validation_errors"]))
+    return value, (
+        "Returning the job summary with dbutils.notebook.exit; the notebook ends here and every "
+        "result was written above:\n" + value
+    )
 
 
 def transfer_instructions(run_dir: str, run_id: str) -> str:

@@ -367,5 +367,9 @@ from column names: data-driven candidates are listed only as `relationship_hypot
 - **Generation manifest** (`*.generation.json`, kind `tabledossier.generation_manifest`): notebook hash,
   embedded modules and schemas with their hashes, `contains_results: false`.
 - **Suggested rules** (`suggested_rules.json`): neutral proposals collected from all tables.
+- **Job summary** (kind `tabledossier.job_summary`, `summary_version` 1.0, `tabledossier schema job_summary`): not a
+  file of the package but the compact JSON the notebook returns with `dbutils.notebook.exit` (`jobs.exit_summary`):
+  run id, status, analysis level, results directory, whether the profile passed validation, and counts of tables by
+  status, configured checks, relationships by validation status and hypotheses. Counts only.
 - **Annotations** (`annotations.json`, kind `tabledossier.annotations`): descriptions, purpose, owner, tags per
   table and per column (keyed by display path), and relationships. They are only read by `render`.
