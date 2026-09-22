@@ -40,13 +40,15 @@ FROM range(500);
 
 DROP TABLE IF EXISTS orders;
 
+-- Planted for the referential validation demo: orders 199, 399, 599, 799 and 999 reference
+-- customer ids 501-505, which do not exist in customers (five orphan rows).
 CREATE TABLE orders
 COMMENT 'Synthetic orders with nested structs, arrays and maps'
 AS SELECT
   concat_ws('-', substr(md5(CAST(id AS STRING)), 1, 8), substr(md5(CAST(id AS STRING)), 9, 4),
             substr(md5(CAST(id AS STRING)), 13, 4), substr(md5(CAST(id AS STRING)), 17, 4),
             substr(md5(CAST(id AS STRING)), 21, 12)) AS order_id,
-  pmod(hash(id, 10), 500) + 1 AS customer_id,
+  CASE WHEN id % 200 = 199 THEN 501 + CAST(id DIV 200 AS INT) ELSE pmod(hash(id, 10), 500) + 1 END AS customer_id,
   timestamp_seconds(1735689600 + id * 3600) AS order_ts,
   CASE pmod(hash(id, 11), 5) WHEN 0 THEN 'created' WHEN 1 THEN 'paid' WHEN 2 THEN 'shipped'
        WHEN 3 THEN 'delivered' ELSE 'cancelled' END AS status,

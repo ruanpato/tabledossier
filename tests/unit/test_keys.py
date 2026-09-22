@@ -226,7 +226,7 @@ def test_unique_rules_cite_exact_evidence(deep_profile):
 
 def test_quality_report_shows_exact_uniqueness(deep_profile):
     report = build_documents(deep_profile)["quality_report.md"]
-    assert "## 7. Uniqueness (exact)" in report and "## 8. Limitations" in report
+    assert "## 7. Uniqueness (exact)" in report and "## 9. Limitations" in report
     profile, _ = _with_keys(deep_profile, ["unique", "duplicates"])
     report = build_documents(profile)["quality_report.md"]
     section = report.split("## 7. Uniqueness (exact)")[1].split("## 8.")[0]

@@ -6,13 +6,13 @@
     "version": "0.2.0"
   },
   "run": {
-    "run_id": "20260922T053002Z-3bcfafc9",
+    "run_id": "20260922T054306Z-f8832eea",
     "status": "succeeded",
     "analysis_level": "deep",
-    "started_at": "2026-09-22T05:30:02.834Z",
-    "finished_at": "2026-09-22T05:30:11.877Z",
-    "duration_ms": 9042,
-    "reference_time": "2026-09-22T05:30:02.834Z",
+    "started_at": "2026-09-22T05:43:06.899Z",
+    "finished_at": "2026-09-22T05:43:18.050Z",
+    "duration_ms": 11150,
+    "reference_time": "2026-09-22T05:43:06.899Z",
     "environment": {
       "engine": "spark",
       "execution_context": "spark",
@@ -148,8 +148,8 @@
           "max_passes": 1
         },
         "referential": {
-          "configured": false,
-          "declared": false,
+          "configured": true,
+          "declared": true,
           "mode": "full_scope",
           "max_relationships": 5,
           "max_sample_rows": 10000
@@ -255,7 +255,7 @@
         }
       ]
     },
-    "config_fingerprint": "sha256:3d15c7869830698a02186af2f872a005dab491a6574b67aa8ab1ee713a0ce138",
+    "config_fingerprint": "sha256:44972021e508ada74f609514d23a061baf3b9397ea5aa5e505b5c186b67f1fb2",
     "parameter_sources": {
       "precedence": [
         "built-in defaults",
@@ -281,7 +281,7 @@
     },
     "generation": {
       "generator_version": "0.2.0",
-      "generation_id": "sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec"
+      "generation_id": "sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c"
     },
     "purpose": "Synthetic demo: document the demo analytics tables.",
     "capabilities": {
@@ -345,8 +345,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic customers (simple types, special column names, all-null and constant columns)",
-        "created_at": "2026-09-22T05:29:43.602000Z",
-        "last_modified": "2026-09-22T05:29:51.264000Z",
+        "created_at": "2026-09-22T05:42:46.550000Z",
+        "last_modified": "2026-09-22T05:42:54.700000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -372,7 +372,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:30:02.891Z",
+        "captured_at": "2026-09-22T05:43:06.949Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -380,7 +380,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:29:51.264000Z",
+        "version_timestamp": "2026-09-22T05:42:54.700000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -3561,21 +3561,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 13,
+            "duration_ms": 12,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 38,
+            "duration_ms": 32,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 107,
+            "duration_ms": 121,
             "rows_returned": 1,
             "detail": null
           },
@@ -3589,21 +3589,21 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 287,
+            "duration_ms": 298,
             "rows_returned": 500,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1227,
+            "duration_ms": 1527,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_uniqueness_1",
             "status": "succeeded",
-            "duration_ms": 402,
+            "duration_ms": 447,
             "rows_returned": 2,
             "detail": null
           }
@@ -3613,11 +3613,11 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 165,
-        "sample": 291,
-        "aggregate": 1382,
-        "uniqueness": 402,
-        "total": 2245
+        "metadata": 172,
+        "sample": 302,
+        "aggregate": 1682,
+        "uniqueness": 447,
+        "total": 2607
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -3934,14 +3934,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic orders with nested structs, arrays and maps",
-        "created_at": "2026-09-22T05:29:48.517000Z",
-        "last_modified": "2026-09-22T05:29:51.370000Z",
+        "created_at": "2026-09-22T05:42:51.662000Z",
+        "last_modified": "2026-09-22T05:42:54.814000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 85724,
+          "value": 85736,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -3961,7 +3961,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:30:05.143Z",
+        "captured_at": "2026-09-22T05:43:09.562Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -3969,7 +3969,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:29:51.370000Z",
+        "version_timestamp": "2026-09-22T05:42:54.814000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -4904,7 +4904,7 @@
             {
               "name": "approx_distinct_count",
               "status": "measured",
-              "value": 426,
+              "value": 430,
               "value_type": "integer",
               "unit": "values",
               "scope": "filtered_snapshot",
@@ -4940,7 +4940,7 @@
             {
               "name": "max",
               "status": "measured",
-              "value": 500,
+              "value": 505,
               "value_type": "integer",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4951,7 +4951,7 @@
             {
               "name": "mean",
               "status": "measured",
-              "value": 251.517,
+              "value": 252.64,
               "value_type": "float",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4962,7 +4962,7 @@
             {
               "name": "stddev",
               "status": "measured",
-              "value": 148.9045475305415,
+              "value": 149.6048194477771,
               "value_type": "float",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4992,7 +4992,7 @@
                 },
                 {
                   "probability": 0.95,
-                  "value": 483
+                  "value": 485
                 }
               ],
               "value_type": "quantiles",
@@ -9005,27 +9005,39 @@
               "keys": 1,
               "columns": 1
             }
+          },
+          {
+            "operation_id": "op_referential_1",
+            "kind": "referential_check",
+            "description": "orphan count of orders_customer against analytics.customers (one anti join; the target is read in full; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "relationship_id": "configuration:orders_customer",
+              "target_table": "analytics.customers",
+              "mode": "full_scope",
+              "max_sample_rows": null
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 17,
+            "duration_ms": 15,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 39,
+            "duration_ms": 35,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 110,
+            "duration_ms": 111,
             "rows_returned": 1,
             "detail": null
           },
@@ -9039,28 +9051,35 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 293,
+            "duration_ms": 330,
             "rows_returned": 1000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1562,
+            "duration_ms": 1486,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_deep_elements",
             "status": "succeeded",
-            "duration_ms": 700,
+            "duration_ms": 630,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_uniqueness_1",
             "status": "succeeded",
-            "duration_ms": 280,
+            "duration_ms": 302,
+            "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_referential_1",
+            "status": "succeeded",
+            "duration_ms": 932,
             "rows_returned": 1,
             "detail": null
           }
@@ -9070,12 +9089,12 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 175,
-        "sample": 301,
-        "aggregate": 2015,
-        "deep_elements": 700,
-        "uniqueness": 280,
-        "total": 3481
+        "metadata": 169,
+        "sample": 337,
+        "aggregate": 1923,
+        "deep_elements": 630,
+        "uniqueness": 302,
+        "total": 3371
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -9306,8 +9325,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic order events with a JSON payload stored as STRING",
-        "created_at": "2026-09-22T05:29:49.832000Z",
-        "last_modified": "2026-09-22T05:29:50.110000Z",
+        "created_at": "2026-09-22T05:42:53.108000Z",
+        "last_modified": "2026-09-22T05:42:53.399000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -9333,7 +9352,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:30:08.608Z",
+        "captured_at": "2026-09-22T05:43:12.929Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -9341,7 +9360,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:29:50.110000Z",
+        "version_timestamp": "2026-09-22T05:42:53.399000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -12743,13 +12762,25 @@
               "keys": 4,
               "columns": 5
             }
+          },
+          {
+            "operation_id": "op_referential_2",
+            "kind": "referential_check",
+            "description": "orphan count of events_order against analytics.orders (one anti join; the target is read in full; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "relationship_id": "configuration:events_order",
+              "target_table": "analytics.orders",
+              "mode": "full_scope",
+              "max_sample_rows": null
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 11,
+            "duration_ms": 16,
             "rows_returned": null,
             "detail": null
           },
@@ -12763,7 +12794,7 @@
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 106,
+            "duration_ms": 115,
             "rows_returned": 1,
             "detail": null
           },
@@ -12777,22 +12808,29 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 237,
+            "duration_ms": 256,
             "rows_returned": 2000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1395,
+            "duration_ms": 1691,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_uniqueness_1",
             "status": "succeeded",
-            "duration_ms": 414,
+            "duration_ms": 374,
             "rows_returned": 4,
+            "detail": null
+          },
+          {
+            "operation_id": "op_referential_2",
+            "status": "succeeded",
+            "duration_ms": 799,
+            "rows_returned": 1,
             "detail": null
           }
         ],
@@ -12801,11 +12839,11 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 152,
-        "sample": 292,
-        "aggregate": 1527,
-        "uniqueness": 414,
-        "total": 2390
+        "metadata": 167,
+        "sample": 314,
+        "aggregate": 1823,
+        "uniqueness": 374,
+        "total": 2683
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -13374,8 +13412,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic returns: intentionally empty",
-        "created_at": "2026-09-22T05:29:50.949000Z",
-        "last_modified": "2026-09-22T05:29:51.074000Z",
+        "created_at": "2026-09-22T05:42:54.344000Z",
+        "last_modified": "2026-09-22T05:42:54.481000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -13401,7 +13439,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:30:11.003Z",
+        "captured_at": "2026-09-22T05:43:15.614Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -13409,7 +13447,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:29:51.074000Z",
+        "version_timestamp": "2026-09-22T05:42:54.481000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -14320,7 +14358,7 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 12,
+            "duration_ms": 13,
             "rows_returned": null,
             "detail": null
           },
@@ -14334,7 +14372,7 @@
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 122,
+            "duration_ms": 105,
             "rows_returned": 1,
             "detail": null
           },
@@ -14348,14 +14386,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 194,
+            "duration_ms": 186,
             "rows_returned": 0,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 448,
+            "duration_ms": 352,
             "rows_returned": 1,
             "detail": null
           }
@@ -14365,10 +14403,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 173,
-        "sample": 194,
-        "aggregate": 548,
-        "total": 918
+        "metadata": 157,
+        "sample": 187,
+        "aggregate": 402,
+        "total": 749
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -14450,23 +14488,156 @@
       },
       "cardinality_source": "provided",
       "enforcement": "unknown",
-      "validation": "not_validated",
+      "validation": "violated",
       "scope": "human_provided",
       "description": "Each order references one customer (stated by the demo author).",
       "notes": [
         "Provided by a person; the statement alone does not prove the data."
       ],
       "validation_detail": {
-        "status": "not_validated",
-        "reason": "configured relationships are not validated (deep.referential.configured = false)",
-        "mode": null,
-        "from": null,
-        "to": null,
-        "operation_id": null,
-        "type_compatibility": [],
-        "target_key_unique": null,
-        "metrics": [],
-        "limitations": []
+        "status": "violated",
+        "reason": null,
+        "mode": "full_scope",
+        "from": {
+          "table": "analytics.orders",
+          "scope": "filtered_snapshot",
+          "consistency_mode": "pinned_delta_version",
+          "delta_version": 1
+        },
+        "to": {
+          "table": "analytics.customers",
+          "scope": "full_snapshot",
+          "consistency_mode": "pinned_delta_version",
+          "delta_version": 1
+        },
+        "operation_id": "op_referential_1",
+        "type_compatibility": [
+          {
+            "from_column": "customer_id",
+            "from_type": "int",
+            "to_column": "customer_id",
+            "to_type": "bigint",
+            "compatible": true,
+            "rule": "same type kind (integer)"
+          }
+        ],
+        "target_key_unique": true,
+        "metrics": [
+          {
+            "name": "source_rows",
+            "status": "measured",
+            "value": 1000,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "filtered_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "source rows examined"
+          },
+          {
+            "name": "source_rows_with_null_key",
+            "status": "measured",
+            "value": 0,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "filtered_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "source rows with NULL in at least one key column (never orphans)",
+            "denominator": 1000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "source_rows_with_complete_key",
+            "status": "measured",
+            "value": 1000,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "filtered_snapshot",
+            "accuracy": "exact",
+            "source": "derived",
+            "method": "source_rows - source_rows_with_null_key",
+            "denominator": 1000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "orphan_rows",
+            "status": "measured",
+            "value": 5,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "filtered_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "source rows with a complete key that no target row has (anti join)",
+            "denominator": 1000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "orphan_ratio",
+            "status": "measured",
+            "value": 0.005,
+            "value_type": "ratio",
+            "unit": "ratio",
+            "scope": "filtered_snapshot",
+            "accuracy": "exact",
+            "source": "derived",
+            "method": "orphan_rows / source_rows_with_complete_key",
+            "denominator": 1000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "target_rows",
+            "status": "measured",
+            "value": 500,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "rows of the target table read"
+          },
+          {
+            "name": "target_rows_with_null_key",
+            "status": "measured",
+            "value": 0,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "target rows with NULL in at least one key column (never matched)",
+            "denominator": 500,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "target_distinct_keys",
+            "status": "measured",
+            "value": 500,
+            "value_type": "integer",
+            "unit": "keys",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "exact count of distinct complete key values in the target"
+          },
+          {
+            "name": "target_duplicate_key_groups",
+            "status": "measured",
+            "value": 0,
+            "value_type": "integer",
+            "unit": "keys",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "target key values that occur in more than one row",
+            "denominator": 500,
+            "denominator_unit": "keys"
+          }
+        ],
+        "limitations": [
+          "The target is read in full at its recorded version (the target table's filters are not applied): a reference is valid when its key exists anywhere in the target table."
+        ]
       }
     },
     {
@@ -14488,23 +14659,156 @@
       "cardinality": null,
       "cardinality_source": null,
       "enforcement": "unknown",
-      "validation": "not_validated",
+      "validation": "validated",
       "scope": "human_provided",
       "description": "Events reference orders; cardinality intentionally not asserted.",
       "notes": [
         "Provided by a person; the statement alone does not prove the data."
       ],
       "validation_detail": {
-        "status": "not_validated",
-        "reason": "configured relationships are not validated (deep.referential.configured = false)",
-        "mode": null,
-        "from": null,
-        "to": null,
-        "operation_id": null,
-        "type_compatibility": [],
-        "target_key_unique": null,
-        "metrics": [],
-        "limitations": []
+        "status": "validated",
+        "reason": null,
+        "mode": "full_scope",
+        "from": {
+          "table": "analytics.order_events",
+          "scope": "full_snapshot",
+          "consistency_mode": "pinned_delta_version",
+          "delta_version": 0
+        },
+        "to": {
+          "table": "analytics.orders",
+          "scope": "full_snapshot",
+          "consistency_mode": "pinned_delta_version",
+          "delta_version": 1
+        },
+        "operation_id": "op_referential_2",
+        "type_compatibility": [
+          {
+            "from_column": "order_id",
+            "from_type": "string",
+            "to_column": "order_id",
+            "to_type": "string",
+            "compatible": true,
+            "rule": "same type kind (string)"
+          }
+        ],
+        "target_key_unique": true,
+        "metrics": [
+          {
+            "name": "source_rows",
+            "status": "measured",
+            "value": 2000,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "source rows examined"
+          },
+          {
+            "name": "source_rows_with_null_key",
+            "status": "measured",
+            "value": 0,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "source rows with NULL in at least one key column (never orphans)",
+            "denominator": 2000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "source_rows_with_complete_key",
+            "status": "measured",
+            "value": 2000,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "derived",
+            "method": "source_rows - source_rows_with_null_key",
+            "denominator": 2000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "orphan_rows",
+            "status": "measured",
+            "value": 0,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "source rows with a complete key that no target row has (anti join)",
+            "denominator": 2000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "orphan_ratio",
+            "status": "measured",
+            "value": 0.0,
+            "value_type": "ratio",
+            "unit": "ratio",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "derived",
+            "method": "orphan_rows / source_rows_with_complete_key",
+            "denominator": 2000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "target_rows",
+            "status": "measured",
+            "value": 1000,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "rows of the target table read"
+          },
+          {
+            "name": "target_rows_with_null_key",
+            "status": "measured",
+            "value": 0,
+            "value_type": "integer",
+            "unit": "rows",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "target rows with NULL in at least one key column (never matched)",
+            "denominator": 1000,
+            "denominator_unit": "rows"
+          },
+          {
+            "name": "target_distinct_keys",
+            "status": "measured",
+            "value": 1000,
+            "value_type": "integer",
+            "unit": "keys",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "exact count of distinct complete key values in the target"
+          },
+          {
+            "name": "target_duplicate_key_groups",
+            "status": "measured",
+            "value": 0,
+            "value_type": "integer",
+            "unit": "keys",
+            "scope": "full_snapshot",
+            "accuracy": "exact",
+            "source": "aggregate",
+            "method": "target key values that occur in more than one row",
+            "denominator": 1000,
+            "denominator_unit": "keys"
+          }
+        ],
+        "limitations": [
+          "The target is read in full at its recorded version (the target table's filters are not applied): a reference is valid when its key exists anywhere in the target table."
+        ]
       }
     }
   ],
@@ -14533,26 +14837,26 @@
       "empty": 0
     },
     "relationships": {
-      "validated": 0,
-      "violated": 0,
-      "not_validated": 2
+      "validated": 1,
+      "violated": 1,
+      "not_validated": 0
     },
     "relationship_hypotheses": 0
   },
   "referential_validation": {
     "requested": {
-      "configured": false,
-      "declared": false
+      "configured": true,
+      "declared": true
     },
     "mode": "full_scope",
     "budget": {
       "max_relationships": 5,
       "max_sample_rows": 10000
     },
-    "planned": 0,
-    "validated": 0,
-    "violated": 0,
-    "not_validated": 2,
+    "planned": 2,
+    "validated": 1,
+    "violated": 1,
+    "not_validated": 0,
     "limited": [],
     "notes": [
       "The target is read in full at its recorded version (the target table's filters are not applied): a reference is valid when its key exists anywhere in the target table.",

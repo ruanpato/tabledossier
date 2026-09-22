@@ -118,6 +118,12 @@ The deep level runs the standard steps above and adds, per table:
    groups by entry and aggregates the group sizes per key. Only counts reach the driver; `table.uniqueness` records
    them with the outcome, and `unique` proposals cite them.
 
+After every table was profiled, **referential validation** (`deep.referential`) checks the requested known
+relationships whose two tables are in the run: each check re-reads both tables at their recorded Delta versions (the
+source with its filters, the target in full), groups the target by its key, left-joins the source to it and
+aggregates both sides in one collected action. It is recorded as a `referential_check` operation of the source
+table; at most `max_relationships` run.
+
 The number of Spark actions per table is bounded by the configuration (one sample, `max_aggregate_passes` plus
 `deep.max_extra_passes` aggregations and explodes, plus `deep.uniqueness.max_passes` uniqueness passes); it does not
 grow with the number of columns, metrics or keys (tested).

@@ -172,6 +172,26 @@ binary) and outside arrays and maps; other keys are `not_eligible` with the reas
 are counted apart and never treated as duplicates. Only counts are recorded, never key values. See
 [contract](contract.md#uniqueness-12).
 
+### `deep.referential`
+
+Validation of known relationships against the data. A relationship is checked only when both of its tables are
+profiled in the same run (tables outside the run are never read).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `configured` | `false` | Validate the relationships listed in [`relationships`](#relationships). |
+| `declared` | `false` | Validate the FOREIGN KEY constraints read from Unity Catalog `information_schema`. |
+| `mode` | `"full_scope"` | `full_scope`: every source row in scope. `sample`: at most `max_sample_rows` source rows (`sampling.method` prefix or random); an orphan found in a sample violates the relationship, but a sample without orphans never validates it. |
+| `max_relationships` | 5 | Checks per run, one Spark action each (recorded as a `referential_check` operation of the source table). Further relationships stay `not_validated` (`referential_budget`). |
+| `max_sample_rows` | 10000 | Source rows read by a check in `sample` mode. |
+
+Each check reads both tables at the Delta versions recorded when they were profiled. The source keeps its analysed
+scope (its filters); the target is read in full, because a reference is valid when the key exists anywhere in the
+target table. Source rows with NULL in any key column are counted apart and are never orphans. Key columns must have
+compatible types (the same kind, or integer and decimal); otherwise the relationship stays `not_validated` with the
+column types in the reason. Only counts are recorded, never orphan values. See
+[contract](contract.md#referential-validation-12).
+
 ## `table_options`
 
 Keyed by table identifier (matched case-insensitively):
@@ -227,4 +247,5 @@ when any configured check failed.
 
 `cardinality.from` describes how many `from` rows relate to one `to` row, and `cardinality.to` how many `to` rows
 relate to one `from` row (`zero_or_one`, `exactly_one`, `zero_or_more`, `one_or_more`). Without cardinality the
-relationship is documented but not drawn as an ER edge. Relationships are recorded as `not_validated`.
+relationship is documented but not drawn as an ER edge. Relationships stay `not_validated`, with the reason, unless
+[`deep.referential`](#deepreferential) checks them; validation never changes the cardinality a person provided.

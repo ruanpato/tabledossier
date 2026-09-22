@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec`).
+# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -165,8 +165,8 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                          'identifier_candidates': True,
                          'max_keys': 5,
                          'max_passes': 1},
-          'referential': {'configured': False,
-                          'declared': False,
+          'referential': {'configured': True,
+                          'declared': True,
                           'mode': 'full_scope',
                           'max_relationships': 5,
                           'max_sample_rows': 10000},
@@ -216,7 +216,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.2.0',
- 'generation_id': 'sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec'}
+ 'generation_id': 'sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -4901,7 +4901,7 @@ def _dp_json_metric(
 
 # DBTITLE 1,Runtime: tabledossier.keys
 # TableDossier 0.2.0 embedded runtime: module tabledossier.keys
-# Source: src/tabledossier/keys.py (sha256:cd5b7197cf6bbd598747fa04983b63db747f81ffc748b58b36589fe9f06cbbf2)
+# Source: src/tabledossier/keys.py (sha256:be6a343d1c43ac3e17a049917275e7f42d49b46f84eb108d2eca908e4f019e96)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5011,7 +5011,8 @@ def requested_keys(
     return out
 
 
-def _ky_eligibility(nodes: Sequence[Mapping[str, Any] | None], requested: Sequence[str]) -> str:
+def key_columns_problem(nodes: Sequence[Mapping[str, Any] | None], requested: Sequence[str]) -> str:
+    """Return why these schema nodes cannot form a key ('' when they can)."""
     for node, text in zip(nodes, requested, strict=False):
         if node is None:
             return f"column {text!r} is not in the documented schema tree"
@@ -5050,7 +5051,7 @@ def plan_uniqueness(
             )
             continue
         nodes = [by_id.get(field_id(list(path))) for path in segments]
-        reason = _ky_eligibility(nodes, item["requested"])
+        reason = key_columns_problem(nodes, item["requested"])
         columns = [
             node["display_path"] if node is not None else text
             for node, text in zip(nodes, item["requested"], strict=False)
@@ -7009,7 +7010,7 @@ def validate_annotations(document: Any, schema: Mapping[str, Any]) -> list[str]:
 
 # DBTITLE 1,Runtime: tabledossier.render
 # TableDossier 0.2.0 embedded runtime: module tabledossier.render
-# Source: src/tabledossier/render.py (sha256:729836f354961f60bf60e5d91279526aefbb38224228926fd1c611202176b516)
+# Source: src/tabledossier/render.py (sha256:781d5495ed72c7af99c6e9d88aa4e91b9c5a295f7dfdffd789c15a36e5c3169c)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -8047,8 +8048,7 @@ def render_quality_report(
         "- **Validity** is only evaluated through configured checks. Formats observed on samples "
         "are hypotheses.",
         _r_uniqueness_dimension(profile),
-        "- **Referential integrity** is not verified: declared or provided relationships were not "
-        "validated.",
+        _r_referential_dimension(profile),
         "- **Timeliness** needs a time column and an agreed SLA; `after_reference_count` is "
         "descriptive only.",
         "- **Business accuracy** cannot be inferred from distributions.",
@@ -8059,7 +8059,8 @@ def render_quality_report(
     if deep_level:
         out += _r_deep_coverage(deep_tables)
         out += _r_uniqueness(profile)
-    out += ["## 8. Limitations" if deep_level else "## 6. Limitations", ""]
+        out += _r_referential(profile)
+    out += ["## 9. Limitations" if deep_level else "## 6. Limitations", ""]
     for table in profile["tables"]:
         lines = []
         consistency = table.get("consistency") or {}
@@ -8089,6 +8090,134 @@ def render_quality_report(
         out += [f"- {md_text(line)}" for line in lines] or ["- none recorded"]
         out.append("")
     return "\n".join(out)
+
+
+def _r_checked(profile: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Relationships whose validation detail comes from a check of the data."""
+    return [
+        rel
+        for rel in profile.get("relationships", [])
+        if (rel.get("validation_detail") or {}).get("operation_id")
+    ]
+
+
+def _r_referential_dimension(profile: Mapping[str, Any]) -> str:
+    checked = _r_checked(profile)
+    if checked:
+        return (
+            f"- **Referential integrity** is established only for the {len(checked)} "
+            "relationship(s) checked in section 8; other relationships were not validated."
+        )
+    return (
+        "- **Referential integrity** is not verified: declared or provided relationships were not "
+        "validated."
+    )
+
+
+def _r_validation_text(rel: Mapping[str, Any]) -> str:
+    """Short validation status with its main evidence (orphans) or reason."""
+    detail = rel.get("validation_detail") or {}
+    status = rel.get("validation", "not_validated")
+    orphans = find_metric(detail.get("metrics", []), "orphan_rows")
+    ratio_metric = find_metric(detail.get("metrics", []), "orphan_ratio")
+    if status == "violated" and orphans:
+        text = f"**violated**: {format_value(orphans)} orphan row(s)"
+        if ratio_metric and ratio_metric.get("status") == "measured":
+            text += f" ({format_value(ratio_metric)})"
+        return text
+    if status == "validated":
+        complete = find_metric(detail.get("metrics", []), "source_rows_with_complete_key")
+        return f"validated: 0 orphans among {format_value(complete or {})} row(s)"
+    reason = detail.get("reason")
+    return "not validated" + (f" ({md_text(reason)})" if reason else "")
+
+
+def _r_referential(profile: Mapping[str, Any]) -> list[str]:
+    """Render section 8 of the DQR: referential integrity of checked relationships."""
+    out = ["## 8. Referential integrity", ""]
+    checked = _r_checked(profile)
+    if not checked:
+        return [
+            *out,
+            "Not established: no relationship was checked against the data in this run "
+            "(`deep.referential`). See `relationships.md` for the reason of each relationship.",
+            "",
+        ]
+    out += [
+        "Orphans are source rows with a complete key that no target row has. The source keeps its "
+        "analysed scope; the target is read in full at its recorded version. Only counts are "
+        "recorded: orphan values are never collected.",
+        "",
+    ]
+    rows = []
+    for rel in checked:
+        detail = rel["validation_detail"]
+        metrics = {m["name"]: m for m in detail["metrics"]}
+
+        def cell(name: str, metrics: Mapping[str, Any] = metrics) -> str:
+            return format_value(metrics[name]) if name in metrics else "—"
+
+        unique = detail.get("target_key_unique")
+        rows.append(
+            [
+                md_code(rel["name"]),
+                f"{md_text(rel['from']['table'])} ({md_text(', '.join(rel['from']['columns']))})",
+                f"{md_text(rel['to']['table'])} ({md_text(', '.join(rel['to']['columns']))})",
+                md_text(detail["mode"].replace("_", " ")),
+                _r_status(rel["validation"]),
+                cell("source_rows_with_complete_key"),
+                cell("source_rows_with_null_key"),
+                cell("orphan_rows"),
+                cell("orphan_ratio"),
+                "unknown" if unique is None else ("yes" if unique else "**no**"),
+                _r_versions(detail),
+            ]
+        )
+    out += [
+        _r_table(
+            [
+                "Relationship",
+                "From",
+                "To",
+                "Mode",
+                "Validation",
+                "Source rows with a complete key",
+                "Source rows with NULL in the key",
+                "Orphan rows",
+                "Orphan ratio",
+                "Target key unique",
+                "Versions read",
+            ],
+            rows,
+        ),
+        "",
+    ]
+    notes = sorted(
+        {note for rel in checked for note in rel["validation_detail"]["limitations"]}
+        | {
+            f"{rel['name']}: {rel['validation_detail']['reason']}"
+            for rel in checked
+            if rel["validation_detail"].get("reason")
+        }
+    )
+    out += [f"- {md_text(note)}" for note in notes]
+    if notes:
+        out.append("")
+    return out
+
+
+def _r_status(status: str) -> str:
+    return f"**{status}**" if status == "violated" else status.replace("_", " ")
+
+
+def _r_versions(detail: Mapping[str, Any]) -> str:
+    parts = []
+    for side in ("from", "to"):
+        info = detail.get(side) or {}
+        version = info.get("delta_version")
+        label = f"v{version}" if version is not None else str(info.get("consistency_mode"))
+        parts.append(f"{side} {label}")
+    return md_text(", ".join(parts))
 
 
 def _r_uniqueness_dimension(profile: Mapping[str, Any]) -> str:
@@ -8320,11 +8449,17 @@ def render_relationships(
 ) -> str:
     """Render ``relationships.md``: known relationships, declared keys and hypotheses."""
     relationships = all_relationships(profile, annotations)
+    checked = _r_checked(profile)
     out = [provenance_header(profile, "Relationships")]
     out += [
         "Relationships come only from declared constraints or from people (configuration or "
-        "annotations). TableDossier never infers a relationship from column names, and it did not "
-        "validate any relationship against the data.",
+        "annotations). TableDossier never infers a relationship from column names"
+        + (
+            f"; {len(checked)} relationship(s) were checked against the data (see Referential "
+            "validation)."
+            if checked
+            else ", and it did not validate any relationship against the data."
+        ),
         "",
         "## Known relationships",
         "",
@@ -8352,7 +8487,7 @@ def render_relationships(
                         f"({md_text(', '.join(rel['to']['columns']))})",
                         _r_cardinality(rel),
                         md_text(rel["enforcement"]),
-                        md_text(rel["validation"]),
+                        _r_validation_text(rel),
                         md_text(rel["scope"]),
                     ]
                     for rel in relationships
@@ -8392,7 +8527,17 @@ def render_relationships(
             "to "
             "the run and none were provided in configuration or annotations."
         )
-    out += ["", "## Declared keys and constraints", ""]
+    out += ["", "## Referential validation", ""]
+    if checked:
+        out += _r_referential(profile)[2:]
+    else:
+        out += [
+            "No relationship was checked against the data in this run. Referential validation "
+            "runs at the deep level for the relationships selected by `deep.referential`; the "
+            "Validation column above gives the reason for each relationship.",
+            "",
+        ]
+    out += ["## Declared keys and constraints", ""]
     constraint_rows = []
     for table in profile["tables"]:
         for constraint in table.get("constraints", []):
@@ -8424,8 +8569,7 @@ def render_relationships(
         "## Hypotheses",
         "",
         "No data-driven relationship inference was performed. Candidate identifiers in the data "
-        "dictionary are not keys; exact uniqueness and referential validation are planned for a "
-        "later release (deep level, part II).",
+        "dictionary are not keys unless an exact uniqueness check says so (quality report).",
         "",
     ]
     return "\n".join(out)
@@ -9532,7 +9676,7 @@ def build_profile(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:5186d724a51b5b4a966cfd7db4b6d811f5419b20c69b91949cf031c85ab34e86)
+# Source: src/tabledossier/runtime/spark.py (sha256:8fb684b3a128167d5a281747b278fd4cd8b0491d2f5f39875e5613bd79ce3eba)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -10214,6 +10358,58 @@ def run_uniqueness_pass(
             key: (None if value is None else int(value)) for key, value in values.items()
         }
     return out
+
+
+def run_inclusion_check(
+    source: Any,
+    source_columns: Sequence[Any],
+    target: Any,
+    target_columns: Sequence[Any],
+    *,
+    sample: Mapping[str, Any] | None = None,
+) -> dict[str, int]:
+    """Count source rows whose complete key is absent from the target, in one Spark action.
+
+    The target is grouped by its key (distinct values and their multiplicity),
+    the source is left-joined to it and both sides are aggregated; the two
+    single-row aggregates are cross-joined and collected once. With ``sample``
+    the source is limited to a bounded prefix (or random) sample first. Only
+    counts come back to the driver, never key values.
+    """
+    keys = [column.alias(f"k{index}") for index, column in enumerate(source_columns)]
+    rows = source.select(*keys, _sp_any_null(list(source_columns)).alias("z"))
+    if sample is not None:
+        if sample["method"] == "random":
+            rows = rows.sample(
+                withReplacement=False, fraction=float(sample["fraction"]), seed=sample["seed"]
+            )
+        rows = rows.limit(sample["max_rows"])
+    names = [f"t{index}" for index in range(len(target_columns))]
+    aliased = [column.alias(name) for column, name in zip(target_columns, names, strict=True)]
+    groups = (
+        target.select(*aliased, _sp_any_null(list(target_columns)).alias("tz"))
+        .groupBy(*names, "tz")
+        .agg(F.count(F.lit(1)).alias("tn"))
+    )
+    distinct = groups.where(~F.col("tz")).select(*names, "tn")
+    condition = None
+    for index, name in enumerate(names):
+        equal = F.col(f"k{index}") == F.col(name)
+        condition = equal if condition is None else condition & equal
+    joined = rows.join(distinct, on=condition, how="left")
+    source_stats = joined.agg(
+        F.count(F.lit(1)).alias("rows"),
+        F.count(F.when(F.col("z"), 1)).alias("null_rows"),
+        F.count(F.when(~F.col("z") & F.col("tn").isNull(), 1)).alias("orphans"),
+    )
+    target_stats = groups.agg(
+        F.sum("tn").alias("t_rows"),
+        F.sum(F.when(F.col("tz"), F.col("tn"))).alias("t_null_rows"),
+        F.count(F.when(~F.col("tz"), 1)).alias("t_distinct"),
+        F.count(F.when(~F.col("tz") & (F.col("tn") > F.lit(1)), 1)).alias("t_dup_groups"),
+    )
+    row = source_stats.crossJoin(target_stats).collect()[0]
+    return {key: (0 if value is None else int(value)) for key, value in row.asDict().items()}
 
 
 # --------------------------------------------------------------------------- metadata
@@ -11808,11 +12004,231 @@ def _sp_finish_deep(
         "notes": notes,
     }
 
+
+# --------------------------------------------------------------------------- relationships
+
+
+def _sp_table_frame(spark: Any, table: Mapping[str, Any], *, filtered: bool) -> Any:
+    """Re-read a profiled table at the Delta version recorded in its profile."""
+    quoted = table["identifier"]["quoted"]
+    consistency = table.get("consistency") or {}
+    version = consistency.get("delta_version")
+    if consistency.get("mode") == "pinned_delta_version" and version is not None:
+        frame = spark.sql(f"SELECT * FROM {quoted} VERSION AS OF {int(version)}")
+    else:
+        frame = spark.table(quoted)
+    filters = table["scope"]["filters"]
+    return frame.filter(filter_condition(filters)) if filtered and filters else frame
+
+
+def _sp_side(table: Mapping[str, Any], scope: str) -> dict[str, Any]:
+    consistency = table.get("consistency") or {}
+    return {
+        "table": table["table_key"],
+        "scope": scope,
+        "consistency_mode": consistency.get("mode", "unpinned"),
+        "delta_version": consistency.get("delta_version"),
+    }
+
+
+def _sp_full_scope(table: Mapping[str, Any]) -> str:
+    consistency = table.get("consistency") or {}
+    return "full_snapshot" if consistency.get("mode") == "pinned_delta_version" else "full_table"
+
+
+def _sp_run_tables(spark: Any, tables: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Index profiled tables by their name as given and, when known, by their full name."""
+    index: dict[str, Any] = {}
+    for table in tables:
+        parts = table["identifier"]["parts"]
+        index.setdefault(table_lookup_key(parts), table)
+        full = _sp_full_name(spark, list(parts))
+        if full is not None:
+            index.setdefault(table_lookup_key(full), table)
+    return index
+
+
+def _sp_find_table(index: Mapping[str, Any], text: str) -> Any:
+    try:
+        return index.get(table_lookup_key(parse_table_identifier(text)))
+    except IdentifierError:
+        return None
+
+
+def _sp_end_nodes(
+    relationship: Mapping[str, Any], end: str, table: Mapping[str, Any]
+) -> tuple[list[Any], str]:
+    by_id = {
+        node["field_id"]: node for node in iter_nodes((table["schema"] or {}).get("fields", []))
+    }
+    try:
+        paths = end_segments(relationship, end)
+    except IdentifierError as exc:
+        return [], f"{end} columns: {exc}"
+    nodes = [by_id.get(field_id(path)) for path in paths]
+    problem = key_columns_problem(nodes, [str(c) for c in relationship[end]["columns"]])
+    return nodes, (f"{end} key: {problem}" if problem else "")
+
+
+def _sp_referential_problem(
+    relationship: Mapping[str, Any], index: Mapping[str, Any], config: Mapping[str, Any]
+) -> tuple[str, Any, Any, list[Any], list[Any], list[dict[str, Any]]]:
+    """Return ``(reason, source, target, source nodes, target nodes, compatibility)``."""
+    source = _sp_find_table(index, relationship["from"]["table"])
+    target = _sp_find_table(index, relationship["to"]["table"])
+    empty: list[Any] = []
+    if source is None:
+        return "the source table was not profiled in this run", None, None, empty, empty, []
+    if target is None:
+        return (
+            "the target table was not profiled in this run (tables outside the run are never read)",
+            source,
+            None,
+            empty,
+            empty,
+            [],
+        )
+    for side, table in (("source", source), ("target", target)):
+        if table["status"] == "failed" or table["schema"] is None:
+            return f"the {side} table could not be profiled", source, target, empty, empty, []
+    from_nodes, problem = _sp_end_nodes(relationship, "from", source)
+    to_nodes, other = _sp_end_nodes(relationship, "to", target)
+    if problem or other:
+        return problem or other, source, target, empty, empty, []
+    compatibility = type_compatibility(from_nodes, to_nodes)
+    incompatible = [item for item in compatibility if not item["compatible"]]
+    if incompatible:
+        pairs = "; ".join(
+            f"{item['from_column']} ({item['from_type']}) vs {item['to_column']} "
+            f"({item['to_type']})"
+            for item in incompatible
+        )
+        return f"incompatible column types: {pairs}", source, target, [], [], compatibility
+    settings = config["deep"]["referential"]
+    if settings["mode"] == "sample" and config["sampling"]["method"] == "none":
+        return (
+            "sample mode needs a sampling method (sampling.method = none)",
+            source,
+            target,
+            [],
+            [],
+            compatibility,
+        )
+    return "", source, target, from_nodes, to_nodes, compatibility
+
+
+def validate_relationships(
+    spark: Any,
+    tables: Sequence[dict[str, Any]],
+    config: Mapping[str, Any],
+    *,
+    log: Callable[[str], None] = print,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """Validate the known relationships requested by ``deep.referential``.
+
+    Returns ``(relationships, referential_validation)``. Each check is one
+    Spark action, recorded as a ``referential_check`` operation of the source
+    table and bounded by ``max_relationships`` per run. Both tables are read at
+    the Delta versions recorded when they were profiled; the source keeps its
+    analysed scope, the target is read in full.
+    """
+    relationships = known_relationships(tables, config)
+    if config["analysis_level"] != "deep":
+        return relationships, None
+    settings = config["deep"]["referential"]
+    sampling = config["sampling"]
+    index = _sp_run_tables(spark, tables)
+    planned = 0
+    limited: list[dict[str, str]] = []
+    for relationship in relationships:
+        reason = referential_requested(relationship, config)
+        if reason:
+            relationship["validation_detail"] = not_validated_detail(reason)
+            continue
+        reason, source, target, from_nodes, to_nodes, compatibility = _sp_referential_problem(
+            relationship, index, config
+        )
+        if not reason and planned >= settings["max_relationships"]:
+            reason = f"beyond deep.referential.max_relationships = {settings['max_relationships']}"
+            limited.append(
+                {"item": relationship["name"], "reason": "referential_budget", "detail": reason}
+            )
+        if reason:
+            relationship["validation_detail"] = not_validated_detail(
+                reason, type_compatibility=compatibility
+            )
+            continue
+        planned += 1
+        op_id = f"op_referential_{planned}"
+        sample = (
+            {
+                "method": sampling["method"],
+                "max_rows": settings["max_sample_rows"],
+                "fraction": sampling.get("random_fraction"),
+                "seed": sampling.get("seed"),
+            }
+            if settings["mode"] == "sample"
+            else None
+        )
+        source["operations"]["planned"].append(
+            operation(
+                op_id,
+                "referential_check",
+                f"orphan count of {relationship['name']} against {target['table_key']} (one "
+                "anti join; the target is read in full; only counts are collected)",
+                reads_user_data=True,
+                relationship_id=relationship["relationship_id"],
+                target_table=target["table_key"],
+                mode=settings["mode"],
+                max_sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+        start = time.perf_counter()
+        from_info = _sp_side(source, "sample" if sample else source["scope"]["scope_label"])
+        to_info = _sp_side(target, _sp_full_scope(target))
+        try:
+            raw = run_inclusion_check(
+                _sp_table_frame(spark, source, filtered=True),
+                [column_for(node["path"]) for node in from_nodes],
+                _sp_table_frame(spark, target, filtered=False),
+                [column_for(node["path"]) for node in to_nodes],
+                sample=sample,
+            )
+        except Exception as exc:  # noqa: BLE001 - one failed check never stops the run
+            record = error_record(exc, "aggregate")
+            cause = record["condition"] or record["error_class"]
+            source["operations"]["observed"].append(
+                _sp_observed(op_id, "failed", start, detail=cause)
+            )
+            relationship["validation_detail"] = not_validated_detail(
+                f"the check could not read the data ({cause})",
+                mode=settings["mode"],
+                **{"from": from_info, "to": to_info},
+                type_compatibility=compatibility,
+            )
+            continue
+        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        detail = validation_detail(
+            raw,
+            mode=settings["mode"],
+            sample_rows=settings["max_sample_rows"] if sample else None,
+            from_info=from_info,
+            to_info=to_info,
+            compatibility=compatibility,
+            operation_id=op_id,
+        )
+        relationship["validation"] = detail["status"]
+        relationship["validation_detail"] = detail
+        log(f"[tabledossier] relationship {relationship['name']}: {detail['status']}")
+    return relationships, referential_summary(
+        relationships, config, planned=planned, limited=limited
+    )
+
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:9e8db705a04ad8b148a5f17309799fd5dfcb029d8ecd7924c8baf8128ded0c03)
+# Source: src/tabledossier/runtime/databricks.py (sha256:5d8624e4766f172118d41a2b50043fcf96442c28de451e28026657805c3f4c9a)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -11985,6 +12401,28 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 if sources
                 else "      exact uniqueness: no key requested (deep.uniqueness)"
             )
+            referential = deep["referential"]
+            origins = [
+                name
+                for name, enabled in (
+                    ("configured", referential["configured"]),
+                    ("declared", referential["declared"]),
+                )
+                if enabled
+            ]
+            lines.append(
+                f"  - referential validation of {' and '.join(origins)} relationships between "
+                f"tables of this run: up to {referential['max_relationships']} check(s) per run, "
+                "one anti join each, "
+                + (
+                    "over the full source scope"
+                    if referential["mode"] == "full_scope"
+                    else f"over a sample of at most {referential['max_sample_rows']} source rows"
+                )
+                + " (both tables at their recorded versions; counts only)"
+                if origins
+                else "  - referential validation: not requested (deep.referential)"
+            )
     else:
         lines.append("  - no table rows are read at the metadata level")
     capabilities = ctx["capabilities"]
@@ -12025,6 +12463,7 @@ def execute_run(
             finalize_table(table, config)
             log(f"[tabledossier] {name}: failed unexpectedly ({type(exc).__name__})")
         tables.append(table)
+    relationships, referential = validate_relationships(spark, tables, config, log=log)
     finished = utc_now()
     return build_profile(
         run_id=ctx["run_id"],
@@ -12038,6 +12477,8 @@ def execute_run(
         generation=ctx["generation"],
         capabilities=ctx["capabilities"],
         tables=tables,
+        relationships=relationships,
+        referential_validation=referential,
     )
 
 
