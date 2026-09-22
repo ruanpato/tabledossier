@@ -23,7 +23,12 @@ from tabledossier.errors import error_record
 from tabledossier.jsonutil import format_utc, pretty_json, utc_now
 from tabledossier.package import build_documents, run_manifest, running_manifest, write_files
 from tabledossier.paths import parse_table_identifier, quote_table_identifier, table_id, table_key
-from tabledossier.runtime.spark import detect_capabilities, profile_table, spark_environment
+from tabledossier.runtime.spark import (
+    detect_capabilities,
+    profile_table,
+    spark_environment,
+    validate_relationships,
+)
 
 
 class DestinationError(RuntimeError):
@@ -173,6 +178,28 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 if sources
                 else "      exact uniqueness: no key requested (deep.uniqueness)"
             )
+            referential = deep["referential"]
+            origins = [
+                name
+                for name, enabled in (
+                    ("configured", referential["configured"]),
+                    ("declared", referential["declared"]),
+                )
+                if enabled
+            ]
+            lines.append(
+                f"  - referential validation of {' and '.join(origins)} relationships between "
+                f"tables of this run: up to {referential['max_relationships']} check(s) per run, "
+                "one anti join each, "
+                + (
+                    "over the full source scope"
+                    if referential["mode"] == "full_scope"
+                    else f"over a sample of at most {referential['max_sample_rows']} source rows"
+                )
+                + " (both tables at their recorded versions; counts only)"
+                if origins
+                else "  - referential validation: not requested (deep.referential)"
+            )
     else:
         lines.append("  - no table rows are read at the metadata level")
     capabilities = ctx["capabilities"]
@@ -213,6 +240,7 @@ def execute_run(
             finalize_table(table, config)
             log(f"[tabledossier] {name}: failed unexpectedly ({type(exc).__name__})")
         tables.append(table)
+    relationships, referential = validate_relationships(spark, tables, config, log=log)
     finished = utc_now()
     return build_profile(
         run_id=ctx["run_id"],
@@ -226,6 +254,8 @@ def execute_run(
         generation=ctx["generation"],
         capabilities=ctx["capabilities"],
         tables=tables,
+        relationships=relationships,
+        referential_validation=referential,
     )
 
 
