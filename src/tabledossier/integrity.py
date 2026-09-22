@@ -22,7 +22,7 @@ Only counts leave the engine: orphan or matching values are never collected.
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from tabledossier.metrics import find_metric, measured, metric_value, numeric_value, ratio
+from tabledossier.metrics import measured, metric_value, numeric_value, ratio
 from tabledossier.paths import field_segment, parse_display_path, table_lookup_key
 
 VALIDATION_MODES = ("full_scope", "sample")
@@ -471,6 +471,46 @@ def hypothesis_evidence(
     return metrics, value
 
 
+HYPOTHESIS_LIMITATIONS = (
+    "Inclusion shows that source values occur among the target key values; it does not prove "
+    "that the columns mean the same thing.",
+    "No cardinality is asserted and the hypothesis is never drawn in the ER diagram; declare the "
+    "relationship in the configuration once a person confirms it.",
+)
+
+
+def hypothesis_item(
+    number: int,
+    pair: Mapping[str, Any],
+    *,
+    source_table: Mapping[str, Any],
+    target_table: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    operation_id: str,
+    sample_rows: int | None,
+) -> dict[str, Any]:
+    """Return one hypothesis record (always ``status: hypothesis``, never a cardinality)."""
+    limitations = list(HYPOTHESIS_LIMITATIONS)
+    if sample_rows is not None:
+        limitations.append(
+            f"Inclusion was measured on at most {sample_rows} source rows (a bounded sample); it "
+            "is not extrapolated to the table."
+        )
+    return {
+        "hypothesis_id": f"hyp_{number}",
+        "status": "hypothesis",
+        "from": {
+            "table": source_table["table_key"],
+            "columns": [pair["from_node"]["display_path"]],
+        },
+        "to": {"table": target_table["table_key"], "columns": [pair["to_node"]["display_path"]]},
+        "cardinality": None,
+        "evidence": dict(evidence),
+        "operation_id": operation_id,
+        "limitations": limitations,
+    }
+
+
 def hypotheses_record(
     config: Mapping[str, Any],
     plan: Mapping[str, Any] | None,
@@ -506,34 +546,9 @@ def hypotheses_record(
             "(left join against the distinct target keys)."
         ),
         "limitations": [
-            "A hypothesis is an observation about data, not a relationship: it has no cardinality, "
-            "is never drawn in the ER diagram and must be confirmed by a person.",
-            "Inclusion measured on a sample describes that sample only.",
-            "Only single-column keys are considered; composite relationships are not hypothesized.",
+            "Only single-column keys measured exactly unique are targets; composite relationships "
+            "are not hypothesized.",
+            "Pairs beyond max_pairs and pairs whose measured ranges are disjoint are not measured: "
+            "a missing hypothesis is not evidence that no relationship exists.",
         ],
     }
-
-
-def relationship_identity(
-    relationship: Mapping[str, Any],
-    resolve: Any,
-) -> tuple[str, tuple[str, ...], str, tuple[str, ...]] | None:
-    """``(from table, from field ids, to table, to field ids)`` of a known relationship.
-
-    ``resolve(end)`` returns ``(table lookup key, field ids)`` or None.
-    """
-    left = resolve("from")
-    right = resolve("to")
-    if left is None or right is None:
-        return None
-    return (left[0], tuple(left[1]), right[0], tuple(right[1]))
-
-
-def key_metric(detail: Mapping[str, Any], name: str) -> Any:
-    """Value of a measured metric of a validation detail or hypothesis evidence."""
-    return metric_value(detail.get("metrics", []), name)
-
-
-def key_metric_record(detail: Mapping[str, Any], name: str) -> Mapping[str, Any] | None:
-    """Metric record of a validation detail or hypothesis evidence."""
-    return find_metric(detail.get("metrics", []), name)

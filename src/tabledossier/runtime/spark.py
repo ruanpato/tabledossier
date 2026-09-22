@@ -17,6 +17,7 @@ import os
 import platform
 import re
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -44,7 +45,11 @@ from tabledossier.deep import (
 from tabledossier.errors import error_record, sanitize_message
 from tabledossier.integrity import (
     end_segments,
+    hypotheses_record,
+    hypothesis_evidence,
+    hypothesis_item,
     not_validated_detail,
+    plan_hypotheses,
     referential_requested,
     referential_summary,
     type_compatibility,
@@ -2601,4 +2606,163 @@ def validate_relationships(
         log(f"[tabledossier] relationship {relationship['name']}: {detail['status']}")
     return relationships, referential_summary(
         relationships, config, planned=planned, limited=limited
+    )
+
+
+def evaluate_hypotheses(
+    spark: Any,
+    tables: Sequence[dict[str, Any]],
+    relationships: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    *,
+    log: Callable[[str], None] = print,
+) -> dict[str, Any] | None:
+    """Measure data-driven relationship hypotheses (``deep.relationship_hypotheses``).
+
+    Candidate pairs come from ``plan_hypotheses`` (types, measured ranges and
+    exact unique keys, never names); each evaluated pair is one Spark action
+    recorded as a ``relationship_hypothesis_check`` of the source table. Pairs
+    that reach ``min_inclusion_ratio`` against a target key that is unique over
+    its whole snapshot are listed as hypotheses; the others are counted by
+    reason. Known relationships are never repeated.
+    """
+    if config["analysis_level"] != "deep":
+        return None
+    settings = config["deep"]["relationship_hypotheses"]
+    sampling = config["sampling"]
+    if not settings["enabled"]:
+        return hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="disabled by configuration (deep.relationship_hypotheses.enabled = false)",
+        )
+    sample_mode = settings["inclusion_scope"] == "sample"
+    if sample_mode and sampling["method"] == "none":
+        return hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="sample inclusion needs a sampling method (sampling.method = none)",
+        )
+    usable = [table for table in tables if table["status"] != "failed" and table["schema"]]
+    index = _sp_run_tables(spark, usable)
+    known: set[tuple[str, tuple[str, ...], str, tuple[str, ...]]] = set()
+    for relationship in relationships:
+        source = _sp_find_table(index, relationship["from"]["table"])
+        target = _sp_find_table(index, relationship["to"]["table"])
+        if source is None or target is None:
+            continue
+        from_nodes, problem = _sp_end_nodes(relationship, "from", source)
+        to_nodes, other = _sp_end_nodes(relationship, "to", target)
+        if not problem and not other:
+            known.add(
+                (
+                    table_lookup_key(source["identifier"]["parts"]),
+                    tuple(node["field_id"] for node in from_nodes),
+                    table_lookup_key(target["identifier"]["parts"]),
+                    tuple(node["field_id"] for node in to_nodes),
+                )
+            )
+    plan = plan_hypotheses(usable, known, config)
+    reason = (
+        None
+        if plan["targets"]
+        else "no single-column key was measured exactly unique in this run (deep.uniqueness)"
+    )
+    sample = (
+        {
+            "method": sampling["method"],
+            "max_rows": settings["max_sample_rows"],
+            "fraction": sampling.get("random_fraction"),
+            "seed": sampling.get("seed"),
+        }
+        if sample_mode
+        else None
+    )
+    hypotheses: list[dict[str, Any]] = []
+    rejected: Counter[str] = Counter()
+    evaluated = 0
+    for number, pair in enumerate(plan["pairs"], start=1):
+        source = usable[pair["from_table_index"]]
+        target = usable[pair["to_table_index"]]
+        op_id = f"op_hypothesis_{number}"
+        source["operations"]["planned"].append(
+            operation(
+                op_id,
+                "relationship_hypothesis_check",
+                f"inclusion of {pair['from_node']['display_path']} in the unique key "
+                f"{target['table_key']}.{pair['to_node']['display_path']} (one left join; only "
+                "counts are collected)",
+                reads_user_data=True,
+                target_table=target["table_key"],
+                inclusion_scope=settings["inclusion_scope"],
+                max_sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+        start = time.perf_counter()
+        try:
+            raw = run_inclusion_check(
+                _sp_table_frame(spark, source, filtered=True),
+                [column_for(pair["from_node"]["path"])],
+                _sp_table_frame(spark, target, filtered=False),
+                [column_for(pair["to_node"]["path"])],
+                sample=sample,
+            )
+        except Exception as exc:  # noqa: BLE001 - a failed pair never stops the run
+            record = error_record(exc, "aggregate")
+            cause = record["condition"] or record["error_class"]
+            source["operations"]["observed"].append(
+                _sp_observed(op_id, "failed", start, detail=cause)
+            )
+            rejected["check_failed"] += 1
+            continue
+        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        evaluated += 1
+        scope = "sample" if sample else source["scope"]["scope_label"]
+        metrics, inclusion = hypothesis_evidence(
+            raw, scope=scope, target_scope=_sp_full_scope(target)
+        )
+        if inclusion is None:
+            rejected["no_source_values"] += 1
+            continue
+        if raw.get("t_dup_groups"):
+            rejected["target_not_unique"] += 1
+            continue
+        if inclusion < settings["min_inclusion_ratio"]:
+            rejected["below_threshold"] += 1
+            continue
+        hypotheses.append(
+            hypothesis_item(
+                len(hypotheses) + 1,
+                pair,
+                source_table=source,
+                target_table=target,
+                evidence={
+                    "inclusion_scope": settings["inclusion_scope"],
+                    "from": _sp_side(source, scope),
+                    "to": _sp_side(target, _sp_full_scope(target)),
+                    "metrics": metrics,
+                    "target_key_id": pair["target_key_id"],
+                    "target_key_unique": True,
+                    "type_compatibility": type_compatibility(
+                        [pair["from_node"]], [pair["to_node"]]
+                    ),
+                    "range_relation": pair["range_relation"],
+                    "range_basis": pair["range_basis"],
+                },
+                operation_id=op_id,
+                sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+    log(
+        f"[tabledossier] relationship hypotheses: {evaluated} pair(s) evaluated, "
+        f"{len(hypotheses)} listed"
+    )
+    return hypotheses_record(
+        config, plan, hypotheses, evaluated=evaluated, rejected=dict(rejected), reason=reason
     )
