@@ -99,6 +99,6 @@ Known limits of release 0.4.0, by design or not yet addressed.
 ## Packaging
 
 - The package is not published; install from a checkout, a wheelhouse or the wheel attached to a GitHub release.
-- The release workflow creates a draft GitHub release from a tag; its publish job has not run yet (only its dry run
-  on pull requests), and nothing is published to PyPI.
+- The release workflow creates a draft GitHub release from a tag (first used for 0.4.0); a person publishes it, and
+  nothing is published to PyPI.
 - Only the Databricks source format (`.py`) is generated; `.ipynb` is planned.
