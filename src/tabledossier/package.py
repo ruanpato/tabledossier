@@ -25,6 +25,8 @@ DOCUMENT_FILES = (
     "suggested_rules.json",
 )
 PACKAGE_FILES = ("manifest.json", "profile.json", *DOCUMENT_FILES)
+JOB_SUMMARY_KIND = "tabledossier.job_summary"
+JOB_SUMMARY_VERSION = "1.0"
 
 
 class OutputExistsError(FileExistsError):
@@ -81,6 +83,44 @@ def run_manifest(
             "Documents can be regenerated offline with: tabledossier render --input profile.json "
             "--output <dir>",
         ],
+    }
+
+
+def job_summary(
+    profile: Mapping[str, Any], run_dir: str, validation_errors: list[str] | None
+) -> dict[str, Any]:
+    """Return the job summary of a run (``tabledossier schema job_summary``).
+
+    Counts only, with a size that does not grow with the number of tables: the
+    notebook returns it with ``dbutils.notebook.exit`` (``jobs.exit_summary``)
+    to the Job or notebook that ran it. ``run_dir`` holds the full result.
+    """
+    run = profile["run"]
+    summary = profile["summary"]
+    relationships = summary.get("relationships") or {}
+    return {
+        "kind": JOB_SUMMARY_KIND,
+        "summary_version": JOB_SUMMARY_VERSION,
+        "tool_version": __version__,
+        "run_id": run["run_id"],
+        "status": run["status"],
+        "analysis_level": run["analysis_level"],
+        "run_dir": run_dir,
+        "profile_valid": not validation_errors,
+        "tables": {
+            "total": summary["tables_total"],
+            "succeeded": summary["tables_succeeded"],
+            "partial": summary["tables_partial"],
+            "failed": summary["tables_failed"],
+        },
+        "checks": {
+            name: summary["checks"][name] for name in ("pass", "fail", "not_evaluated", "error")
+        },
+        "relationships": {
+            name: int(relationships.get(name, 0))
+            for name in ("validated", "violated", "not_validated")
+        },
+        "relationship_hypotheses": int(summary.get("relationship_hypotheses") or 0),
     }
 
 

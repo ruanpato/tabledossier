@@ -82,6 +82,7 @@ from tabledossier.planning import (
     scope_label,
     select_profile_fields,
 )
+from tabledossier.relationships import key_constraints_from_rows, referenced_constraint_keys
 from tabledossier.semantic import (
     candidate_roles,
     infer_format,
@@ -874,21 +875,26 @@ def _sp_full_name(spark: Any, parts: list[str]) -> list[str] | None:
         return None
 
 
-def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str, Any]], str | None]:
+def read_unity_constraints(
+    spark: Any, parts: list[str]
+) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """Read PRIMARY/FOREIGN KEY/UNIQUE constraints from Unity Catalog information_schema.
 
-    Returns ``(constraints, note)``; ``note`` explains when nothing could be read.
+    Returns ``(constraints, notes, skipped)``: ``notes`` explain foreign keys
+    whose references could not be resolved, ``skipped`` why nothing was read.
     """
     full = _sp_full_name(spark, parts)
     if full is None or full[0].casefold() in _SP_UNITY_EXCLUDED:
-        return [], "declared key constraints are read from Unity Catalog information_schema only"
+        return (
+            [],
+            [],
+            "declared key constraints are read from Unity Catalog information_schema only",
+        )
     catalog, schema, table = full
-    return (
-        query_key_constraints(
-            spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
-        ),
-        None,
+    constraints, notes = query_key_constraints(
+        spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
     )
+    return constraints, notes, None
 
 
 def query_key_constraints(
@@ -897,19 +903,22 @@ def query_key_constraints(
     schema: str,
     table: str,
     information_schema: Callable[[str], str],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Query key constraints of one table from ``information_schema``-shaped views.
 
     ``information_schema`` maps a catalog name to the quoted prefix of its
     ``information_schema`` (Unity Catalog: ``<catalog>.information_schema``).
-    Table and schema names are bound parameters, never interpolated.
+    Schema, table and constraint names are bound parameters, never
+    interpolated. The rows are assembled by :func:`key_constraints_from_rows`;
+    the referenced constraints of foreign keys are read from the
+    ``information_schema`` of their own catalog.
     """
     info = information_schema(catalog)
     query = (
-        "SELECT tc.constraint_name, tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
+        "SELECT tc.constraint_catalog, tc.constraint_schema, tc.constraint_name, "
+        "tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
         "kcu.position_in_unique_constraint, rc.unique_constraint_catalog, "
-        "rc.unique_constraint_schema, "
-        "rc.unique_constraint_name "
+        "rc.unique_constraint_schema, rc.unique_constraint_name "
         f"FROM {info}.table_constraints tc "
         f"JOIN {info}.key_column_usage kcu ON tc.constraint_catalog = kcu.constraint_catalog "
         "AND tc.constraint_schema = kcu.constraint_schema AND tc.constraint_name = "
@@ -919,74 +928,35 @@ def query_key_constraints(
         "AND tc.constraint_schema = rc.constraint_schema AND tc.constraint_name = "
         "rc.constraint_name "
         "WHERE lower(tc.table_schema) = lower(:schema_name) AND lower(tc.table_name) = "
-        "lower(:table_name) "
-        "ORDER BY tc.constraint_name, kcu.ordinal_position"
+        "lower(:table_name)"
     )
     rows = [
         row.asDict()
         for row in spark.sql(query, args={"schema_name": schema, "table_name": table}).collect()
     ]
-    grouped: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        entry = grouped.setdefault(
-            row["constraint_name"],
-            {
-                "type": str(row["constraint_type"]).upper(),
-                "columns": [],
-                "positions": [],
-                "ref": None,
-            },
-        )
-        entry["columns"].append(row["column_name"])
-        entry["positions"].append(row.get("position_in_unique_constraint"))
-        if row.get("unique_constraint_name"):
-            entry["ref"] = (
-                row["unique_constraint_catalog"],
-                row["unique_constraint_schema"],
-                row["unique_constraint_name"],
+    referenced: list[dict[str, Any]] = []
+    notes: list[str] = []
+    for ref_catalog, ref_schema, ref_name in referenced_constraint_keys(rows):
+        try:
+            referenced.extend(
+                row.asDict()
+                for row in spark.sql(
+                    "SELECT constraint_catalog, constraint_schema, constraint_name, "
+                    "table_catalog, table_schema, table_name, column_name, ordinal_position "
+                    f"FROM {information_schema(ref_catalog)}.key_column_usage "
+                    "WHERE lower(constraint_schema) = lower(:schema_name) "
+                    "AND lower(constraint_name) = lower(:constraint_name)",
+                    args={"schema_name": ref_schema, "constraint_name": ref_name},
+                ).collect()
             )
-    constraints = []
-    kinds = {"PRIMARY KEY": "primary_key", "FOREIGN KEY": "foreign_key", "UNIQUE": "unique"}
-    for name, entry in grouped.items():
-        kind = kinds.get(entry["type"])
-        if kind is None:
-            continue
-        referenced = None
-        if kind == "foreign_key" and entry["ref"]:
-            ref_catalog, ref_schema, ref_name = entry["ref"]
-            ref_rows = spark.sql(
-                "SELECT table_catalog, table_schema, table_name, column_name, ordinal_position "
-                f"FROM {information_schema(ref_catalog)}.key_column_usage "
-                "WHERE lower(constraint_schema) = lower(:schema_name) AND constraint_name = "
-                ":constraint_name "
-                "ORDER BY ordinal_position",
-                args={"schema_name": ref_schema, "constraint_name": ref_name},
-            ).collect()
-            if ref_rows:
-                by_position = {int(r["ordinal_position"]): r["column_name"] for r in ref_rows}
-                columns = [
-                    by_position.get(int(position) if position is not None else index + 1, "?")
-                    for index, position in enumerate(entry["positions"])
-                ]
-                first = ref_rows[0]
-                referenced = {
-                    "table": table_key(
-                        [first["table_catalog"], first["table_schema"], first["table_name"]]
-                    ),
-                    "columns": columns,
-                }
-        constraints.append(
-            {
-                "name": name,
-                "constraint_type": kind,
-                "columns": list(entry["columns"]),
-                "expression": None,
-                "referenced": referenced,
-                "enforcement": "not_enforced",
-                "source": "information_schema",
-            }
-        )
-    return constraints
+        except Exception as exc:  # noqa: BLE001 - one unreadable catalog keeps the other keys
+            record = error_record(exc, "metadata")
+            notes.append(
+                f"The referenced constraint {ref_catalog}.{ref_schema}.{ref_name} could not be "
+                f"read from information_schema ({record['condition'] or record['error_class']})."
+            )
+    constraints, unresolved = key_constraints_from_rows(rows, referenced)
+    return constraints, notes + unresolved
 
 
 # --------------------------------------------------------------------------- sample
@@ -1398,15 +1368,16 @@ def profile_table(
         )
         start = time.perf_counter()
         try:
-            declared, note = read_unity_constraints(spark, parts)
+            declared, notes, skipped = read_unity_constraints(spark, parts)
             constraints.extend(declared)
             observed.append(
                 _sp_observed(
-                    "op_constraints", "skipped" if note else "succeeded", start, detail=note
+                    "op_constraints", "skipped" if skipped else "succeeded", start, detail=skipped
                 )
             )
-            if note:
-                table["notes"].append(note[0].upper() + note[1:] + ".")
+            if skipped:
+                table["notes"].append(skipped[0].upper() + skipped[1:] + ".")
+            table["notes"].extend(notes)
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
             observed.append(
@@ -2447,11 +2418,10 @@ def _sp_find_table(index: Mapping[str, Any], text: str) -> Any:
 def _sp_end_nodes(
     relationship: Mapping[str, Any], end: str, table: Mapping[str, Any]
 ) -> tuple[list[Any], str]:
-    by_id = {
-        node["field_id"]: node for node in iter_nodes((table["schema"] or {}).get("fields", []))
-    }
+    fields = (table["schema"] or {}).get("fields", [])
+    by_id = {node["field_id"]: node for node in iter_nodes(fields)}
     try:
-        paths = end_segments(relationship, end)
+        paths = end_segments(relationship, end, fields)
     except IdentifierError as exc:
         return [], f"{end} columns: {exc}"
     nodes = [by_id.get(field_id(path)) for path in paths]

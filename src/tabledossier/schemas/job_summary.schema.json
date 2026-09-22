@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tabledossier:schema:job_summary:1.0",
+  "title": "TableDossier job summary",
+  "description": "Small JSON document returned by the notebook with dbutils.notebook.exit at the end of a run (jobs.exit_summary), for the caller of the notebook or the tasks of a Databricks Job. Counts only; the result package in run_dir is the complete result.",
+  "type": "object",
+  "required": ["kind", "summary_version", "tool_version", "run_id", "status", "analysis_level", "run_dir", "profile_valid", "tables", "checks", "relationships", "relationship_hypotheses"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {"const": "tabledossier.job_summary"},
+    "summary_version": {"const": "1.0"},
+    "tool_version": {"type": "string"},
+    "run_id": {"type": "string"},
+    "status": {"enum": ["succeeded", "partial", "failed"]},
+    "analysis_level": {"enum": ["metadata", "standard", "deep"]},
+    "run_dir": {"type": "string", "description": "Directory of the result package (profile.json, manifest.json, documents)."},
+    "profile_valid": {"type": "boolean", "description": "Whether profile.json passed validation before it was written."},
+    "tables": {
+      "type": "object",
+      "required": ["total", "succeeded", "partial", "failed"],
+      "additionalProperties": false,
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "succeeded": {"type": "integer", "minimum": 0},
+        "partial": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": ["pass", "fail", "not_evaluated", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "pass": {"type": "integer", "minimum": 0},
+        "fail": {"type": "integer", "minimum": 0},
+        "not_evaluated": {"type": "integer", "minimum": 0},
+        "error": {"type": "integer", "minimum": 0}
+      }
+    },
+    "relationships": {
+      "description": "Known relationships by referential validation status.",
+      "type": "object",
+      "required": ["validated", "violated", "not_validated"],
+      "additionalProperties": false,
+      "properties": {
+        "validated": {"type": "integer", "minimum": 0},
+        "violated": {"type": "integer", "minimum": 0},
+        "not_validated": {"type": "integer", "minimum": 0}
+      }
+    },
+    "relationship_hypotheses": {"type": "integer", "minimum": 0, "description": "Data-driven hypotheses listed (never relationships)."}
+  }
+}

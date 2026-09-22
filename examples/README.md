@@ -11,7 +11,7 @@
 | [`demo/output/run/`](demo/output/run) | The complete result package written by that notebook when executed on local Spark with the demo tables. |
 | [`demo/output/annotated/`](demo/output/annotated) | The documents re-rendered offline from `run/profile.json` with `annotations.json`. |
 | [`demo/output/deep/`](demo/output/deep) | The result package of the same notebook run at `analysis_level = deep` with the default deep budgets (contract 1.2): element fields of `orders`, the JSON path catalogue of `order_events.payload`, the deep coverage section of the quality report, exact uniqueness of the keys of `demo.config.json` (three planted duplicate event ids), referential validation (five planted orphan orders) and one relationship hypothesis (the planted `customers.referrer_id`). |
-| [`demo/run_notebook_locally.py`](demo/run_notebook_locally.py) | Development harness: executes a generated notebook with a local SparkSession (only `dbutils.widgets` is simulated). Not a supported way to profile production data. |
+| [`demo/run_notebook_locally.py`](demo/run_notebook_locally.py) | Development harness: executes a generated notebook with a local SparkSession (only `dbutils.widgets` and a recording `dbutils.notebook.exit` are simulated). Not a supported way to profile production data. |
 | [`demo/build_demo_outputs.py`](demo/build_demo_outputs.py) | Rebuilds everything under `demo/output` (needs PySpark and Java; uses Delta when delta-spark is installed). |
 
 The committed profiles record `execution_context: spark` because they were produced by local Spark, not Databricks.

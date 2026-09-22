@@ -17,7 +17,7 @@ validator enforces.
 
 ## Versioning
 
-- The notebook of release 0.3 writes `schema_version` `"1.2"`. The CLI (`validate`, `render`) reads `"1.0"`,
+- The notebooks of releases 0.3 and 0.4 write `schema_version` `"1.2"`. The CLI (`validate`, `render`) reads `"1.0"`,
   `"1.1"` and `"1.2"` and validates each profile against the schema of its own version: 1.0 profiles against the
   frozen schema of 0.1.x (`tabledossier schema profile-1.0`), 1.1 profiles against the frozen schema of 0.2.x
   (`tabledossier schema profile-1.1`), 1.2 profiles against the current one. Other versions are rejected with a
@@ -30,7 +30,7 @@ validator enforces.
   `referential_validation` and `relationship_hypotheses` records, three summary counters (`uniqueness`,
   `relationships`, `relationship_hypotheses`) and three operation kinds (`uniqueness_pass`, `referential_check`,
   `relationship_hypothesis_check`). They are optional in the 1.2 schema (a 1.1 document relabelled `1.2` is
-  valid); the 0.3 notebook always writes them, as `null` when not applicable. A 1.1 document cannot use them.
+  valid); the 0.3 and 0.4 notebooks always write them, as `null` when not applicable. A 1.1 document cannot use them.
 - Map sizes and entry counts are labelled `entries` (0.1 wrote `elements`); both are accepted.
 - Additive or breaking changes produce a new version; the notebook and the CLI of the same release always
   agree because the notebook embeds the schema of the release that generated it.
@@ -367,5 +367,9 @@ from column names: data-driven candidates are listed only as `relationship_hypot
 - **Generation manifest** (`*.generation.json`, kind `tabledossier.generation_manifest`): notebook hash,
   embedded modules and schemas with their hashes, `contains_results: false`.
 - **Suggested rules** (`suggested_rules.json`): neutral proposals collected from all tables.
+- **Job summary** (kind `tabledossier.job_summary`, `summary_version` 1.0, `tabledossier schema job_summary`): not a
+  file of the package but the compact JSON the notebook returns with `dbutils.notebook.exit` (`jobs.exit_summary`):
+  run id, status, analysis level, results directory, whether the profile passed validation, and counts of tables by
+  status, configured checks, relationships by validation status and hypotheses. Counts only.
 - **Annotations** (`annotations.json`, kind `tabledossier.annotations`): descriptions, purpose, owner, tags per
   table and per column (keyed by display path), and relationships. They are only read by `render`.

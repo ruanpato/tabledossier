@@ -9,9 +9,11 @@ comments), so it is executed as one module with two injected globals:
 
 * ``spark``   - a local SparkSession (classic, or a Spark Connect client of a
   local Connect server started in the same process);
-* ``dbutils`` - a minimal stand-in that implements only ``dbutils.widgets``.
+* ``dbutils`` - a minimal stand-in that implements ``dbutils.widgets`` and
+  ``dbutils.notebook.exit`` (which records the value instead of ending the
+  notebook; the notebook calls it in its last cell).
 
-Only widget handling is simulated: every Spark call in the notebook is real.
+Only these utilities are simulated: every Spark call in the notebook is real.
 """
 
 from __future__ import annotations
@@ -50,11 +52,25 @@ class LocalWidgets:
         self.created.append(name)
 
 
-class LocalDbutils:
-    """Minimal ``dbutils`` stand-in exposing ``widgets`` only."""
+class LocalNotebookUtils:
+    """Implements ``dbutils.notebook.exit`` by recording the value it receives."""
 
-    def __init__(self, widget_values: dict[str, str] | None = None) -> None:
+    def __init__(self) -> None:
+        self.exits: list[str] = []
+
+    def exit(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise TypeError("dbutils.notebook.exit expects a string")
+        self.exits.append(value)
+
+
+class LocalDbutils:
+    """Minimal ``dbutils`` stand-in exposing ``widgets`` and, optionally, ``notebook.exit``."""
+
+    def __init__(self, widget_values: dict[str, str] | None = None, notebook: bool = True) -> None:
         self.widgets = LocalWidgets(widget_values)
+        if notebook:
+            self.notebook = LocalNotebookUtils()
 
 
 def split_sql(text: str) -> list[str]:
@@ -173,15 +189,21 @@ def is_connect_session(session: Any) -> bool:
     return type(session).__module__.startswith("pyspark.sql.connect")
 
 
-def run_notebook(path: str | Path, spark: Any, widget_values: dict[str, str]) -> dict[str, Any]:
-    """Execute a generated notebook file and return its global namespace."""
+def run_notebook(
+    path: str | Path, spark: Any, widget_values: dict[str, str], *, notebook_utils: bool = True
+) -> dict[str, Any]:
+    """Execute a generated notebook file and return its global namespace.
+
+    With ``notebook_utils=False`` the ``dbutils`` stand-in has no ``notebook``
+    attribute, as outside Databricks.
+    """
     source = Path(path).read_text(encoding="utf-8")
     if not source.startswith("# Databricks notebook source"):
         raise ValueError("not a Databricks source notebook")
     namespace: dict[str, Any] = {
         "__name__": "__tabledossier_notebook__",
         "spark": spark,
-        "dbutils": LocalDbutils(widget_values),
+        "dbutils": LocalDbutils(widget_values, notebook=notebook_utils),
     }
     exec(compile(source, str(path), "exec"), namespace)
     return namespace

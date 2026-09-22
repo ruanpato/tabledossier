@@ -2,15 +2,16 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:2c25321afc2633083069aa9bfe3280129049b8f08278c535e49c26fd64869569`).
+# MAGIC Generated offline by TableDossier 0.4.0 (generation id `sha256:b0a78333e3a95f4faede7b93fa92405755ca4695e61a3d020d4720308b33d720`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
 # MAGIC **What it does**
 # MAGIC 1. Reads the parameters (widgets) at the top of the notebook.
 # MAGIC 2. Validates them and creates a new results directory under `output_dir` before reading any table.
-# MAGIC 3. Profiles each table sequentially: catalog metadata and, at the `standard` level, one bounded sample and a bounded number of shared aggregation passes. The `deep` level adds array/map element metrics and JSON paths within explicit budgets.
+# MAGIC 3. Profiles each table sequentially: catalog metadata and, at the `standard` level, one bounded sample and a bounded number of shared aggregation passes. The `deep` level adds array/map element metrics and JSON paths within explicit budgets and, when the configuration requests them, exact uniqueness of keys, referential validation and relationship hypotheses (counts only).
 # MAGIC 4. Writes `profile.json`, `manifest.json` and the derived documentation to the results directory.
+# MAGIC 5. Returns a small JSON job summary with `dbutils.notebook.exit` in its last cell (`jobs.exit_summary`, on by default), for a Job or a notebook that runs this one.
 # MAGIC
 # MAGIC **Safety.** Sources are only read. The notebook never alters schemas or constraints, never runs OPTIMIZE or ANALYZE TABLE and never modifies data. It writes only to its own results directory and never overwrites existing files. It installs nothing and downloads nothing.
 # MAGIC
@@ -28,16 +29,16 @@
 # MAGIC | Widget | Meaning |
 # MAGIC | --- | --- |
 # MAGIC | `tables_json` | JSON list of `catalog.schema.table` identifiers (quote unusual names with backticks). |
-# MAGIC | `analysis_level` | `metadata` (no row reads), `standard` (sample + aggregations) or `deep` (standard + elements and JSON paths, budgeted). |
+# MAGIC | `analysis_level` | `metadata` (no row reads), `standard` (sample + aggregations) or `deep` (standard + budgeted element, JSON path, key and relationship checks). |
 # MAGIC | `output_dir` | Directory where a new `<run_id>/` folder is created. |
 # MAGIC | `config_json` | Optional JSON object merged over the generated configuration (no secrets). |
 # MAGIC
-# MAGIC Precedence: built-in defaults < generated configuration < `config_json` < the three dedicated widgets. Existing widget values (typed by you or passed by a Job) are never reset.
+# MAGIC Precedence: built-in defaults < generated configuration < `config_json` < the three dedicated widgets. Existing widget values (typed by you or passed by a Job) are never reset: a Job passes these four names as notebook task parameters.
 
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.widgets
-# TableDossier 0.3.0 embedded runtime: module tabledossier.widgets
+# TableDossier 0.4.0 embedded runtime: module tabledossier.widgets
 # Source: src/tabledossier/widgets.py (sha256:a2e3f175e63ab43eb0dab0b1099b42ac55168a36686335ac2e43fb03457dc116)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -175,6 +176,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                       'max_sample_rows': 10000,
                                       'inclusion_scope': 'sample',
                                       'min_inclusion_ratio': 0.95}},
+ 'jobs': {'exit_summary': True},
  'table_options': {'analytics.customers': {'checks': [{'id': 'customers_email_nulls',
                                                        'type': 'max_null_ratio',
                                                        'column': 'email',
@@ -215,8 +217,8 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                     'description': 'Events reference orders; cardinality intentionally not '
                                    'asserted.'}]}
 
-TD_GENERATION = {'generator_version': '0.3.0',
- 'generation_id': 'sha256:2c25321afc2633083069aa9bfe3280129049b8f08278c535e49c26fd64869569'}
+TD_GENERATION = {'generator_version': '0.4.0',
+ 'generation_id': 'sha256:b0a78333e3a95f4faede7b93fa92405755ca4695e61a3d020d4720308b33d720'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -238,12 +240,12 @@ ensure_widgets(dbutils, TD_WIDGET_DEFAULTS)
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: JSON Schemas
-# JSON Schemas shipped with TableDossier 0.3.0: the exact text of the files in
+# JSON Schemas shipped with TableDossier 0.4.0: the exact text of the files in
 # src/tabledossier/schemas/ (SHA-256 below), parsed with json.loads.
 import json
 
 TD_SCHEMAS = {}
-# config.schema.json: sha256:d90470488296d9767f7540c63dcda0749af4307e69153d744e66bc7e31bc545f
+# config.schema.json: sha256:9978436575fe2068f793654eb735f9daf94683fa45c928a45e20a055bdc23543
 TD_SCHEMAS['config'] = json.loads(r'''{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:tabledossier:schema:config:1.0",
@@ -412,6 +414,14 @@ TD_SCHEMAS['config'] = json.loads(r'''{
             "min_inclusion_ratio": {"type": "number", "minimum": 0, "maximum": 1}
           }
         }
+      }
+    },
+    "jobs": {
+      "description": "Integration with Databricks Jobs and notebook workflows. See docs/databricks-jobs.md.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exit_summary": {"type": "boolean", "description": "At the end of the run, return a small JSON job summary with dbutils.notebook.exit when it exists (tabledossier schema job_summary)."}
       }
     },
     "table_options": {
@@ -1552,8 +1562,8 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier._version
-# TableDossier 0.3.0 embedded runtime: module tabledossier._version
-# Source: src/tabledossier/_version.py (sha256:9fabfc21e91d0d79ae6f647a29fab174452c00d3c61cd3fd9429def24e9d8332)
+# TableDossier 0.4.0 embedded runtime: module tabledossier._version
+# Source: src/tabledossier/_version.py (sha256:8d871cb09d1b3f0ac71fe2aa8260ca28deb5dc34946f3a0d695f61c5fd1cabfe)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -1561,13 +1571,13 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
 
 """Single source of the TableDossier version string."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.jsonutil
-# TableDossier 0.3.0 embedded runtime: module tabledossier.jsonutil
-# Source: src/tabledossier/jsonutil.py (sha256:99d26d9fabd2890d26071f5d37027b638166f0f957567a139526ddd34545920e)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.jsonutil
+# Source: src/tabledossier/jsonutil.py (sha256:378c3e5f9f1c369e0ca53869855120453636e79c2fac4552702ffba368e9242c)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -1599,8 +1609,6 @@ import math
 from decimal import Decimal
 from typing import Any
 
-FLOAT_SPECIALS = ("NaN", "Infinity", "-Infinity")
-
 
 def canonical_json(obj: Any) -> str:
     """Return a deterministic, compact JSON encoding used for fingerprints."""
@@ -1617,11 +1625,6 @@ def pretty_json(obj: Any) -> str:
 def fingerprint(obj: Any) -> str:
     """Return ``sha256:<hex>`` of the canonical JSON encoding of ``obj``."""
     return "sha256:" + hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
-
-
-def text_fingerprint(text: str) -> str:
-    """Return ``sha256:<hex>`` of UTF-8 ``text``."""
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def short_hash(obj: Any, length: int = 12) -> str:
@@ -1680,7 +1683,7 @@ def encode_scalar(value: Any) -> tuple[Any, str]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.schemacheck
-# TableDossier 0.3.0 embedded runtime: module tabledossier.schemacheck
+# TableDossier 0.4.0 embedded runtime: module tabledossier.schemacheck
 # Source: src/tabledossier/schemacheck.py (sha256:73db83695ac1e7677801f230cbec851f49f1c56e6ff6a6f80c353274e08791ba)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -1929,7 +1932,7 @@ def unsupported_keywords(schema: Mapping[str, Any]) -> list[str]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.errors
-# TableDossier 0.3.0 embedded runtime: module tabledossier.errors
+# TableDossier 0.4.0 embedded runtime: module tabledossier.errors
 # Source: src/tabledossier/errors.py (sha256:b108b4cf3d80cefa0ea5538173f6b69387e4e354ad7871d1a21a596d06eb9cb1)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -1991,7 +1994,7 @@ def error_record(exc: BaseException, stage: str) -> dict[str, Any]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.paths
-# TableDossier 0.3.0 embedded runtime: module tabledossier.paths
+# TableDossier 0.4.0 embedded runtime: module tabledossier.paths
 # Source: src/tabledossier/paths.py (sha256:4dcb81311c66016927c7894a0639b34d3ff2cb78ed20a4d5fd9986dfbbec5e78)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -2215,8 +2218,8 @@ def field_id(segments: list[dict[str, Any]]) -> str:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.config
-# TableDossier 0.3.0 embedded runtime: module tabledossier.config
-# Source: src/tabledossier/config.py (sha256:75448e0ce0a5f3d51b79efeb7ebeed694da6b5aa63485b975fd074edfb5a55ef)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.config
+# Source: src/tabledossier/config.py (sha256:5f121e95801d1d6ff839f31034cc01480bbb1560f6e5e58f94066c4f8544f055)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -2247,7 +2250,6 @@ CONFIG_VERSION = "1.0"
 ANALYSIS_LEVELS = ("metadata", "standard", "deep")
 ROW_READING_LEVELS = ("standard", "deep")
 DEEP_ALL_TARGETS = "all_within_budget"
-WIDGET_NAMES = tuple(name for name, _ in NOTEBOOK_WIDGETS)
 DEDICATED_WIDGET_KEYS = {
     "tables": "tables_json",
     "analysis_level": "analysis_level",
@@ -2350,6 +2352,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "min_inclusion_ratio": 0.95,
         },
     },
+    "jobs": {"exit_summary": True},
     "table_options": {},
     "relationships": [],
 }
@@ -2683,14 +2686,15 @@ def execution_errors(config: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     if not config.get("tables"):
         errors.append(
-            "no tables to profile: set the 'tables_json' widget to a JSON list such as "
-            '["demo.analytics.orders"] (catalog.schema.table) and run the notebook again'
+            "no tables to profile: set the 'tables_json' widget (or the Job parameter of the same "
+            'name) to a JSON list such as ["demo.analytics.orders"] (catalog.schema.table) and run '
+            "the notebook again"
         )
     output_dir = str(config.get("output_dir", ""))
     if not output_dir:
         errors.append(
-            "no output directory: set the 'output_dir' widget, for example "
-            "/Volumes/<catalog>/<schema>/<volume>/tabledossier"
+            "no output directory: set the 'output_dir' widget (or the Job parameter of the same "
+            "name), for example /Volumes/<catalog>/<schema>/<volume>/tabledossier"
         )
     elif re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", output_dir):
         errors.append(
@@ -2725,7 +2729,7 @@ def sanitized_config(config: Mapping[str, Any]) -> dict[str, Any]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.metrics
-# TableDossier 0.3.0 embedded runtime: module tabledossier.metrics
+# TableDossier 0.4.0 embedded runtime: module tabledossier.metrics
 # Source: src/tabledossier/metrics.py (sha256:c249a393132d3e995c1f45327360d5599d18d4e8485da31174cbd195c4162377)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -2925,7 +2929,7 @@ def numeric_value(metrics: Iterable[Mapping[str, Any]], name: str) -> float | No
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.planning
-# TableDossier 0.3.0 embedded runtime: module tabledossier.planning
+# TableDossier 0.4.0 embedded runtime: module tabledossier.planning
 # Source: src/tabledossier/planning.py (sha256:970ba12c986e535097884051dc5a72ebdf514b2ec1bbd7412608cf06151c40c1)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -3588,7 +3592,7 @@ def operation(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.semantic
-# TableDossier 0.3.0 embedded runtime: module tabledossier.semantic
+# TableDossier 0.4.0 embedded runtime: module tabledossier.semantic
 # Source: src/tabledossier/semantic.py (sha256:14e1b52707b12164c1eda7d2cdbb06f534676f56df0a9420ee44f329096edcc6)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -4052,8 +4056,8 @@ def candidate_roles(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.deep
-# TableDossier 0.3.0 embedded runtime: module tabledossier.deep
-# Source: src/tabledossier/deep.py (sha256:504fb2edd4b5d0ed40a6dbe06f0a7967a523c5c6f5e82767bb51c866cdcdcdbb)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.deep
+# Source: src/tabledossier/deep.py (sha256:fad2af92ebc4b4904a97aaa72dff50296f32000946572400c1fe372533c2de24)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -4093,10 +4097,7 @@ from typing import Any
 
 
 COLLECTION_KINDS = ("array", "map")
-ELEMENT_SEGMENTS = ("array_element", "map_key", "map_value")
 DEEP_OPERATION_KINDS = ("deep_aggregate_pass", "element_explode_pass")
-# Deep candidates are always cheaper to drop than any standard metric (tiers 0-4).
-DEEP_TIERS = (5, 6, 7)
 JSON_TYPE_PATTERNS = {
     "object": "^OBJECT",
     "array": "^ARRAY",
@@ -4113,6 +4114,7 @@ _DP_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _DP_UNQUOTABLE = re.compile(r"['\\\[\]]")
 
 # (metric, op, tier, cost) per element kind; evaluated per row with higher-order functions.
+# Deep tiers are 5-7: deep candidates are always dropped before any standard metric (tiers 0-4).
 _DP_COMMON = [("null_count", "el_count_null", 5, 1)]
 _DP_NUMERIC = [
     ("min", "el_min", 6, 1),
@@ -4137,11 +4139,6 @@ _DP_BOOLEAN = [("true_count", "el_count_true", 6, 1), ("false_count", "el_count_
 _DP_TEMPORAL = [("min", "el_min", 6, 1), ("max", "el_max", 6, 1)]
 _DP_BINARY = [("min_length", "el_min_length", 6, 1), ("max_length", "el_max_length", 6, 1)]
 DEEP_EXTREME_METRICS = ("min", "max")
-
-
-def deep_enabled(config: Mapping[str, Any]) -> bool:
-    """Return True when the run uses the deep level."""
-    return config.get("analysis_level") == "deep"
 
 
 def collection_unit(kind: str) -> str:
@@ -4900,8 +4897,8 @@ def _dp_json_metric(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.keys
-# TableDossier 0.3.0 embedded runtime: module tabledossier.keys
-# Source: src/tabledossier/keys.py (sha256:be6a343d1c43ac3e17a049917275e7f42d49b46f84eb108d2eca908e4f019e96)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.keys
+# Source: src/tabledossier/keys.py (sha256:209158129f791679ac1fc520588069a7b54beee890012311201137dc3818726b)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -4947,6 +4944,27 @@ def _ky_segments_of_config(columns: Sequence[Any]) -> list[list[dict[str, Any]]]
         return [column_reference_segments(column) for column in columns]
     except IdentifierError:
         return None
+
+
+def declared_column_segments(
+    columns: Sequence[Any], fields: Sequence[Mapping[str, Any]]
+) -> list[list[dict[str, Any]]]:
+    """Typed paths of the columns of a declared constraint (literal top-level names).
+
+    Catalog identifiers are case-insensitive: a name that is not a top-level
+    column of ``fields`` (the schema tree) is matched to the only top-level
+    column with the same case-folded name, if there is exactly one.
+    """
+    names = [str(node.get("name")) for node in fields]
+    out = []
+    for column in columns:
+        text = str(column)
+        if text not in names:
+            same = [name for name in names if name.casefold() == text.casefold()]
+            if len(same) == 1:
+                text = same[0]
+        out.append([field_segment(text)])
+    return out
 
 
 def requested_keys(
@@ -5045,6 +5063,8 @@ def plan_uniqueness(
     index_by_set: dict[tuple[str, ...], int] = {}
     for item in requested:
         segments = item["segments"]
+        if segments and item["origin"] in ("declared_primary_key", "declared_unique"):
+            segments = declared_column_segments(item["requested"], tree.get("fields", []))
         if not segments:
             keys.append(
                 _ky_key(item, [], [], "not_eligible", "the key lists no valid column reference")
@@ -5288,7 +5308,7 @@ def measured_keys(table: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.findings
-# TableDossier 0.3.0 embedded runtime: module tabledossier.findings
+# TableDossier 0.4.0 embedded runtime: module tabledossier.findings
 # Source: src/tabledossier/findings.py (sha256:84323f45be940c19f955304d9b2f5d9a767d49e063817ae65f3eeb9216621b4a)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -5540,7 +5560,7 @@ def field_findings(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.quality
-# TableDossier 0.3.0 embedded runtime: module tabledossier.quality
+# TableDossier 0.4.0 embedded runtime: module tabledossier.quality
 # Source: src/tabledossier/quality.py (sha256:5f728d2906f91e8477c5a690f2bb5b9f0c5532aaa029548c03952af89c45dcd2)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -5969,8 +5989,8 @@ def suggested_rules_document(profile: Mapping[str, Any]) -> dict[str, Any]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.relationships
-# TableDossier 0.3.0 embedded runtime: module tabledossier.relationships
-# Source: src/tabledossier/relationships.py (sha256:1ce3c756ef6905f9ad5f3d79841e257da7e65b4317cc986c378e405a58678ac7)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.relationships
+# Source: src/tabledossier/relationships.py (sha256:9998a8aa06ce10bc19dd47628430431400b71458a46b4c2e8b7b7e264e5315ab)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5984,6 +6004,10 @@ Relationships are never inferred from column names (a column ending in
 ``_id`` proves nothing). Each record keeps its origin, participating columns
 (composite keys included), enforcement, validation state and scope.
 Cardinality is recorded only when a person provided it.
+
+Declared PRIMARY KEY, UNIQUE and FOREIGN KEY constraints are assembled here
+from ``information_schema`` rows (:func:`key_constraints_from_rows`); the
+Spark adapter only runs the parameterized queries that return those rows.
 """
 
 from collections.abc import Iterable, Mapping
@@ -5995,6 +6019,192 @@ DECLARED_NOTE = (
     "informational (not enforced): the declaration alone does not prove the data."
 )
 PROVIDED_NOTE = "Provided by a person; the statement alone does not prove the data."
+INFORMATION_SCHEMA_KINDS = {
+    "PRIMARY KEY": "primary_key",
+    "FOREIGN KEY": "foreign_key",
+    "UNIQUE": "unique",
+}
+
+
+def _rel_text(value: Any) -> str:
+    return "" if value is None else str(value)
+
+
+def _rel_fold(*parts: Any) -> tuple[str, ...]:
+    return tuple(_rel_text(part).casefold() for part in parts)
+
+
+def _rel_kind(value: Any) -> str | None:
+    return INFORMATION_SCHEMA_KINDS.get(" ".join(_rel_text(value).upper().split()))
+
+
+def _rel_position(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _rel_reference(row: Mapping[str, Any]) -> tuple[str, str, str] | None:
+    if not row.get("unique_constraint_name"):
+        return None
+    return (
+        _rel_text(row.get("unique_constraint_catalog")),
+        _rel_text(row.get("unique_constraint_schema")),
+        _rel_text(row.get("unique_constraint_name")),
+    )
+
+
+def referenced_constraint_keys(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, str, str]]:
+    """Return ``(catalog, schema, name)`` of the constraints referenced by foreign keys.
+
+    ``rows`` are the ``information_schema`` rows of one table (see
+    :func:`key_constraints_from_rows`). Each referenced constraint is listed
+    once, compared case-insensitively, in the order of first appearance.
+    """
+    seen: set[tuple[str, ...]] = set()
+    out = []
+    for row in rows:
+        reference = _rel_reference(row)
+        if _rel_kind(row.get("constraint_type")) != "foreign_key" or reference is None:
+            continue
+        if _rel_fold(*reference) not in seen:
+            seen.add(_rel_fold(*reference))
+            out.append(reference)
+    return out
+
+
+def _rel_referenced(
+    name: str,
+    reference: tuple[str, str, str] | None,
+    positions: list[int | None],
+    targets: Mapping[tuple[str, ...], list[Mapping[str, Any]]],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Resolve the referenced table and columns of one foreign key, or say why not."""
+    if reference is None:
+        return None, (
+            f"Foreign key {name}: information_schema.referential_constraints lists no referenced "
+            "constraint, so the relationship is not documented."
+        )
+    target_rows = targets.get(_rel_fold(*reference), [])
+    label = ".".join(reference)
+    if not target_rows:
+        return None, (
+            f"Foreign key {name} references constraint {label}, whose columns are not visible in "
+            "information_schema (missing, or not readable with these permissions), so the "
+            "relationship is not documented."
+        )
+    tables = {
+        _rel_fold(row.get("table_catalog"), row.get("table_schema"), row.get("table_name"))
+        for row in target_rows
+    }
+    by_position: dict[int, str] = {}
+    for row in target_rows:
+        position = _rel_position(row.get("ordinal_position"))
+        if position is not None:
+            by_position.setdefault(position, _rel_text(row.get("column_name")))
+    columns = [
+        by_position.get(position if position is not None else index + 1)
+        for index, position in enumerate(positions)
+    ]
+    if len(tables) != 1 or None in columns or len(by_position) != len(columns):
+        return None, (
+            f"Foreign key {name}: its columns do not match the columns of the referenced "
+            f"constraint {label}, so the relationship is not documented."
+        )
+    first = target_rows[0]
+    return {
+        "table": table_key(
+            [
+                _rel_text(first.get("table_catalog")),
+                _rel_text(first.get("table_schema")),
+                _rel_text(first.get("table_name")),
+            ]
+        ),
+        "columns": [str(column) for column in columns],
+    }, None
+
+
+def key_constraints_from_rows(
+    rows: Iterable[Mapping[str, Any]], referenced_rows: Iterable[Mapping[str, Any]]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Assemble PRIMARY KEY, UNIQUE and FOREIGN KEY records from ``information_schema`` rows.
+
+    ``rows`` join ``table_constraints``, ``key_column_usage`` and
+    ``referential_constraints`` for one table (``constraint_catalog``,
+    ``constraint_schema``, ``constraint_name``, ``constraint_type``,
+    ``column_name``, ``ordinal_position``, ``position_in_unique_constraint``,
+    ``unique_constraint_catalog``, ``unique_constraint_schema``,
+    ``unique_constraint_name``). ``referenced_rows`` are ``key_column_usage``
+    rows of the constraints named by :func:`referenced_constraint_keys`
+    (``constraint_catalog``, ``constraint_schema``, ``constraint_name``,
+    ``table_catalog``, ``table_schema``, ``table_name``, ``column_name``,
+    ``ordinal_position``).
+
+    Catalog, schema and constraint names are compared case-insensitively, as
+    Unity Catalog does, and row order does not matter: constraints are sorted
+    by name and columns by ``ordinal_position``. Other constraint types (CHECK)
+    are ignored. Returns ``(constraints, notes)``; a foreign key whose
+    referenced columns cannot be resolved keeps ``referenced: None`` and a note
+    says why (it is then not documented as a relationship).
+    """
+    grouped: dict[tuple[str, ...], dict[str, Any]] = {}
+    for row in rows:
+        kind = _rel_kind(row.get("constraint_type"))
+        if kind is None:
+            continue
+        identity = _rel_fold(
+            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        )
+        entry = grouped.setdefault(
+            identity,
+            {
+                "name": _rel_text(row.get("constraint_name")),
+                "kind": kind,
+                "columns": {},
+                "reference": None,
+            },
+        )
+        position = _rel_position(row.get("ordinal_position"))
+        order = position if position is not None else len(entry["columns"]) + 1
+        entry["columns"].setdefault(
+            order,
+            (
+                _rel_text(row.get("column_name")),
+                _rel_position(row.get("position_in_unique_constraint")),
+            ),
+        )
+        entry["reference"] = entry["reference"] or _rel_reference(row)
+    targets: dict[tuple[str, ...], list[Mapping[str, Any]]] = {}
+    for row in referenced_rows:
+        identity = _rel_fold(
+            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        )
+        targets.setdefault(identity, []).append(row)
+    constraints = []
+    notes = []
+    for entry in sorted(grouped.values(), key=lambda item: (item["name"].casefold(), item["name"])):
+        ordered = [entry["columns"][order] for order in sorted(entry["columns"])]
+        referenced = None
+        if entry["kind"] == "foreign_key":
+            positions = [position for _, position in ordered]
+            referenced, note = _rel_referenced(
+                entry["name"], entry["reference"], positions, targets
+            )
+            if note:
+                notes.append(note)
+        constraints.append(
+            {
+                "name": entry["name"],
+                "constraint_type": entry["kind"],
+                "columns": [column for column, _ in ordered],
+                "expression": None,
+                "referenced": referenced,
+                "enforcement": "not_enforced",
+                "source": "information_schema",
+            }
+        )
+    return constraints, notes
 
 
 def _rel_table(text: str) -> str:
@@ -6079,8 +6289,8 @@ def merge_relationships(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, 
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.integrity
-# TableDossier 0.3.0 embedded runtime: module tabledossier.integrity
-# Source: src/tabledossier/integrity.py (sha256:a5278375f083f4b3f84777b301b1f4f57655c3c1d8bfcbb3cf26e90a88ddf69f)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.integrity
+# Source: src/tabledossier/integrity.py (sha256:ddf44175d564bcad100e53dae71972c75e9fbcbc7bb4aad12055482ef792934b)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6111,7 +6321,6 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 
-VALIDATION_MODES = ("full_scope", "sample")
 HYPOTHESIS_KINDS = ("integer", "decimal", "string", "date")
 TARGET_SCOPE_NOTE = (
     "The target is read in full at its recorded version (the target table's filters are not "
@@ -6170,15 +6379,19 @@ def type_compatibility(
     return out
 
 
-def end_segments(relationship: Mapping[str, Any], end: str) -> list[list[dict[str, Any]]]:
+def end_segments(
+    relationship: Mapping[str, Any], end: str, fields: Sequence[Mapping[str, Any]] = ()
+) -> list[list[dict[str, Any]]]:
     """Typed paths of one end of a relationship record.
 
-    Declared constraints list literal top-level column names; configured and
-    annotated relationships list display paths.
+    Declared constraints list literal top-level column names, matched to the
+    top-level columns of ``fields`` (the schema tree of that end's table)
+    case-insensitively when the exact name is absent; configured and annotated
+    relationships list display paths.
     """
     columns = relationship[end]["columns"]
     if relationship["origin"] == "declared_constraint":
-        return [[field_segment(str(column))] for column in columns]
+        return declared_column_segments(columns, fields)
     return [parse_display_path(column) for column in columns]
 
 
@@ -6642,7 +6855,7 @@ def hypotheses_record(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.contract
-# TableDossier 0.3.0 embedded runtime: module tabledossier.contract
+# TableDossier 0.4.0 embedded runtime: module tabledossier.contract
 # Source: src/tabledossier/contract.py (sha256:3bfbddb4e8b773682a366f74d6dc1e74976e1ce3d3f6c723067593c4ae0c19aa)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -7024,7 +7237,7 @@ def validate_annotations(document: Any, schema: Mapping[str, Any]) -> list[str]:
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.render
-# TableDossier 0.3.0 embedded runtime: module tabledossier.render
+# TableDossier 0.4.0 embedded runtime: module tabledossier.render
 # Source: src/tabledossier/render.py (sha256:31bfca26a5cd3e269508a68bf8bc50415b7f1fd17430c4d18dcc7d211e2c4661)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -8791,8 +9004,8 @@ def render_all(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.package
-# TableDossier 0.3.0 embedded runtime: module tabledossier.package
-# Source: src/tabledossier/package.py (sha256:b06849312bb7b1d7176c4399eac9cc30c035afaee111c9cf488434e85391e4df)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.package
+# Source: src/tabledossier/package.py (sha256:e48bdbffc517ac1f7b374a0764c04b7ff4cb784948a745b7c3b32732a05ffa03)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -8820,6 +9033,8 @@ DOCUMENT_FILES = (
     "suggested_rules.json",
 )
 PACKAGE_FILES = ("manifest.json", "profile.json", *DOCUMENT_FILES)
+JOB_SUMMARY_KIND = "tabledossier.job_summary"
+JOB_SUMMARY_VERSION = "1.0"
 
 
 class OutputExistsError(FileExistsError):
@@ -8879,6 +9094,44 @@ def run_manifest(
     }
 
 
+def job_summary(
+    profile: Mapping[str, Any], run_dir: str, validation_errors: list[str] | None
+) -> dict[str, Any]:
+    """Return the job summary of a run (``tabledossier schema job_summary``).
+
+    Counts only, with a size that does not grow with the number of tables: the
+    notebook returns it with ``dbutils.notebook.exit`` (``jobs.exit_summary``)
+    to the Job or notebook that ran it. ``run_dir`` holds the full result.
+    """
+    run = profile["run"]
+    summary = profile["summary"]
+    relationships = summary.get("relationships") or {}
+    return {
+        "kind": JOB_SUMMARY_KIND,
+        "summary_version": JOB_SUMMARY_VERSION,
+        "tool_version": __version__,
+        "run_id": run["run_id"],
+        "status": run["status"],
+        "analysis_level": run["analysis_level"],
+        "run_dir": run_dir,
+        "profile_valid": not validation_errors,
+        "tables": {
+            "total": summary["tables_total"],
+            "succeeded": summary["tables_succeeded"],
+            "partial": summary["tables_partial"],
+            "failed": summary["tables_failed"],
+        },
+        "checks": {
+            name: summary["checks"][name] for name in ("pass", "fail", "not_evaluated", "error")
+        },
+        "relationships": {
+            name: int(relationships.get(name, 0))
+            for name in ("validated", "violated", "not_validated")
+        },
+        "relationship_hypotheses": int(summary.get("relationship_hypotheses") or 0),
+    }
+
+
 def running_manifest(run_id: str, started_at: str, generation_id: str | None) -> dict[str, Any]:
     """Return the manifest written before analysis starts (destination probe)."""
     return {
@@ -8930,7 +9183,7 @@ def write_files(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.assemble
-# TableDossier 0.3.0 embedded runtime: module tabledossier.assemble
+# TableDossier 0.4.0 embedded runtime: module tabledossier.assemble
 # Source: src/tabledossier/assemble.py (sha256:b868890b99e2be458e6d45f6fd6f0cae5f8a63a76906122de9d794e5647baf96)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
@@ -9774,8 +10027,8 @@ def build_profile(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
-# TableDossier 0.3.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:c99fa30e180d408f8b8f1430a8f69de3716f580487474031bf1b24664c91d943)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.runtime.spark
+# Source: src/tabledossier/runtime/spark.py (sha256:9db4efb3a0aceb16df1bf8fbf8b629f1d3f4108bf293f8d7f981649cb65c6cd5)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -10590,21 +10843,26 @@ def _sp_full_name(spark: Any, parts: list[str]) -> list[str] | None:
         return None
 
 
-def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str, Any]], str | None]:
+def read_unity_constraints(
+    spark: Any, parts: list[str]
+) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """Read PRIMARY/FOREIGN KEY/UNIQUE constraints from Unity Catalog information_schema.
 
-    Returns ``(constraints, note)``; ``note`` explains when nothing could be read.
+    Returns ``(constraints, notes, skipped)``: ``notes`` explain foreign keys
+    whose references could not be resolved, ``skipped`` why nothing was read.
     """
     full = _sp_full_name(spark, parts)
     if full is None or full[0].casefold() in _SP_UNITY_EXCLUDED:
-        return [], "declared key constraints are read from Unity Catalog information_schema only"
+        return (
+            [],
+            [],
+            "declared key constraints are read from Unity Catalog information_schema only",
+        )
     catalog, schema, table = full
-    return (
-        query_key_constraints(
-            spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
-        ),
-        None,
+    constraints, notes = query_key_constraints(
+        spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
     )
+    return constraints, notes, None
 
 
 def query_key_constraints(
@@ -10613,19 +10871,22 @@ def query_key_constraints(
     schema: str,
     table: str,
     information_schema: Callable[[str], str],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Query key constraints of one table from ``information_schema``-shaped views.
 
     ``information_schema`` maps a catalog name to the quoted prefix of its
     ``information_schema`` (Unity Catalog: ``<catalog>.information_schema``).
-    Table and schema names are bound parameters, never interpolated.
+    Schema, table and constraint names are bound parameters, never
+    interpolated. The rows are assembled by :func:`key_constraints_from_rows`;
+    the referenced constraints of foreign keys are read from the
+    ``information_schema`` of their own catalog.
     """
     info = information_schema(catalog)
     query = (
-        "SELECT tc.constraint_name, tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
+        "SELECT tc.constraint_catalog, tc.constraint_schema, tc.constraint_name, "
+        "tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
         "kcu.position_in_unique_constraint, rc.unique_constraint_catalog, "
-        "rc.unique_constraint_schema, "
-        "rc.unique_constraint_name "
+        "rc.unique_constraint_schema, rc.unique_constraint_name "
         f"FROM {info}.table_constraints tc "
         f"JOIN {info}.key_column_usage kcu ON tc.constraint_catalog = kcu.constraint_catalog "
         "AND tc.constraint_schema = kcu.constraint_schema AND tc.constraint_name = "
@@ -10635,74 +10896,35 @@ def query_key_constraints(
         "AND tc.constraint_schema = rc.constraint_schema AND tc.constraint_name = "
         "rc.constraint_name "
         "WHERE lower(tc.table_schema) = lower(:schema_name) AND lower(tc.table_name) = "
-        "lower(:table_name) "
-        "ORDER BY tc.constraint_name, kcu.ordinal_position"
+        "lower(:table_name)"
     )
     rows = [
         row.asDict()
         for row in spark.sql(query, args={"schema_name": schema, "table_name": table}).collect()
     ]
-    grouped: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        entry = grouped.setdefault(
-            row["constraint_name"],
-            {
-                "type": str(row["constraint_type"]).upper(),
-                "columns": [],
-                "positions": [],
-                "ref": None,
-            },
-        )
-        entry["columns"].append(row["column_name"])
-        entry["positions"].append(row.get("position_in_unique_constraint"))
-        if row.get("unique_constraint_name"):
-            entry["ref"] = (
-                row["unique_constraint_catalog"],
-                row["unique_constraint_schema"],
-                row["unique_constraint_name"],
+    referenced: list[dict[str, Any]] = []
+    notes: list[str] = []
+    for ref_catalog, ref_schema, ref_name in referenced_constraint_keys(rows):
+        try:
+            referenced.extend(
+                row.asDict()
+                for row in spark.sql(
+                    "SELECT constraint_catalog, constraint_schema, constraint_name, "
+                    "table_catalog, table_schema, table_name, column_name, ordinal_position "
+                    f"FROM {information_schema(ref_catalog)}.key_column_usage "
+                    "WHERE lower(constraint_schema) = lower(:schema_name) "
+                    "AND lower(constraint_name) = lower(:constraint_name)",
+                    args={"schema_name": ref_schema, "constraint_name": ref_name},
+                ).collect()
             )
-    constraints = []
-    kinds = {"PRIMARY KEY": "primary_key", "FOREIGN KEY": "foreign_key", "UNIQUE": "unique"}
-    for name, entry in grouped.items():
-        kind = kinds.get(entry["type"])
-        if kind is None:
-            continue
-        referenced = None
-        if kind == "foreign_key" and entry["ref"]:
-            ref_catalog, ref_schema, ref_name = entry["ref"]
-            ref_rows = spark.sql(
-                "SELECT table_catalog, table_schema, table_name, column_name, ordinal_position "
-                f"FROM {information_schema(ref_catalog)}.key_column_usage "
-                "WHERE lower(constraint_schema) = lower(:schema_name) AND constraint_name = "
-                ":constraint_name "
-                "ORDER BY ordinal_position",
-                args={"schema_name": ref_schema, "constraint_name": ref_name},
-            ).collect()
-            if ref_rows:
-                by_position = {int(r["ordinal_position"]): r["column_name"] for r in ref_rows}
-                columns = [
-                    by_position.get(int(position) if position is not None else index + 1, "?")
-                    for index, position in enumerate(entry["positions"])
-                ]
-                first = ref_rows[0]
-                referenced = {
-                    "table": table_key(
-                        [first["table_catalog"], first["table_schema"], first["table_name"]]
-                    ),
-                    "columns": columns,
-                }
-        constraints.append(
-            {
-                "name": name,
-                "constraint_type": kind,
-                "columns": list(entry["columns"]),
-                "expression": None,
-                "referenced": referenced,
-                "enforcement": "not_enforced",
-                "source": "information_schema",
-            }
-        )
-    return constraints
+        except Exception as exc:  # noqa: BLE001 - one unreadable catalog keeps the other keys
+            record = error_record(exc, "metadata")
+            notes.append(
+                f"The referenced constraint {ref_catalog}.{ref_schema}.{ref_name} could not be "
+                f"read from information_schema ({record['condition'] or record['error_class']})."
+            )
+    constraints, unresolved = key_constraints_from_rows(rows, referenced)
+    return constraints, notes + unresolved
 
 
 # --------------------------------------------------------------------------- sample
@@ -11114,15 +11336,16 @@ def profile_table(
         )
         start = time.perf_counter()
         try:
-            declared, note = read_unity_constraints(spark, parts)
+            declared, notes, skipped = read_unity_constraints(spark, parts)
             constraints.extend(declared)
             observed.append(
                 _sp_observed(
-                    "op_constraints", "skipped" if note else "succeeded", start, detail=note
+                    "op_constraints", "skipped" if skipped else "succeeded", start, detail=skipped
                 )
             )
-            if note:
-                table["notes"].append(note[0].upper() + note[1:] + ".")
+            if skipped:
+                table["notes"].append(skipped[0].upper() + skipped[1:] + ".")
+            table["notes"].extend(notes)
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
             observed.append(
@@ -12163,11 +12386,10 @@ def _sp_find_table(index: Mapping[str, Any], text: str) -> Any:
 def _sp_end_nodes(
     relationship: Mapping[str, Any], end: str, table: Mapping[str, Any]
 ) -> tuple[list[Any], str]:
-    by_id = {
-        node["field_id"]: node for node in iter_nodes((table["schema"] or {}).get("fields", []))
-    }
+    fields = (table["schema"] or {}).get("fields", [])
+    by_id = {node["field_id"]: node for node in iter_nodes(fields)}
     try:
-        paths = end_segments(relationship, end)
+        paths = end_segments(relationship, end, fields)
     except IdentifierError as exc:
         return [], f"{end} columns: {exc}"
     nodes = [by_id.get(field_id(path)) for path in paths]
@@ -12491,8 +12713,8 @@ def evaluate_hypotheses(
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
-# TableDossier 0.3.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:75794e21f2aaec6b18e41e019b5ca03e7eeb8bd7beae90bf8ad3633f242b5c97)
+# TableDossier 0.4.0 embedded runtime: module tabledossier.runtime.databricks
+# Source: src/tabledossier/runtime/databricks.py (sha256:182fdb119cd4985a036a9dddb7e162fe4e3e12a7500c92360a9d7202f9f811d8)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -12595,7 +12817,8 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
     lines += [f"  - {name}" for name in config["tables"]]
     lines.append("Per table, the engine will be asked for:")
     lines.append(
-        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL, key constraints (no row scan)"
+        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL and Unity Catalog key constraints "
+        "from information_schema (no row scan)"
     )
     if config["analysis_level"] in ("standard", "deep"):
         pinning = (
@@ -12674,10 +12897,11 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 )
                 if enabled
             ]
+            lines.append("After every table was profiled (per run):")
             lines.append(
                 f"  - referential validation of {' and '.join(origins)} relationships between "
                 f"tables of this run: up to {referential['max_relationships']} check(s) per run, "
-                "one anti join each, "
+                "one left join against the grouped target each, "
                 + (
                     "over the full source scope"
                     if referential["mode"] == "full_scope"
@@ -12702,6 +12926,12 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("  - no table rows are read at the metadata level")
+    lines.append(
+        "After the export: a small JSON job summary is returned with dbutils.notebook.exit when "
+        "it exists (jobs.exit_summary)"
+        if config["jobs"]["exit_summary"]
+        else "After the export: no job summary (jobs.exit_summary = false)"
+    )
     capabilities = ctx["capabilities"]
     lines.append(
         "Detected capabilities: "
@@ -12824,6 +13054,17 @@ def summary_text(profile: Mapping[str, Any]) -> str:
         f"{checks['error']} error. Findings: {summary['findings']['warning']} warning, "
         f"{summary['findings']['info']} info."
     )
+    if profile["run"]["analysis_level"] == "deep":
+        keys = summary.get("uniqueness") or {}
+        relationships = summary.get("relationships") or {}
+        lines.append(
+            f"Keys measured: {keys.get('keys_measured', 0)} ({keys.get('unique', 0)} unique, "
+            f"{keys.get('unique_non_null', 0)} unique except NULLs, {keys.get('duplicates', 0)} "
+            f"with duplicates). Relationships: {relationships.get('validated', 0)} validated, "
+            f"{relationships.get('violated', 0)} violated, "
+            f"{relationships.get('not_validated', 0)} not validated. Hypotheses: "
+            f"{summary.get('relationship_hypotheses', 0)}."
+        )
     return "\n".join(lines)
 
 
@@ -12852,6 +13093,28 @@ def export_run(
         "validation_errors": errors,
         "duration_ms": max(0, int((time.perf_counter() - start) * 1000)),
     }
+
+
+def job_exit_value(
+    ctx: Mapping[str, Any], profile: Mapping[str, Any], export: Mapping[str, Any], dbutils: Any
+) -> tuple[str | None, str]:
+    """Return ``(value, message)`` for the last cell of the notebook.
+
+    ``value`` is the compact JSON job summary to pass to
+    ``dbutils.notebook.exit``, or ``None`` when ``jobs.exit_summary`` is off or
+    ``dbutils.notebook.exit`` does not exist; ``message`` says which. The
+    notebook calls ``exit`` itself, outside any ``try`` block, because it may be
+    implemented by raising an exception.
+    """
+    if not ctx["config"]["jobs"]["exit_summary"]:
+        return None, "Job summary not returned (jobs.exit_summary = false)."
+    if not callable(getattr(getattr(dbutils, "notebook", None), "exit", None)):
+        return None, "Job summary not returned: dbutils.notebook.exit is not available here."
+    value = canonical_json(job_summary(profile, export["run_dir"], export["validation_errors"]))
+    return value, (
+        "Returning the job summary with dbutils.notebook.exit; the notebook ends here and every "
+        "result was written above:\n" + value
+    )
 
 
 def transfer_instructions(run_dir: str, run_id: str) -> str:
@@ -12981,3 +13244,18 @@ if td_export["validation_errors"]:
     for td_error in td_export["validation_errors"][:20]:
         print("  -", td_error)
 print(transfer_instructions(td_export["run_dir"], td_ctx["run_id"]))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 10. Job summary
+# MAGIC
+# MAGIC Returns a small JSON summary (run id, status, results directory and counts) to the Job or notebook that ran this one, with `dbutils.notebook.exit`. It ends the notebook, so it is the last cell; everything above was already written. Set `config_json` to `{"jobs": {"exit_summary": false}}` to skip it.
+
+# COMMAND ----------
+
+# DBTITLE 1,Job summary
+td_exit_value, td_exit_message = job_exit_value(td_ctx, td_profile, td_export, dbutils)
+print(td_exit_message)
+if td_exit_value is not None:
+    dbutils.notebook.exit(td_exit_value)

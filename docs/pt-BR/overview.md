@@ -63,8 +63,9 @@ Um notebook gerado **não contém resultados**; métricas existem apenas depois 
 
 ## Estado atual
 
-Versão 0.3.0. O runtime foi executado com Spark local 3.5 e 4.0, em modo clássico e por um servidor Spark
-Connect local, com dados sintéticos; **ainda não foi validado em um workspace Databricks**. Veja [compatibilidade](../compatibility.md) (em inglês) e o
+Versão 0.4.0. O runtime foi executado com Spark local 3.5 e 4.0, em modo clássico e por um servidor Spark
+Connect local, com dados sintéticos; **ainda não foi validado em um workspace Databricks** (nem como Job, nem com as
+constraints do Unity Catalog, testadas com um `information_schema` simulado). Veja [compatibilidade](../compatibility.md) (em inglês) e o
 [roteiro de smoke test](../databricks-smoke-test.md).
 
 Comece pelo [quickstart em português](quickstart.md). A documentação completa está em inglês no

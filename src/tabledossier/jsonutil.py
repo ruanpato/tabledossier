@@ -24,8 +24,6 @@ import math
 from decimal import Decimal
 from typing import Any
 
-FLOAT_SPECIALS = ("NaN", "Infinity", "-Infinity")
-
 
 def canonical_json(obj: Any) -> str:
     """Return a deterministic, compact JSON encoding used for fingerprints."""
@@ -42,11 +40,6 @@ def pretty_json(obj: Any) -> str:
 def fingerprint(obj: Any) -> str:
     """Return ``sha256:<hex>`` of the canonical JSON encoding of ``obj``."""
     return "sha256:" + hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
-
-
-def text_fingerprint(text: str) -> str:
-    """Return ``sha256:<hex>`` of UTF-8 ``text``."""
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def short_hash(obj: Any, length: int = 12) -> str:

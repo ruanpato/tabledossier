@@ -3,6 +3,68 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-22
+
+"Ready for Databricks": integration with Jobs, Unity Catalog constraints assembled and tested end to end with a
+simulated `information_schema`, and release automation. No Databricks evidence was provided for this release: every
+Databricks item stays pending (see "Not yet validated").
+
+### Added
+
+- Job summary: the last cell of the notebook returns a small JSON document (run id, status, analysis level, results
+  directory, profile validity and counts of tables by status, configured checks, relationships by validation status
+  and hypotheses) with `dbutils.notebook.exit`, only when it exists. Configurable with the new `jobs.exit_summary`
+  option (on by default); format `tabledossier schema job_summary` (`summary_version` 1.0). The local harness records
+  `dbutils.notebook.exit`. Decision record 0006.
+- `docs/databricks-jobs.md`: passing `tables_json`, `analysis_level`, `output_dir` and `config_json` as Job
+  parameters, reading the summary, and an example job definition (not validated).
+- Release workflow (`.github/workflows/release.yml`): a tag `v*` checks the tag against `__version__`, the dated
+  CHANGELOG section and the branch, builds the wheel and the sdist, runs the unit tests against the wheel, writes
+  `SHA256SUMS` and creates a **draft** GitHub release with the notes of the CHANGELOG section; only that job can
+  write, with the `GITHUB_TOKEN`, and nothing is published to PyPI. Pull requests that change the release inputs run
+  it as a dry run. The checks and notes come from `scripts/release.py` (unit-tested). Decision record 0007.
+- Smoke test: a Job step, the expectations of the job summary and of unresolved foreign keys, and a table of what only
+  a Databricks workspace can show (deep cost on large tables, Volumes from serverless, restricted `spark.conf.get`,
+  `catalog.functionExists` and `toLocalIterator`, Unity Catalog `information_schema`, Jobs).
+
+### Changed
+
+- Messages about missing `tables_json` or `output_dir` mention Job parameters; the notebook texts mention the deep
+  part II checks and the job summary.
+- The sdist includes `scripts/` (needed by its unit tests); the CI wheel check no longer hard-codes the version.
+- The analysis plan printed by the notebook separates per-table operations from per-run ones (referential validation,
+  hypotheses, job summary) and describes the referential check as a left join against the grouped target (it said
+  "anti join"); the run summary adds the counts of keys, relationships and hypotheses at the deep level.
+- Declared key constraints are assembled from `information_schema` rows by a pure function of the embedded runtime
+  (`relationships.key_constraints_from_rows`); the Spark adapter only runs the parameterized queries. Constraints are
+  identified by catalog, schema and name, compared case-insensitively, and columns follow `ordinal_position` whatever
+  the row order.
+- Declared PRIMARY KEY, UNIQUE and FOREIGN KEY columns are matched to the table's top-level columns case-insensitively
+  when the catalog spells them differently (only when exactly one column matches), for `deep.uniqueness.declared_keys`
+  and `deep.referential.declared`.
+
+### Removed
+
+- Unused names of the embedded runtime: `integrity.VALIDATION_MODES`, `deep.DEEP_TIERS`, `deep.ELEMENT_SEGMENTS`,
+  `deep.deep_enabled`, `config.WIDGET_NAMES`, `jsonutil.FLOAT_SPECIALS` and `jsonutil.text_fingerprint`. The remaining
+  vocabulary constants (metric statuses, scopes, accuracies and sources, path segment kinds, key origins and outcomes,
+  deep operation kinds) are now tested against the enumerations of the profile schema.
+
+### Fixed
+
+- A foreign key whose referenced constraint is missing, unreadable or does not match its columns is no longer recorded
+  with a `?` column: it keeps `referenced: null`, is not documented as a relationship, and a table note says why.
+- A catalog whose `information_schema` cannot be read for a referenced constraint no longer hides the other key
+  constraints of the table.
+
+### Not yet validated
+
+- Execution on Databricks workspaces (15.4, 16.4 and 17.3 LTS; single user, shared access mode and serverless),
+  including Jobs parameters, the job summary, Unity Catalog volumes and the `information_schema` constraints used by
+  `declared_keys` and `referential.declared` (tested locally with a simulated `information_schema`).
+- The release workflow's publish job: the dry run proves the build, checks, notes and checksums; the draft release is
+  created only by a real tag.
+
 ## [0.3.0] - 2026-09-22
 
 "Deep II": exact uniqueness, referential validation and data-driven relationship hypotheses.
@@ -115,6 +177,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Execution on Databricks workspaces (see `docs/compatibility.md`).
 
+[0.4.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.4.0
 [0.3.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.1.0

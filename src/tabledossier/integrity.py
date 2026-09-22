@@ -22,10 +22,10 @@ Only counts leave the engine: orphan or matching values are never collected.
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from tabledossier.keys import declared_column_segments
 from tabledossier.metrics import measured, metric_value, numeric_value, ratio
-from tabledossier.paths import field_segment, parse_display_path, table_lookup_key
+from tabledossier.paths import parse_display_path, table_lookup_key
 
-VALIDATION_MODES = ("full_scope", "sample")
 HYPOTHESIS_KINDS = ("integer", "decimal", "string", "date")
 TARGET_SCOPE_NOTE = (
     "The target is read in full at its recorded version (the target table's filters are not "
@@ -84,15 +84,19 @@ def type_compatibility(
     return out
 
 
-def end_segments(relationship: Mapping[str, Any], end: str) -> list[list[dict[str, Any]]]:
+def end_segments(
+    relationship: Mapping[str, Any], end: str, fields: Sequence[Mapping[str, Any]] = ()
+) -> list[list[dict[str, Any]]]:
     """Typed paths of one end of a relationship record.
 
-    Declared constraints list literal top-level column names; configured and
-    annotated relationships list display paths.
+    Declared constraints list literal top-level column names, matched to the
+    top-level columns of ``fields`` (the schema tree of that end's table)
+    case-insensitively when the exact name is absent; configured and annotated
+    relationships list display paths.
     """
     columns = relationship[end]["columns"]
     if relationship["origin"] == "declared_constraint":
-        return [[field_segment(str(column))] for column in columns]
+        return declared_column_segments(columns, fields)
     return [parse_display_path(column) for column in columns]
 
 

@@ -19,6 +19,9 @@ built-in defaults < generated configuration < config_json widget < tables_json /
 `config_version` (use the dedicated widgets). Objects are merged; lists and scalars are replaced;
 `table_options` entries are replaced per table.
 
+A Databricks Job passes the same four names as notebook task parameters; they reach the notebook as widget values
+and are never reset by it ([running as a Job](databricks-jobs.md)).
+
 ## Top-level options
 
 | Key | Default | Meaning |
@@ -219,6 +222,16 @@ How pairs are chosen, without ever looking at column names:
    counted by reason (`pairs_rejected`).
 
 See [contract](contract.md#relationship-hypotheses-12).
+
+## `jobs`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `exit_summary` | `true` | At the end of the run, after the result package was written, the last cell returns a small JSON job summary (run id, status, results directory, counts of tables, checks, relationships and hypotheses) with `dbutils.notebook.exit`, when it exists. It ends the notebook; interactively the last cell shows "Notebook exited" with the summary. `false` skips it. |
+
+The summary format is `tabledossier schema job_summary`; how a Job or a calling notebook reads it is described in
+[running as a Job](databricks-jobs.md). A run whose tables failed still ends normally: the summary's `status` says
+`partial` or `failed`.
 
 ## `table_options`
 

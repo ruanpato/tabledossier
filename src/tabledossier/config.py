@@ -25,14 +25,12 @@ from tabledossier.paths import (
     table_lookup_key,
 )
 from tabledossier.schemacheck import schema_errors
-from tabledossier.widgets import NOTEBOOK_WIDGETS
 
 CONFIG_KIND = "tabledossier.config"
 CONFIG_VERSION = "1.0"
 ANALYSIS_LEVELS = ("metadata", "standard", "deep")
 ROW_READING_LEVELS = ("standard", "deep")
 DEEP_ALL_TARGETS = "all_within_budget"
-WIDGET_NAMES = tuple(name for name, _ in NOTEBOOK_WIDGETS)
 DEDICATED_WIDGET_KEYS = {
     "tables": "tables_json",
     "analysis_level": "analysis_level",
@@ -135,6 +133,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "min_inclusion_ratio": 0.95,
         },
     },
+    "jobs": {"exit_summary": True},
     "table_options": {},
     "relationships": [],
 }
@@ -468,14 +467,15 @@ def execution_errors(config: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     if not config.get("tables"):
         errors.append(
-            "no tables to profile: set the 'tables_json' widget to a JSON list such as "
-            '["demo.analytics.orders"] (catalog.schema.table) and run the notebook again'
+            "no tables to profile: set the 'tables_json' widget (or the Job parameter of the same "
+            'name) to a JSON list such as ["demo.analytics.orders"] (catalog.schema.table) and run '
+            "the notebook again"
         )
     output_dir = str(config.get("output_dir", ""))
     if not output_dir:
         errors.append(
-            "no output directory: set the 'output_dir' widget, for example "
-            "/Volumes/<catalog>/<schema>/<volume>/tabledossier"
+            "no output directory: set the 'output_dir' widget (or the Job parameter of the same "
+            "name), for example /Volumes/<catalog>/<schema>/<volume>/tabledossier"
         )
     elif re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", output_dir):
         errors.append(

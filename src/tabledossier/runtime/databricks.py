@@ -21,8 +21,14 @@ from tabledossier.config import ConfigError, execution_errors, resolve_parameter
 from tabledossier.contract import validate_profile
 from tabledossier.errors import error_record
 from tabledossier.integrity import hypotheses_record, not_validated_detail, referential_summary
-from tabledossier.jsonutil import format_utc, pretty_json, utc_now
-from tabledossier.package import build_documents, run_manifest, running_manifest, write_files
+from tabledossier.jsonutil import canonical_json, format_utc, pretty_json, utc_now
+from tabledossier.package import (
+    build_documents,
+    job_summary,
+    run_manifest,
+    running_manifest,
+    write_files,
+)
 from tabledossier.paths import parse_table_identifier, quote_table_identifier, table_id, table_key
 from tabledossier.runtime.spark import (
     detect_capabilities,
@@ -110,7 +116,8 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
     lines += [f"  - {name}" for name in config["tables"]]
     lines.append("Per table, the engine will be asked for:")
     lines.append(
-        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL, key constraints (no row scan)"
+        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL and Unity Catalog key constraints "
+        "from information_schema (no row scan)"
     )
     if config["analysis_level"] in ("standard", "deep"):
         pinning = (
@@ -189,10 +196,11 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 )
                 if enabled
             ]
+            lines.append("After every table was profiled (per run):")
             lines.append(
                 f"  - referential validation of {' and '.join(origins)} relationships between "
                 f"tables of this run: up to {referential['max_relationships']} check(s) per run, "
-                "one anti join each, "
+                "one left join against the grouped target each, "
                 + (
                     "over the full source scope"
                     if referential["mode"] == "full_scope"
@@ -217,6 +225,12 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("  - no table rows are read at the metadata level")
+    lines.append(
+        "After the export: a small JSON job summary is returned with dbutils.notebook.exit when "
+        "it exists (jobs.exit_summary)"
+        if config["jobs"]["exit_summary"]
+        else "After the export: no job summary (jobs.exit_summary = false)"
+    )
     capabilities = ctx["capabilities"]
     lines.append(
         "Detected capabilities: "
@@ -339,6 +353,17 @@ def summary_text(profile: Mapping[str, Any]) -> str:
         f"{checks['error']} error. Findings: {summary['findings']['warning']} warning, "
         f"{summary['findings']['info']} info."
     )
+    if profile["run"]["analysis_level"] == "deep":
+        keys = summary.get("uniqueness") or {}
+        relationships = summary.get("relationships") or {}
+        lines.append(
+            f"Keys measured: {keys.get('keys_measured', 0)} ({keys.get('unique', 0)} unique, "
+            f"{keys.get('unique_non_null', 0)} unique except NULLs, {keys.get('duplicates', 0)} "
+            f"with duplicates). Relationships: {relationships.get('validated', 0)} validated, "
+            f"{relationships.get('violated', 0)} violated, "
+            f"{relationships.get('not_validated', 0)} not validated. Hypotheses: "
+            f"{summary.get('relationship_hypotheses', 0)}."
+        )
     return "\n".join(lines)
 
 
@@ -367,6 +392,28 @@ def export_run(
         "validation_errors": errors,
         "duration_ms": max(0, int((time.perf_counter() - start) * 1000)),
     }
+
+
+def job_exit_value(
+    ctx: Mapping[str, Any], profile: Mapping[str, Any], export: Mapping[str, Any], dbutils: Any
+) -> tuple[str | None, str]:
+    """Return ``(value, message)`` for the last cell of the notebook.
+
+    ``value`` is the compact JSON job summary to pass to
+    ``dbutils.notebook.exit``, or ``None`` when ``jobs.exit_summary`` is off or
+    ``dbutils.notebook.exit`` does not exist; ``message`` says which. The
+    notebook calls ``exit`` itself, outside any ``try`` block, because it may be
+    implemented by raising an exception.
+    """
+    if not ctx["config"]["jobs"]["exit_summary"]:
+        return None, "Job summary not returned (jobs.exit_summary = false)."
+    if not callable(getattr(getattr(dbutils, "notebook", None), "exit", None)):
+        return None, "Job summary not returned: dbutils.notebook.exit is not available here."
+    value = canonical_json(job_summary(profile, export["run_dir"], export["validation_errors"]))
+    return value, (
+        "Returning the job summary with dbutils.notebook.exit; the notebook ends here and every "
+        "result was written above:\n" + value
+    )
 
 
 def transfer_instructions(run_dir: str, run_id: str) -> str:

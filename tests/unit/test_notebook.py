@@ -58,6 +58,7 @@ def test_notebook_structure_and_sections():
         "# MAGIC ## 7. Data dictionary",
         "# MAGIC ## 8. Quality and limitations",
         "# MAGIC ## 9. Export",
+        "# MAGIC ## 10. Job summary",
     ]
     assert "contains no results yet" in text
 

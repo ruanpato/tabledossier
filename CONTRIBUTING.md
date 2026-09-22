@@ -77,6 +77,27 @@ The project follows gitflow:
 - After a release or hotfix reaches `main`, `main` is merged back into `develop` through a pull request, so the next
   release branch is up to date with `main`.
 
+Releasing version X.Y.Z:
+
+1. On `release/X.Y.Z` (or `hotfix/X.Y.Z`): set `__version__` in `src/tabledossier/_version.py`, date the CHANGELOG
+   section (`## [X.Y.Z] - YYYY-MM-DD`) and add its link
+   (`[X.Y.Z]: https://github.com/ruanpato/tabledossier/releases/tag/vX.Y.Z`). The pull request to `main` runs the
+   release workflow as a **dry run** (build, version check, unit tests against the wheel, notes and checksums; nothing
+   is published) next to the CI jobs.
+2. Merge the pull request into `main` with a merge commit.
+3. An administrator creates the annotated tag on the merge commit and pushes only that tag:
+   `git tag -a vX.Y.Z -m "TableDossier X.Y.Z (alpha)" <merge-sha> && git push origin vX.Y.Z`.
+4. The tag starts `.github/workflows/release.yml`: it checks that the tag equals `v` + `__version__`, that the tagged
+   commit is on `main` and that the CHANGELOG section is dated; builds the wheel and the sdist; runs the unit tests
+   against the wheel; writes `SHA256SUMS`; and creates a **draft** GitHub release (a pre-release for 0.x) with the
+   notes taken from the CHANGELOG section and the three files. Only its last job has `contents: write`, with the
+   `GITHUB_TOKEN`; nothing is published to PyPI.
+5. Review the draft (notes, files, checksums) and publish it.
+6. Merge `main` back into `develop` through a pull request.
+
+The notes and checks are produced by `scripts/release.py`; run `python scripts/release.py check --tag vX.Y.Z` and
+`python scripts/release.py notes --tag vX.Y.Z --output notes.md` locally to preview them.
+
 Repository rulesets enforce this:
 
 | Ruleset | Target | Rules |

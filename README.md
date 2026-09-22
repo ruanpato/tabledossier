@@ -8,7 +8,7 @@ You generate a profiling notebook **on your own computer, without any connection
 run it **inside Databricks** with the permissions you already have there, and reuse the exported
 profile **offline** as the single source for a data dictionary, a data quality report (DQR) and an ER diagram.
 
-> Status: early release (0.3.0). The notebook runtime has been executed against local Spark 3.5 and
+> Status: early release (0.4.0). The notebook runtime has been executed against local Spark 3.5 and
 > 4.0, in classic mode and through a local Spark Connect server, with synthetic data; **it has not yet been
 > validated on a Databricks workspace** — see [Compatibility](#11-compatibility-and-troubleshooting).
 > Português: [visão geral](docs/pt-BR/overview.md) e [quickstart](docs/pt-BR/quickstart.md).
@@ -27,11 +27,47 @@ are samples, business meaning stays unknown unless a source comment or a person 
 
 ## 2. How it works
 
-```text
-YOUR COMPUTER (offline)                  DATABRICKS (your permissions)             YOUR COMPUTER (offline)
-tabledossier init / generate  ──import──▶  notebook: widgets → validate →   ──copy──▶  tabledossier validate
-  profile.config.json                      metadata, sample, aggregations            tabledossier render
-  dist/profile_databricks.py               → results/<run_id>/profile.json …         → docs (+ your annotations)
+```mermaid
+flowchart LR
+    subgraph LOCAL1["YOUR COMPUTER (offline)"]
+        A["tabledossier init / generate"]
+        A1["profile.config.json"]
+        A2["dist/profile_databricks.py"]
+
+        A --> A1
+        A --> A2
+    end
+
+    subgraph DBX["DATABRICKS (your permissions)"]
+        B["Notebook"]
+        B1["Widgets"]
+        B2["Validate"]
+        B3["Metadata"]
+        B4["Sample"]
+        B5["Aggregations"]
+        B6["results/&lt;run_id&gt;/profile.json …"]
+
+        B --> B1
+        B1 --> B2
+        B2 --> B3
+        B2 --> B4
+        B2 --> B5
+        B3 --> B6
+        B4 --> B6
+        B5 --> B6
+    end
+
+    subgraph LOCAL2["YOUR COMPUTER (offline)"]
+        C["tabledossier validate"]
+        D["tabledossier render"]
+        E["docs<br/>(+ your annotations)"]
+
+        C --> D
+        D --> E
+    end
+
+    A2 -- "import" --> B
+    B6 -- "copy" --> C
 ```
 
 A generated notebook contains **no results**: it has a generation manifest, not metrics. Metrics
@@ -145,12 +181,13 @@ The generated notebook itself is committed at
 | Self-contained Databricks source notebook (`.py`) with widgets | Implemented; executed locally with Spark 3.5/4.0, classic and Spark Connect; **Databricks validation pending** |
 | Levels `metadata` and `standard` | Implemented |
 | Level `deep`, part I: array/map element metrics, element distinct counts, JSON path catalogue and full-scope validation, with budgets | Implemented (0.2.0); tested locally with Spark 3.5/4.0, classic and Spark Connect |
-| Level `deep`, part II: exact uniqueness of keys, referential validation pinned to the recorded snapshots, data-driven relationship hypotheses, with budgets | Implemented (0.3.0); tested locally with Spark 3.5/4.0, classic and Spark Connect; declared keys tested with a stubbed `information_schema` reader |
+| Level `deep`, part II: exact uniqueness of keys, referential validation pinned to the recorded snapshots, data-driven relationship hypotheses, with budgets | Implemented (0.3.0); tested locally with Spark 3.5/4.0, classic and Spark Connect; declared keys and foreign keys tested with a simulated `information_schema` |
 | Delta snapshot pinning (`VERSION AS OF`) for every row read | Implemented; tested with local delta-spark 3.3 |
 | Profile JSON Schema 1.2 (additive; the CLI still reads 1.0 and 1.1), stdlib + formal validation | Implemented |
 | Data dictionary, DQR, relationships, Mermaid ERD, suggested rules | Implemented |
 | Human annotations file | Implemented |
-| Unity Catalog PK/FK from `information_schema` | Implemented; **not testable locally, validation pending** |
+| Unity Catalog PK/FK/UNIQUE from `information_schema` | Implemented; assembly tested with synthetic rows and end to end with a simulated `information_schema`; **Unity Catalog validation pending** |
+| Databricks Jobs: parameters as widgets, JSON job summary returned with `dbutils.notebook.exit` ([guide](docs/databricks-jobs.md)) | Implemented (0.4.0); tested with the local harness (widgets and a recording `dbutils.notebook.exit`); **Databricks validation pending** |
 | PostgreSQL connector, remote Databricks execution, `.ipynb`, profile diff | [Roadmap](docs/roadmap.md) — not available |
 
 ## 5. Requirements
@@ -172,7 +209,7 @@ The package is not published on PyPI. Install the tagged release from GitHub, or
 ```bash
 python -m venv .venv
 # Activate the environment for your OS (e.g. source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.3.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.4.0"
 
 tabledossier init --output profile.config.json
 tabledossier validate --config profile.config.json
@@ -192,7 +229,7 @@ Then, in Databricks:
 4. **Fill the widgets** at the top: `tables_json` = `["demo.analytics.orders"]` (your tables or the demo
    ones) and `output_dir` = a directory you can write, e.g. `/Volumes/<catalog>/<schema>/<volume>/tabledossier`.
    Then *Run all*.
-5. **Find the results** in `output_dir/<run_id>/`. The last cell prints the exact path and copy commands,
+5. **Find the results** in `output_dir/<run_id>/`. The export cell prints the exact path and copy commands,
    for example `databricks fs cp -r dbfs:/Volumes/<catalog>/<schema>/<volume>/tabledossier/<run_id> ./downloaded/<run_id>`,
    or download the files from Catalog Explorer.
 6. **Validate and regenerate the documentation offline**:
@@ -224,6 +261,11 @@ tabledossier render --input examples/demo/output/run/profile.json \
 
 Precedence: **built-in defaults < generated configuration < `config_json` < the three dedicated widgets**.
 Widgets are created only when missing, so values typed by you or passed by a Job are never reset.
+
+**As a Databricks Job**, pass the four names as notebook task parameters. The last cell returns a small JSON summary
+(run id, status, results directory and counts) with `dbutils.notebook.exit` for the Job or the notebook that ran it
+(`jobs.exit_summary`, on by default). See [running as a Job](docs/databricks-jobs.md); not yet validated on a
+workspace.
 
 Per-table options (in the config file or `config_json`) select columns, apply **structured filters**
 (`eq`, `ne`, `lt`, `le`, `gt`, `ge`, `in`, `not_in`, `between`, `is_null`, `is_not_null`, `like`) and declare
@@ -318,8 +360,8 @@ anonymized**. Nothing is sent anywhere. Details: [privacy](docs/privacy.md).
 
 | Component | Tested | Pending |
 | --- | --- | --- |
-| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 252 unit tests against the built wheel | Other OS/Python combinations |
-| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (74/70 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, shared/serverless compute, Unity Catalog constraints (declared keys and foreign keys) |
+| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 295 unit tests against the built wheel | Other OS/Python combinations |
+| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (78/74 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Jobs and the job summary, Volumes, shared/serverless compute, Unity Catalog constraints (declared keys and foreign keys) |
 
 A reproducible remote check is described in [Databricks smoke test](docs/databricks-smoke-test.md).
 

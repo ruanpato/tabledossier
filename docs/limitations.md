@@ -1,6 +1,6 @@
 # Limitations
 
-Known limits of release 0.3.0, by design or not yet addressed.
+Known limits of release 0.4.0, by design or not yet addressed.
 
 ## Execution
 
@@ -73,7 +73,19 @@ Known limits of release 0.3.0, by design or not yet addressed.
   missing hypothesis proves nothing. Inclusion can be coincidental (small integer ranges, codes): a hypothesis is a
   prompt for a person, not a relationship.
 - Declared PRIMARY KEY, UNIQUE and FOREIGN KEY constraints come from Unity Catalog `information_schema` and have not
-  been validated on a workspace yet (tested locally with a stubbed reader).
+  been validated on a workspace yet. Locally, the same queries run against a simulated `information_schema` (tables
+  with its column layout) and the assembly is tested with synthetic rows. A foreign key whose referenced constraint
+  cannot be read or resolved is not documented as a relationship (a table note says why).
+
+## Jobs
+
+- Running the notebook as a Databricks Job has not been validated on a workspace; the local harness only simulates
+  widgets and `dbutils.notebook.exit` ([running as a Job](databricks-jobs.md)).
+- The job summary is returned only with `dbutils.notebook.exit` (to `dbutils.notebook.run` and the Jobs run output);
+  task values (`dbutils.jobs.taskValues`) are not set, so downstream tasks of the same Job cannot reference the summary
+  with dynamic value references.
+- The notebook task succeeds even when tables failed: the summary's `status` (`partial`, `failed`) tells the caller.
+  `dbutils.notebook.exit` ends the notebook, so cells added after the last one do not run.
 
 ## Documentation
 
@@ -86,5 +98,7 @@ Known limits of release 0.3.0, by design or not yet addressed.
 
 ## Packaging
 
-- The package is not published; install from a checkout or a wheelhouse.
+- The package is not published; install from a checkout, a wheelhouse or the wheel attached to a GitHub release.
+- The release workflow creates a draft GitHub release from a tag; its publish job has not run yet (only its dry run
+  on pull requests), and nothing is published to PyPI.
 - Only the Databricks source format (`.py`) is generated; `.ipynb` is planned.

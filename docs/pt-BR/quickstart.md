@@ -8,7 +8,7 @@ com `python -m pip install .`; para máquinas sem internet, veja [instalação o
 ```bash
 python -m venv .venv
 # Ative o ambiente conforme o sistema operacional (ex.: source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.3.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.4.0"
 ```
 
 Requisitos locais: Python 3.10 ou superior. Não é preciso Spark, Java, Docker, drivers de banco, credenciais nem
@@ -39,12 +39,24 @@ segredos na configuração.
    - `config_json`: ajustes opcionais em JSON (filtros, limites, checks), sem segredos.
 
    Precedência: padrões internos < configuração gerada < `config_json` < widgets dedicados.
-5. Clique em *Run all*. A última célula mostra o caminho do pacote e um comando para copiá-lo, por exemplo
+5. Clique em *Run all*. A célula de exportação mostra o caminho do pacote e um comando para copiá-lo, por exemplo
    `databricks fs cp -r dbfs:/Volumes/<catalogo>/<schema>/<volume>/tabledossier/<run_id> ./downloaded/<run_id>`
    (também é possível baixar pelo Catalog Explorer).
 
 Uma tabela com erro (por exemplo, inexistente) recebe status `failed` com mensagem sanitizada; as demais continuam e
 a execução fica `partial`.
+
+A última célula encerra o notebook com `dbutils.notebook.exit` e um resumo JSON pequeno (id da execução, status,
+diretório de resultados e contagens), que aparece como "Notebook exited". Tudo já foi gravado antes dela. Para
+desligar, use `config_json` = `{"jobs": {"exit_summary": false}}`.
+
+### Como Job do Databricks
+
+Passe `tables_json`, `analysis_level`, `output_dir` e `config_json` como parâmetros da tarefa de notebook: eles chegam
+como valores dos widgets e o notebook não os sobrescreve. O resumo JSON da última célula fica disponível para quem
+executou o notebook (`dbutils.notebook.run`, API de Jobs `runs/get-output`). A execução como Job ainda não foi
+validada em um workspace; detalhes e um exemplo de definição (não validado) em
+[execução como Job](../databricks-jobs.md) (em inglês).
 
 ### Nível `deep` (opcional)
 
