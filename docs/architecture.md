@@ -149,3 +149,4 @@ test process (`SparkSession.builder.remote("local[2]")`); CI runs it for Spark 3
 - [0004 — Deep level: budgeted operations over the shared passes](decisions/0004-deep-level.md)
 - [0005 — Deep level, part II: exact uniqueness, referential validation and hypotheses](decisions/0005-deep-level-part-ii.md)
 - [0006 — A small job summary returned with `dbutils.notebook.exit`](decisions/0006-job-summary.md)
+- [0007 — Release automation: a draft GitHub release built from the tag](decisions/0007-release-automation.md)

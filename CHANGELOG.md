@@ -14,12 +14,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `dbutils.notebook.exit`. Decision record 0006.
 - `docs/databricks-jobs.md`: passing `tables_json`, `analysis_level`, `output_dir` and `config_json` as Job
   parameters, reading the summary, and an example job definition (not validated).
+- Release workflow (`.github/workflows/release.yml`): a tag `v*` checks the tag against `__version__`, the CHANGELOG
+  section and the branch, builds the wheel and the sdist, runs the unit tests against the wheel, writes `SHA256SUMS`
+  and creates a **draft** GitHub release with the notes of the CHANGELOG section; only that job can write, with the
+  `GITHUB_TOKEN`, and nothing is published to PyPI. Pull requests that change the release inputs run it as a dry run.
+  The checks and notes come from `scripts/release.py` (unit-tested). Decision record 0007.
 
 ### Changed
 
 - Messages about missing `tables_json` or `output_dir` mention Job parameters; the notebook texts mention the deep
   part II checks and the job summary.
-
+- The sdist includes `scripts/` (needed by its unit tests); the CI wheel check no longer hard-codes the version.
 - Declared key constraints are assembled from `information_schema` rows by a pure function of the embedded runtime
   (`relationships.key_constraints_from_rows`); the Spark adapter only runs the parameterized queries. Constraints are
   identified by catalog, schema and name, compared case-insensitively, and columns follow `ordinal_position` whatever
