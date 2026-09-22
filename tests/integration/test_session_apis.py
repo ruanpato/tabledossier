@@ -110,9 +110,10 @@ def test_parameterized_constraint_query(spark):
         spark.sql(f"DROP TABLE IF EXISTS td_info.{name}")
         spark.sql(f"CREATE TABLE td_info.{name} AS SELECT * FROM VALUES {values}")
 
-    constraints = query_key_constraints(
+    constraints, notes = query_key_constraints(
         spark, "demo", "ANALYTICS", "Orders", lambda catalog: "`td_info`"
     )
+    assert notes == []
     by_name = {item["name"]: item for item in constraints}
     assert set(by_name) == {"orders_pk", "orders_customer_fk"}  # CHECK rows are ignored
     assert by_name["orders_pk"]["constraint_type"] == "primary_key"
@@ -123,9 +124,6 @@ def test_parameterized_constraint_query(spark):
     assert all(item["enforcement"] == "not_enforced" for item in constraints)
 
     # A hostile table name is a bound value: it matches nothing and changes no statement.
-    assert (
-        query_key_constraints(
-            spark, "demo", "analytics", "orders' OR '1'='1", lambda catalog: "`td_info`"
-        )
-        == []
-    )
+    assert query_key_constraints(
+        spark, "demo", "analytics", "orders' OR '1'='1", lambda catalog: "`td_info`"
+    ) == ([], [])

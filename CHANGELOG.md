@@ -3,6 +3,25 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Declared key constraints are assembled from `information_schema` rows by a pure function of the embedded runtime
+  (`relationships.key_constraints_from_rows`); the Spark adapter only runs the parameterized queries. Constraints are
+  identified by catalog, schema and name, compared case-insensitively, and columns follow `ordinal_position` whatever
+  the row order.
+- Declared PRIMARY KEY, UNIQUE and FOREIGN KEY columns are matched to the table's top-level columns case-insensitively
+  when the catalog spells them differently (only when exactly one column matches), for `deep.uniqueness.declared_keys`
+  and `deep.referential.declared`.
+
+### Fixed
+
+- A foreign key whose referenced constraint is missing, unreadable or does not match its columns is no longer recorded
+  with a `?` column: it keeps `referenced: null`, is not documented as a relationship, and a table note says why.
+- A catalog whose `information_schema` cannot be read for a referenced constraint no longer hides the other key
+  constraints of the table.
+
 ## [0.3.0] - 2026-09-22
 
 "Deep II": exact uniqueness, referential validation and data-driven relationship hypotheses.
@@ -115,6 +134,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Execution on Databricks workspaces (see `docs/compatibility.md`).
 
+[Unreleased]: https://github.com/ruanpato/tabledossier/compare/v0.3.0...develop
 [0.3.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.1.0

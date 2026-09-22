@@ -52,6 +52,27 @@ def _ky_segments_of_config(columns: Sequence[Any]) -> list[list[dict[str, Any]]]
         return None
 
 
+def declared_column_segments(
+    columns: Sequence[Any], fields: Sequence[Mapping[str, Any]]
+) -> list[list[dict[str, Any]]]:
+    """Typed paths of the columns of a declared constraint (literal top-level names).
+
+    Catalog identifiers are case-insensitive: a name that is not a top-level
+    column of ``fields`` (the schema tree) is matched to the only top-level
+    column with the same case-folded name, if there is exactly one.
+    """
+    names = [str(node.get("name")) for node in fields]
+    out = []
+    for column in columns:
+        text = str(column)
+        if text not in names:
+            same = [name for name in names if name.casefold() == text.casefold()]
+            if len(same) == 1:
+                text = same[0]
+        out.append([field_segment(text)])
+    return out
+
+
 def requested_keys(
     config: Mapping[str, Any],
     table_lookup: str,
@@ -148,6 +169,8 @@ def plan_uniqueness(
     index_by_set: dict[tuple[str, ...], int] = {}
     for item in requested:
         segments = item["segments"]
+        if segments and item["origin"] in ("declared_primary_key", "declared_unique"):
+            segments = declared_column_segments(item["requested"], tree.get("fields", []))
         if not segments:
             keys.append(
                 _ky_key(item, [], [], "not_eligible", "the key lists no valid column reference")

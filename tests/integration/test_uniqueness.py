@@ -195,26 +195,30 @@ def test_declared_keys_and_identifier_candidates(spark, accounts, capabilities, 
     import tabledossier.runtime.spark as runtime
 
     def declared(spark, parts):
-        return [
-            {
-                "name": "accounts_pk",
-                "constraint_type": "primary_key",
-                "columns": ["account_id"],
-                "expression": None,
-                "referenced": None,
-                "enforcement": "not_enforced",
-                "source": "information_schema",
-            },
-            {
-                "name": "accounts_code_uk",
-                "constraint_type": "unique",
-                "columns": ["code"],
-                "expression": None,
-                "referenced": None,
-                "enforcement": "not_enforced",
-                "source": "information_schema",
-            },
-        ], None
+        return (
+            [
+                {
+                    "name": "accounts_pk",
+                    "constraint_type": "primary_key",
+                    "columns": ["account_id"],
+                    "expression": None,
+                    "referenced": None,
+                    "enforcement": "not_enforced",
+                    "source": "information_schema",
+                },
+                {
+                    "name": "accounts_code_uk",
+                    "constraint_type": "unique",
+                    "columns": ["code"],
+                    "expression": None,
+                    "referenced": None,
+                    "enforcement": "not_enforced",
+                    "source": "information_schema",
+                },
+            ],
+            [],
+            None,
+        )
 
     monkeypatch.setattr(runtime, "read_unity_constraints", declared)
     table = _profile(
