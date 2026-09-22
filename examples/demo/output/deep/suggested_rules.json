@@ -1,8 +1,8 @@
 {
   "kind": "tabledossier.suggested_rules",
   "schema_version": "1.0",
-  "run_id": "20260922T055423Z-1122ba0c",
-  "profiled_at": "2026-09-22T05:54:23.930Z",
+  "run_id": "20260922T085016Z-9edb1160",
+  "profiled_at": "2026-09-22T08:50:16.415Z",
   "notice": "Proposals derived from observed data. They are not applied and require review by a data owner before being adopted as quality rules.",
   "rules": [
     {

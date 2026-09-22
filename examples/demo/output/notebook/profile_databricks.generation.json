@@ -2,12 +2,12 @@
   "kind": "tabledossier.generation_manifest",
   "manifest_version": "1.0",
   "tool_version": "0.2.0",
-  "generation_id": "sha256:01f5befac2a4833164da08b91f7755008cc2f9e7ce971661d41c56a697ea4545",
+  "generation_id": "sha256:97a5554e40f47ca66bf9b8e4d8e1d0842c608a86e7e8173ad86093578dd76f51",
   "contains_results": false,
   "notebook": {
     "file_name": "profile_databricks.py",
     "format": "databricks_source_python",
-    "sha256": "sha256:0826aae173428c27d50e2f3c47b49802da21cf522e9a2c1719b8490952dfe83e",
+    "sha256": "sha256:e7d9f6671e1e2fe3b66cf8359166863577a4e137ed50c029e92ed13cf7017a00",
     "cells": 41
   },
   "config_fingerprint": "sha256:f332a1308309115a9db23b30a578d0c2fbd8581cc38d91aefa6d79ea3f19f9fe",
@@ -115,12 +115,12 @@
     {
       "module": "tabledossier.runtime.spark",
       "source_path": "src/tabledossier/runtime/spark.py",
-      "sha256": "sha256:3b42b4408464b8460328304451abed3422921bfce5f4b02d9b262c8698658d92"
+      "sha256": "sha256:c99fa30e180d408f8b8f1430a8f69de3716f580487474031bf1b24664c91d943"
     },
     {
       "module": "tabledossier.runtime.databricks",
       "source_path": "src/tabledossier/runtime/databricks.py",
-      "sha256": "sha256:7061b363767921b4251a8b11c95cb068cbda92589ef4e14527b71e5a97f510c4"
+      "sha256": "sha256:75794e21f2aaec6b18e41e019b5ca03e7eeb8bd7beae90bf8ad3633f242b5c97"
     }
   ],
   "embedded_schemas": [

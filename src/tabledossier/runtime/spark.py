@@ -1908,7 +1908,12 @@ def profile_table(
             json_unsupported=json_unsupported,
             scope=scope,
         )
-        _sp_uniqueness(table, scoped, tree, nodes_by_id, config, scope=scope, log=log)
+        try:
+            _sp_uniqueness(table, scoped, tree, nodes_by_id, config, scope=scope, log=log)
+        except Exception as exc:  # noqa: BLE001 - uniqueness never costs the table its profile
+            table["errors"].append(error_record(exc, "assemble"))
+            table["uniqueness"] = None
+            log(f"[tabledossier] {key}: uniqueness failed unexpectedly ({type(exc).__name__})")
     timings["total"] = _sp_ms(total_start)
     finalize_table(table, config)
     extra = (
