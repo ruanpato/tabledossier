@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.1.0 (generation id `sha256:b78ee23429a952e815138f7006f509e8bac479af53a91168a0592dfd503e4005`).
+# MAGIC Generated offline by TableDossier 0.1.0 (generation id `sha256:50908f79df98f39bd7779b6fe9771edbaab0bc59580025eafd63f7739d4bae5f`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -179,7 +179,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.1.0',
- 'generation_id': 'sha256:b78ee23429a952e815138f7006f509e8bac479af53a91168a0592dfd503e4005'}
+ 'generation_id': 'sha256:50908f79df98f39bd7779b6fe9771edbaab0bc59580025eafd63f7739d4bae5f'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -1386,7 +1386,7 @@ def unsupported_keywords(schema: Mapping[str, Any]) -> list[str]:
 
 # DBTITLE 1,Runtime: tabledossier.errors
 # TableDossier 0.1.0 embedded runtime: module tabledossier.errors
-# Source: src/tabledossier/errors.py (sha256:71c7b66f111f469c3cfa4f00a1b517160b67deaa0d21e596a7cf477c2b9ff072)
+# Source: src/tabledossier/errors.py (sha256:b108b4cf3d80cefa0ea5538173f6b69387e4e354ad7871d1a21a596d06eb9cb1)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -1406,6 +1406,8 @@ from typing import Any
 
 _ER_QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 _ER_URI = re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://\S+")
+# Engine messages start with their error condition, e.g. "[TABLE_OR_VIEW_NOT_FOUND] ...".
+_ER_CONDITION = re.compile(r"^\s*\[([A-Z][A-Z0-9_]*(?:\.[A-Z][A-Z0-9_]*)*)\]")
 
 
 def sanitize_message(text: str, limit: int = 500) -> str:
@@ -1429,6 +1431,11 @@ def error_record(exc: BaseException, stage: str) -> dict[str, Any]:
                 condition = None
             if condition:
                 break
+    if not condition:
+        # Spark Connect clients (e.g. PySpark 3.5) may not expose the condition as an
+        # attribute; the server still prefixes the message with it.
+        match = _ER_CONDITION.match(str(exc))
+        condition = match.group(1) if match else None
     message = sanitize_message(str(exc)) or type(exc).__name__
     return {
         "stage": stage,
@@ -6134,7 +6141,7 @@ def build_profile(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
 # TableDossier 0.1.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:e9f7c5082e0c61a036d46907f0b152b42dede1875aca67c9f36f5a2f0453295a)
+# Source: src/tabledossier/runtime/spark.py (sha256:de235dfe75670e0fcab7983b3a436912b450a667582fa23efbd353c88d0538b6)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6600,7 +6607,28 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
     if full is None or full[0].casefold() in _SP_UNITY_EXCLUDED:
         return [], "declared key constraints are read from Unity Catalog information_schema only"
     catalog, schema, table = full
-    info = quote_name(catalog) + ".information_schema"
+    return (
+        query_key_constraints(
+            spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
+        ),
+        None,
+    )
+
+
+def query_key_constraints(
+    spark: Any,
+    catalog: str,
+    schema: str,
+    table: str,
+    information_schema: Callable[[str], str],
+) -> list[dict[str, Any]]:
+    """Query key constraints of one table from ``information_schema``-shaped views.
+
+    ``information_schema`` maps a catalog name to the quoted prefix of its
+    ``information_schema`` (Unity Catalog: ``<catalog>.information_schema``).
+    Table and schema names are bound parameters, never interpolated.
+    """
+    info = information_schema(catalog)
     query = (
         "SELECT tc.constraint_name, tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
         "kcu.position_in_unique_constraint, rc.unique_constraint_catalog, "
@@ -6652,7 +6680,7 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
             ref_catalog, ref_schema, ref_name = entry["ref"]
             ref_rows = spark.sql(
                 "SELECT table_catalog, table_schema, table_name, column_name, ordinal_position "
-                f"FROM {quote_name(ref_catalog)}.information_schema.key_column_usage "
+                f"FROM {information_schema(ref_catalog)}.key_column_usage "
                 "WHERE lower(constraint_schema) = lower(:schema_name) AND constraint_name = "
                 ":constraint_name "
                 "ORDER BY ordinal_position",
@@ -6682,7 +6710,7 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
                 "source": "information_schema",
             }
         )
-    return constraints, None
+    return constraints
 
 
 # --------------------------------------------------------------------------- sample
@@ -7013,18 +7041,29 @@ def profile_table(
             observed.append(_sp_observed("op_detail", "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
-            observed.append(
-                _sp_observed(
-                    "op_detail",
-                    "failed",
-                    start,
-                    detail=record["condition"] or record["error_class"],
+            cause = record["condition"] or record["error_class"]
+            provider = (extended.get("Provider") or "").strip().lower()
+            if provider and provider != "delta":
+                # Expected: engines without Delta (or Delta itself) may reject DESCRIBE DETAIL
+                # for other formats. Size and file count are then simply unavailable.
+                observed.append(
+                    _sp_observed(
+                        "op_detail",
+                        "skipped",
+                        start,
+                        detail=f"not available for this non-Delta source (provider {provider}; "
+                        f"{cause})",
+                    )
                 )
-            )
-            table["notes"].append(
-                "DESCRIBE DETAIL is not available for this source (not a Delta table or not "
-                "permitted)."
-            )
+                table["notes"].append(
+                    f"DESCRIBE DETAIL is not available for this non-Delta source (provider "
+                    f"{provider}); size and file count are unavailable."
+                )
+            else:
+                observed.append(_sp_observed("op_detail", "failed", start, detail=cause))
+                table["notes"].append(
+                    "DESCRIBE DETAIL failed for this source (not permitted or not supported)."
+                )
     table["source"] = _sp_source(extended, detail, now())
     is_delta = (detail or {}).get("format") == "delta" or (
         extended.get("Provider") or ""

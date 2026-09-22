@@ -85,8 +85,20 @@ jobs:
         include:
           - name: "PySpark 3.5 + Delta (DBR 15.4/16.4 line)"
             packages: "'pyspark>=3.5.2,<3.6' 'delta-spark>=3.2,<3.4'"
+            mode: classic
           - name: "PySpark 4.0 (DBR 17.3 line)"
             packages: "'pyspark>=4.0,<4.1'"
+            mode: classic
+          # Shared access mode and serverless compute use Spark Connect: the whole suite runs
+          # through a local Spark Connect server started by SparkSession.builder.remote("local[2]").
+          - name: "Spark Connect 3.5 + Delta (DBR 15.4/16.4 line)"
+            packages: "'pyspark[connect]>=3.5.2,<3.6' 'delta-spark>=3.2,<3.4' setuptools"
+            mode: connect
+          - name: "Spark Connect 4.0 (DBR 17.3 line)"
+            packages: "'pyspark[connect]>=4.0,<4.1'"
+            mode: connect
+    env:
+      TD_TEST_SPARK_MODE: ${{ matrix.mode }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6

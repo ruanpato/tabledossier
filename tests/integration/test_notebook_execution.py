@@ -41,7 +41,9 @@ def _widgets(tables, output_dir, **extra):
     return values
 
 
-def test_notebook_run_exports_a_valid_consistent_package(spark, demo_tables, notebook, tmp_path):
+def test_notebook_run_exports_a_valid_consistent_package(
+    spark, spark_mode, demo_tables, notebook, tmp_path
+):
     tables = [*demo_tables, "analytics.does_not_exist"]
     namespace = run_notebook(notebook, spark, _widgets(tables, tmp_path / "results"))
     export = namespace["td_export"]
@@ -62,6 +64,8 @@ def test_notebook_run_exports_a_valid_consistent_package(spark, demo_tables, not
     failed = next(t for t in profile["tables"] if t["table_key"] == "analytics.does_not_exist")
     assert failed["errors"][0]["condition"] == "TABLE_OR_VIEW_NOT_FOUND"
     assert profile["run"]["environment"]["execution_context"] == "spark"
+    # Recorded from the session the notebook actually received (Spark Connect or classic).
+    assert profile["run"]["environment"]["spark_connect"] is (spark_mode == "connect")
     assert profile["run"]["generation"]["generation_id"].startswith("sha256:")
 
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))

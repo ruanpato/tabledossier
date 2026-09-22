@@ -12,6 +12,8 @@ from typing import Any
 
 _ER_QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 _ER_URI = re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://\S+")
+# Engine messages start with their error condition, e.g. "[TABLE_OR_VIEW_NOT_FOUND] ...".
+_ER_CONDITION = re.compile(r"^\s*\[([A-Z][A-Z0-9_]*(?:\.[A-Z][A-Z0-9_]*)*)\]")
 
 
 def sanitize_message(text: str, limit: int = 500) -> str:
@@ -35,6 +37,11 @@ def error_record(exc: BaseException, stage: str) -> dict[str, Any]:
                 condition = None
             if condition:
                 break
+    if not condition:
+        # Spark Connect clients (e.g. PySpark 3.5) may not expose the condition as an
+        # attribute; the server still prefixes the message with it.
+        match = _ER_CONDITION.match(str(exc))
+        condition = match.group(1) if match else None
     message = sanitize_message(str(exc)) or type(exc).__name__
     return {
         "stage": stage,

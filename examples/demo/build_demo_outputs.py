@@ -60,7 +60,6 @@ def build() -> None:
             delta=use_delta,
             delta_by_default=use_delta,
         )
-        spark.sparkContext.setLogLevel("ERROR")
         try:
             load_demo_tables(spark)
             namespace = run_notebook(

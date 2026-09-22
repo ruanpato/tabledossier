@@ -494,7 +494,28 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
     if full is None or full[0].casefold() in _SP_UNITY_EXCLUDED:
         return [], "declared key constraints are read from Unity Catalog information_schema only"
     catalog, schema, table = full
-    info = quote_name(catalog) + ".information_schema"
+    return (
+        query_key_constraints(
+            spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
+        ),
+        None,
+    )
+
+
+def query_key_constraints(
+    spark: Any,
+    catalog: str,
+    schema: str,
+    table: str,
+    information_schema: Callable[[str], str],
+) -> list[dict[str, Any]]:
+    """Query key constraints of one table from ``information_schema``-shaped views.
+
+    ``information_schema`` maps a catalog name to the quoted prefix of its
+    ``information_schema`` (Unity Catalog: ``<catalog>.information_schema``).
+    Table and schema names are bound parameters, never interpolated.
+    """
+    info = information_schema(catalog)
     query = (
         "SELECT tc.constraint_name, tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
         "kcu.position_in_unique_constraint, rc.unique_constraint_catalog, "
@@ -546,7 +567,7 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
             ref_catalog, ref_schema, ref_name = entry["ref"]
             ref_rows = spark.sql(
                 "SELECT table_catalog, table_schema, table_name, column_name, ordinal_position "
-                f"FROM {quote_name(ref_catalog)}.information_schema.key_column_usage "
+                f"FROM {information_schema(ref_catalog)}.key_column_usage "
                 "WHERE lower(constraint_schema) = lower(:schema_name) AND constraint_name = "
                 ":constraint_name "
                 "ORDER BY ordinal_position",
@@ -576,7 +597,7 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
                 "source": "information_schema",
             }
         )
-    return constraints, None
+    return constraints
 
 
 # --------------------------------------------------------------------------- sample
@@ -907,18 +928,29 @@ def profile_table(
             observed.append(_sp_observed("op_detail", "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
-            observed.append(
-                _sp_observed(
-                    "op_detail",
-                    "failed",
-                    start,
-                    detail=record["condition"] or record["error_class"],
+            cause = record["condition"] or record["error_class"]
+            provider = (extended.get("Provider") or "").strip().lower()
+            if provider and provider != "delta":
+                # Expected: engines without Delta (or Delta itself) may reject DESCRIBE DETAIL
+                # for other formats. Size and file count are then simply unavailable.
+                observed.append(
+                    _sp_observed(
+                        "op_detail",
+                        "skipped",
+                        start,
+                        detail=f"not available for this non-Delta source (provider {provider}; "
+                        f"{cause})",
+                    )
                 )
-            )
-            table["notes"].append(
-                "DESCRIBE DETAIL is not available for this source (not a Delta table or not "
-                "permitted)."
-            )
+                table["notes"].append(
+                    f"DESCRIBE DETAIL is not available for this non-Delta source (provider "
+                    f"{provider}); size and file count are unavailable."
+                )
+            else:
+                observed.append(_sp_observed("op_detail", "failed", start, detail=cause))
+                table["notes"].append(
+                    "DESCRIBE DETAIL failed for this source (not permitted or not supported)."
+                )
     table["source"] = _sp_source(extended, detail, now())
     is_delta = (detail or {}).get("format") == "delta" or (
         extended.get("Provider") or ""

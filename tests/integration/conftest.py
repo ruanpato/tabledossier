@@ -30,20 +30,59 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.spark)
 
 
+def requested_spark_mode() -> str:
+    """Spark session flavour under test: ``classic`` (default) or ``connect``.
+
+    Set ``TD_TEST_SPARK_MODE=connect`` to run the whole integration suite through
+    a local Spark Connect server (as Databricks shared access mode and serverless
+    compute do). Connect mode never falls back to classic: missing client
+    dependencies fail the session fixture instead of skipping silently.
+    """
+    mode = os.environ.get("TD_TEST_SPARK_MODE", "classic").strip().lower()
+    if mode not in ("classic", "connect"):
+        raise ValueError(f"TD_TEST_SPARK_MODE must be 'classic' or 'connect', not {mode!r}")
+    return mode
+
+
 @pytest.fixture(scope="session")
 def spark(tmp_path_factory):
     pytest.importorskip("pyspark")
     if not _java_available():
         pytest.skip("a Java runtime is required for Spark integration tests (set JAVA_HOME)")
-    from run_notebook_locally import delta_available, local_spark
+    from run_notebook_locally import connect_available, delta_available, local_spark
 
-    use_delta = delta_available() and os.environ.get("TD_TEST_DELTA", "1") != "0"
+    connect = requested_spark_mode() == "connect"
+    if connect and not connect_available():
+        raise RuntimeError(
+            "TD_TEST_SPARK_MODE=connect requires the Spark Connect client dependencies "
+            "(pip install 'pyspark[connect]', plus setuptools on Python 3.12 with PySpark 3.5)"
+        )
+    use_delta = delta_enabled_by_environment() and delta_available()
     session = local_spark(
-        str(tmp_path_factory.mktemp("warehouse")), "tabledossier-tests", delta=use_delta
+        str(tmp_path_factory.mktemp("warehouse")),
+        "tabledossier-tests",
+        delta=use_delta,
+        connect=connect,
     )
-    session.sparkContext.setLogLevel("ERROR")
     yield session
     session.stop()
+
+
+def delta_enabled_by_environment() -> bool:
+    """Delta is used when delta-spark is installed, unless ``TD_TEST_DELTA=0``."""
+    return os.environ.get("TD_TEST_DELTA", "1") != "0"
+
+
+@pytest.fixture(scope="session")
+def spark_mode() -> str:
+    return requested_spark_mode()
+
+
+@pytest.fixture(scope="session")
+def delta_enabled(spark) -> bool:
+    from run_notebook_locally import delta_available
+
+    return delta_enabled_by_environment() and delta_available()
 
 
 @pytest.fixture(scope="session")
