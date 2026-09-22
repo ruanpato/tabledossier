@@ -1,12 +1,13 @@
 # Roadmap
 
 Released: **0.1.0** (metadata and standard levels) and **0.2.0** (deep level, part I: array and map elements, JSON
-paths; Spark Connect test baseline). Nothing below is available yet. The order was revised after 0.1.0 and may still
-change.
+paths; Spark Connect test baseline). **0.3.0** (deep level, part II: exact uniqueness, referential validation,
+relationship hypotheses) is this release. Nothing after it is available yet. The order was revised after 0.1.0 and
+may still change.
 
 | Version | Theme |
 | --- | --- |
-| 0.3.0 | **Deep II**: exact uniqueness, targeted referential validation, data-driven relationship hypotheses kept separate from known relationships |
+| 0.3.0 | **Deep II** (this release): exact uniqueness, targeted referential validation, data-driven relationship hypotheses kept separate from known relationships |
 | 0.4.0 | **Ready for Databricks**: real evidence on 15.4, 16.4 and 17.3 LTS (including shared and serverless compute), integration with Jobs, Unity Catalog constraint validation, release automation |
 | 0.5.0 | **PostgreSQL connector** (optional dependency): catalog metadata and aggregations executed in the database from the local CLI, bound parameters, read-only transactions, credentials outside versioned configuration, same profile contract |
 | 0.6.0 | **Remote Databricks execution** from the local CLI, with an explicit choice between Databricks Connect and the SQL Connector; only aggregated results return; never on the offline path |
