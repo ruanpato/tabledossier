@@ -58,7 +58,7 @@ def test_committed_manifest_describes_the_package():
 
 def test_committed_deep_profile_is_valid_and_matches_renderer():
     profile = json.loads((OUTPUT / "deep" / "profile.json").read_text(encoding="utf-8"))
-    assert profile["schema_version"] == "1.1"
+    assert profile["schema_version"] == "1.2"
     assert profile["run"]["analysis_level"] == "deep"
     assert check_profile(profile) == []
     for name, text in build_documents(profile).items():
