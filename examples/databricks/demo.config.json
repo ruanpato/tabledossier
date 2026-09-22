@@ -108,6 +108,10 @@
       ],
       "declared_keys": true,
       "identifier_candidates": true
+    },
+    "referential": {
+      "configured": true,
+      "declared": true
     }
   },
   "relationships": [

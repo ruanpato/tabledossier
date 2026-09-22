@@ -2,15 +2,15 @@
   "kind": "tabledossier.generation_manifest",
   "manifest_version": "1.0",
   "tool_version": "0.2.0",
-  "generation_id": "sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec",
+  "generation_id": "sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c",
   "contains_results": false,
   "notebook": {
     "file_name": "profile_databricks.py",
     "format": "databricks_source_python",
-    "sha256": "sha256:a319865a4a13a18799ec944b361f9289038ec414bbd2b53e58633bf404e54ee9",
+    "sha256": "sha256:a48d0da4f6e5ff34f976c848b09e9b696798a4e3aeee97d6f2fa52d82113e248",
     "cells": 41
   },
-  "config_fingerprint": "sha256:5d348db8291581463a3a97870591f9724b73d97ee105616dd4c678a0f3111741",
+  "config_fingerprint": "sha256:6df34dbacce8b0e3eecf6f52aaeffbef883d95bcd6a21f3256a68912774e49ee",
   "embedded_modules": [
     {
       "module": "tabledossier.widgets",
@@ -70,7 +70,7 @@
     {
       "module": "tabledossier.keys",
       "source_path": "src/tabledossier/keys.py",
-      "sha256": "sha256:cd5b7197cf6bbd598747fa04983b63db747f81ffc748b58b36589fe9f06cbbf2"
+      "sha256": "sha256:be6a343d1c43ac3e17a049917275e7f42d49b46f84eb108d2eca908e4f019e96"
     },
     {
       "module": "tabledossier.findings",
@@ -100,7 +100,7 @@
     {
       "module": "tabledossier.render",
       "source_path": "src/tabledossier/render.py",
-      "sha256": "sha256:729836f354961f60bf60e5d91279526aefbb38224228926fd1c611202176b516"
+      "sha256": "sha256:781d5495ed72c7af99c6e9d88aa4e91b9c5a295f7dfdffd789c15a36e5c3169c"
     },
     {
       "module": "tabledossier.package",
@@ -115,12 +115,12 @@
     {
       "module": "tabledossier.runtime.spark",
       "source_path": "src/tabledossier/runtime/spark.py",
-      "sha256": "sha256:5186d724a51b5b4a966cfd7db4b6d811f5419b20c69b91949cf031c85ab34e86"
+      "sha256": "sha256:8fb684b3a128167d5a281747b278fd4cd8b0491d2f5f39875e5613bd79ce3eba"
     },
     {
       "module": "tabledossier.runtime.databricks",
       "source_path": "src/tabledossier/runtime/databricks.py",
-      "sha256": "sha256:9e8db705a04ad8b148a5f17309799fd5dfcb029d8ecd7924c8baf8128ded0c03"
+      "sha256": "sha256:5d8624e4766f172118d41a2b50043fcf96442c28de451e28026657805c3f4c9a"
     }
   ],
   "embedded_schemas": [

@@ -6,13 +6,13 @@
     "version": "0.2.0"
   },
   "run": {
-    "run_id": "20260922T052951Z-2dd775d7",
+    "run_id": "20260922T054255Z-4abc0135",
     "status": "succeeded",
     "analysis_level": "standard",
-    "started_at": "2026-09-22T05:29:51.543Z",
-    "finished_at": "2026-09-22T05:30:02.708Z",
-    "duration_ms": 11165,
-    "reference_time": "2026-09-22T05:29:51.543Z",
+    "started_at": "2026-09-22T05:42:55.013Z",
+    "finished_at": "2026-09-22T05:43:06.764Z",
+    "duration_ms": 11751,
+    "reference_time": "2026-09-22T05:42:55.013Z",
     "environment": {
       "engine": "spark",
       "execution_context": "spark",
@@ -148,8 +148,8 @@
           "max_passes": 1
         },
         "referential": {
-          "configured": false,
-          "declared": false,
+          "configured": true,
+          "declared": true,
           "mode": "full_scope",
           "max_relationships": 5,
           "max_sample_rows": 10000
@@ -255,7 +255,7 @@
         }
       ]
     },
-    "config_fingerprint": "sha256:7f8007dce9a7ada7ca5adc9994f8136432ac700328304edd71a38912d6604577",
+    "config_fingerprint": "sha256:01a4eba0e0b786fa582616c20079c89da0f3076493402632d694f6eff5196828",
     "parameter_sources": {
       "precedence": [
         "built-in defaults",
@@ -281,7 +281,7 @@
     },
     "generation": {
       "generator_version": "0.2.0",
-      "generation_id": "sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec"
+      "generation_id": "sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c"
     },
     "purpose": "Synthetic demo: document the demo analytics tables.",
     "capabilities": {
@@ -345,8 +345,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic customers (simple types, special column names, all-null and constant columns)",
-        "created_at": "2026-09-22T05:29:43.602000Z",
-        "last_modified": "2026-09-22T05:29:51.264000Z",
+        "created_at": "2026-09-22T05:42:46.550000Z",
+        "last_modified": "2026-09-22T05:42:54.700000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -372,7 +372,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:29:52.644Z",
+        "captured_at": "2026-09-22T05:42:56.236Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -380,7 +380,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:29:51.264000Z",
+        "version_timestamp": "2026-09-22T05:42:54.700000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -3508,21 +3508,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 43,
+            "duration_ms": 46,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 1049,
+            "duration_ms": 1168,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 280,
+            "duration_ms": 293,
             "rows_returned": 1,
             "detail": null
           },
@@ -3536,14 +3536,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 488,
+            "duration_ms": 548,
             "rows_returned": 500,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1991,
+            "duration_ms": 2047,
             "rows_returned": 1,
             "detail": null
           }
@@ -3553,10 +3553,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 1389,
-        "sample": 491,
-        "aggregate": 2167,
-        "total": 4052
+        "metadata": 1533,
+        "sample": 552,
+        "aggregate": 2230,
+        "total": 4321
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -3583,14 +3583,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic orders with nested structs, arrays and maps",
-        "created_at": "2026-09-22T05:29:48.517000Z",
-        "last_modified": "2026-09-22T05:29:51.370000Z",
+        "created_at": "2026-09-22T05:42:51.662000Z",
+        "last_modified": "2026-09-22T05:42:54.814000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 85724,
+          "value": 85736,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -3610,7 +3610,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:29:56.435Z",
+        "captured_at": "2026-09-22T05:43:00.282Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -3618,7 +3618,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:29:51.370000Z",
+        "version_timestamp": "2026-09-22T05:42:54.814000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -4553,7 +4553,7 @@
             {
               "name": "approx_distinct_count",
               "status": "measured",
-              "value": 426,
+              "value": 430,
               "value_type": "integer",
               "unit": "values",
               "scope": "filtered_snapshot",
@@ -4589,7 +4589,7 @@
             {
               "name": "max",
               "status": "measured",
-              "value": 500,
+              "value": 505,
               "value_type": "integer",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4600,7 +4600,7 @@
             {
               "name": "mean",
               "status": "measured",
-              "value": 251.517,
+              "value": 252.64,
               "value_type": "float",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4611,7 +4611,7 @@
             {
               "name": "stddev",
               "status": "measured",
-              "value": 148.9045475305415,
+              "value": 149.6048194477771,
               "value_type": "float",
               "unit": null,
               "scope": "filtered_snapshot",
@@ -4641,7 +4641,7 @@
                 },
                 {
                   "probability": 0.95,
-                  "value": 483
+                  "value": 485
                 }
               ],
               "value_type": "quantiles",
@@ -7721,21 +7721,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 16,
+            "duration_ms": 24,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 815,
+            "duration_ms": 913,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 114,
+            "duration_ms": 132,
             "rows_returned": 1,
             "detail": null
           },
@@ -7749,14 +7749,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 478,
+            "duration_ms": 500,
             "rows_returned": 1000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1400,
+            "duration_ms": 1460,
             "rows_returned": 1,
             "detail": null
           }
@@ -7766,10 +7766,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 953,
-        "sample": 486,
-        "aggregate": 1597,
-        "total": 3044
+        "metadata": 1079,
+        "sample": 507,
+        "aggregate": 1659,
+        "total": 3253
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -7796,8 +7796,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic order events with a JSON payload stored as STRING",
-        "created_at": "2026-09-22T05:29:49.832000Z",
-        "last_modified": "2026-09-22T05:29:50.110000Z",
+        "created_at": "2026-09-22T05:42:53.108000Z",
+        "last_modified": "2026-09-22T05:42:53.399000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -7823,7 +7823,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:29:59.032Z",
+        "captured_at": "2026-09-22T05:43:03.003Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -7831,7 +7831,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:29:50.110000Z",
+        "version_timestamp": "2026-09-22T05:42:53.399000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -11060,14 +11060,14 @@
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 370,
+            "duration_ms": 391,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 117,
+            "duration_ms": 125,
             "rows_returned": 1,
             "detail": null
           },
@@ -11081,14 +11081,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 405,
+            "duration_ms": 434,
             "rows_returned": 2000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1345,
+            "duration_ms": 1391,
             "rows_returned": 1,
             "detail": null
           }
@@ -11098,10 +11098,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 510,
-        "sample": 449,
-        "aggregate": 1466,
-        "total": 2429
+        "metadata": 535,
+        "sample": 480,
+        "aggregate": 1506,
+        "total": 2524
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -11128,8 +11128,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic returns: intentionally empty",
-        "created_at": "2026-09-22T05:29:50.949000Z",
-        "last_modified": "2026-09-22T05:29:51.074000Z",
+        "created_at": "2026-09-22T05:42:54.344000Z",
+        "last_modified": "2026-09-22T05:42:54.481000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -11155,7 +11155,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:30:01.896Z",
+        "captured_at": "2026-09-22T05:43:05.917Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -11163,7 +11163,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:29:51.074000Z",
+        "version_timestamp": "2026-09-22T05:42:54.481000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -12073,21 +12073,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 19,
+            "duration_ms": 14,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 796,
+            "duration_ms": 779,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 107,
+            "duration_ms": 113,
             "rows_returned": 1,
             "detail": null
           },
@@ -12101,14 +12101,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 290,
+            "duration_ms": 285,
             "rows_returned": 0,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 359,
+            "duration_ms": 392,
             "rows_returned": 1,
             "detail": null
           }
@@ -12118,10 +12118,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 929,
-        "sample": 290,
-        "aggregate": 407,
-        "total": 1629
+        "metadata": 912,
+        "sample": 285,
+        "aggregate": 441,
+        "total": 1641
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."

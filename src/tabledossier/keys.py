@@ -114,7 +114,8 @@ def requested_keys(
     return out
 
 
-def _ky_eligibility(nodes: Sequence[Mapping[str, Any] | None], requested: Sequence[str]) -> str:
+def key_columns_problem(nodes: Sequence[Mapping[str, Any] | None], requested: Sequence[str]) -> str:
+    """Return why these schema nodes cannot form a key ('' when they can)."""
     for node, text in zip(nodes, requested, strict=False):
         if node is None:
             return f"column {text!r} is not in the documented schema tree"
@@ -153,7 +154,7 @@ def plan_uniqueness(
             )
             continue
         nodes = [by_id.get(field_id(list(path))) for path in segments]
-        reason = _ky_eligibility(nodes, item["requested"])
+        reason = key_columns_problem(nodes, item["requested"])
         columns = [
             node["display_path"] if node is not None else text
             for node, text in zip(nodes, item["requested"], strict=False)
