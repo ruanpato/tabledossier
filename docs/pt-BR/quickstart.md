@@ -2,9 +2,8 @@
 
 ## 1. Instalar a CLI (no seu computador)
 
-O pacote ainda não está publicado no PyPI. Instale a tag da versão no GitHub (`@v0.4.0` quando a 0.4.0 for
-publicada; `@v0.3.0` instala a versão anterior), ou a partir do repositório clonado com `python -m pip install .`;
-para máquinas sem internet, veja [instalação offline](../offline-install.md):
+O pacote ainda não está publicado no PyPI. Instale a tag da versão no GitHub, ou a partir do repositório clonado
+com `python -m pip install .`; para máquinas sem internet, veja [instalação offline](../offline-install.md):
 
 ```bash
 python -m venv .venv
