@@ -6,13 +6,13 @@
     "version": "0.2.0"
   },
   "run": {
-    "run_id": "20260922T054306Z-f8832eea",
+    "run_id": "20260922T055423Z-1122ba0c",
     "status": "succeeded",
     "analysis_level": "deep",
-    "started_at": "2026-09-22T05:43:06.899Z",
-    "finished_at": "2026-09-22T05:43:18.050Z",
-    "duration_ms": 11150,
-    "reference_time": "2026-09-22T05:43:06.899Z",
+    "started_at": "2026-09-22T05:54:23.930Z",
+    "finished_at": "2026-09-22T05:54:38.502Z",
+    "duration_ms": 14572,
+    "reference_time": "2026-09-22T05:54:23.930Z",
     "environment": {
       "engine": "spark",
       "execution_context": "spark",
@@ -155,7 +155,7 @@
           "max_sample_rows": 10000
         },
         "relationship_hypotheses": {
-          "enabled": false,
+          "enabled": true,
           "max_pairs": 5,
           "max_sample_rows": 10000,
           "inclusion_scope": "sample",
@@ -255,7 +255,7 @@
         }
       ]
     },
-    "config_fingerprint": "sha256:44972021e508ada74f609514d23a061baf3b9397ea5aa5e505b5c186b67f1fb2",
+    "config_fingerprint": "sha256:f3f4ce7d84ebe4ea82e6e7f8ce966ab1254a74503fdb132cee1d2196c0b1bbe8",
     "parameter_sources": {
       "precedence": [
         "built-in defaults",
@@ -281,7 +281,7 @@
     },
     "generation": {
       "generator_version": "0.2.0",
-      "generation_id": "sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c"
+      "generation_id": "sha256:01f5befac2a4833164da08b91f7755008cc2f9e7ce971661d41c56a697ea4545"
     },
     "purpose": "Synthetic demo: document the demo analytics tables.",
     "capabilities": {
@@ -345,14 +345,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic customers (simple types, special column names, all-null and constant columns)",
-        "created_at": "2026-09-22T05:42:46.550000Z",
-        "last_modified": "2026-09-22T05:42:54.700000Z",
+        "created_at": "2026-09-22T05:54:03.104000Z",
+        "last_modified": "2026-09-22T05:54:11.007000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 25486,
+          "value": 26661,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -372,7 +372,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:43:06.949Z",
+        "captured_at": "2026-09-22T05:54:23.984Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -380,7 +380,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:42:54.700000Z",
+        "version_timestamp": "2026-09-22T05:54:11.007000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -415,12 +415,12 @@
         ]
       },
       "summary": {
-        "top_level_columns": 11,
+        "top_level_columns": 12,
         "columns_selected": null,
-        "schema_nodes": 11,
-        "fields_profiled": 11,
+        "schema_nodes": 12,
+        "fields_profiled": 12,
         "fields_omitted": 0,
-        "findings": 6,
+        "findings": 7,
         "quality_checks": 1,
         "suggested_rules": 13
       },
@@ -693,9 +693,32 @@
             "children": [],
             "children_omitted": 0,
             "children_omitted_reason": null
+          },
+          {
+            "field_id": "f_47a60170bc61",
+            "name": "referrer_id",
+            "segment_kind": "field",
+            "path": [
+              {
+                "kind": "field",
+                "name": "referrer_id"
+              }
+            ],
+            "display_path": "referrer_id",
+            "parent_field_id": null,
+            "depth": 1,
+            "type": {
+              "kind": "integer",
+              "physical_type": "int"
+            },
+            "nullable": true,
+            "comment": null,
+            "children": [],
+            "children_omitted": 0,
+            "children_omitted_reason": null
           }
         ],
-        "nodes_total": 11,
+        "nodes_total": 12,
         "nodes_omitted": 0,
         "top_level_omitted": 0,
         "limits": {
@@ -3000,6 +3023,216 @@
           "examples": null,
           "element_context": null,
           "json_paths": null
+        },
+        {
+          "field_id": "f_47a60170bc61",
+          "display_path": "referrer_id",
+          "path": [
+            {
+              "kind": "field",
+              "name": "referrer_id"
+            }
+          ],
+          "type_kind": "integer",
+          "physical_type": "int",
+          "nullable": true,
+          "comment": null,
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 450,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "rows where the field is null (includes rows whose parent struct is null)",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 50,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "row_count - null_count",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.9,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / row_count",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "approx_distinct_count",
+              "status": "measured",
+              "value": 47,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "approximate",
+              "source": "aggregate",
+              "method": "approx_count_distinct (HyperLogLog++)",
+              "details": {
+                "relative_standard_deviation": 0.02
+              }
+            },
+            {
+              "name": "all_values_equal",
+              "status": "measured",
+              "value": false,
+              "value_type": "boolean",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "min(field) = max(field) over non-null values"
+            },
+            {
+              "name": "min",
+              "status": "measured",
+              "value": 2,
+              "value_type": "integer",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "minimum over non-null values (finite values only for floating point)"
+            },
+            {
+              "name": "max",
+              "status": "measured",
+              "value": 497,
+              "value_type": "integer",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "maximum over non-null values (finite values only for floating point)"
+            },
+            {
+              "name": "mean",
+              "status": "measured",
+              "value": 271.76,
+              "value_type": "float",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "average over non-null values (finite values only for floating point)"
+            },
+            {
+              "name": "stddev",
+              "status": "measured",
+              "value": 150.81892914271438,
+              "value_type": "float",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "sample standard deviation (stddev_samp), computed in double precision"
+            },
+            {
+              "name": "quantiles",
+              "status": "measured",
+              "value": [
+                {
+                  "probability": 0.05,
+                  "value": 34
+                },
+                {
+                  "probability": 0.25,
+                  "value": 157
+                },
+                {
+                  "probability": 0.5,
+                  "value": 260
+                },
+                {
+                  "probability": 0.75,
+                  "value": 429
+                },
+                {
+                  "probability": 0.95,
+                  "value": 488
+                }
+              ],
+              "value_type": "quantiles",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "approximate",
+              "source": "aggregate",
+              "method": "percentile_approx over non-null (finite) values",
+              "details": {
+                "element_type": "integer",
+                "accuracy_parameter": 10000
+              }
+            },
+            {
+              "name": "zero_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values equal to zero",
+              "denominator": 50,
+              "denominator_unit": "values"
+            },
+            {
+              "name": "negative_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values below zero",
+              "denominator": 50,
+              "denominator_unit": "values"
+            },
+            {
+              "name": "positive_count",
+              "status": "measured",
+              "value": 50,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values above zero",
+              "denominator": 50,
+              "denominator_unit": "values"
+            }
+          ],
+          "semantics": {
+            "observed_format": null,
+            "candidate_roles": []
+          },
+          "json_profile": null,
+          "concentration": null,
+          "examples": null,
+          "element_context": null,
+          "json_paths": null
         }
       ],
       "constraints": [],
@@ -3158,6 +3391,31 @@
           },
           "severity_reason": "info: descriptive signal only.",
           "limitations": "Few distinct values in the analysed scope; the set of allowed values must be defined by a data owner."
+        },
+        {
+          "finding_id": "fd_adb773af67a4",
+          "code": "high_null_ratio",
+          "severity": "info",
+          "field_id": "f_47a60170bc61",
+          "display_path": "referrer_id",
+          "title": "High null ratio",
+          "message": "90.0% of rows in scope are null.",
+          "evidence": [
+            {
+              "metric": "null_count",
+              "value": 450
+            },
+            {
+              "metric": "null_ratio",
+              "value": 0.9
+            }
+          ],
+          "threshold": {
+            "name": "high_null_ratio",
+            "value": 0.5
+          },
+          "severity_reason": "info: sparse fields are frequently legitimate (optional attributes).",
+          "limitations": "Nullity of nested fields includes rows where a parent struct is null; see null_count_parent_present."
         }
       ],
       "quality_checks": [
@@ -3541,8 +3799,8 @@
             "description": "one shared aggregation over the analysed scope (single agg call; not a guarantee of a single physical scan)",
             "reads_user_data": true,
             "details": {
-              "expressions": 114,
-              "fields": 11,
+              "expressions": 126,
+              "fields": 12,
               "deep_expressions": 0
             }
           },
@@ -3555,27 +3813,38 @@
               "keys": 2,
               "columns": 2
             }
+          },
+          {
+            "operation_id": "op_hypothesis_1",
+            "kind": "relationship_hypothesis_check",
+            "description": "inclusion of referrer_id in the unique key analytics.customers.customer_id (one left join; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "target_table": "analytics.customers",
+              "inclusion_scope": "sample",
+              "max_sample_rows": 10000
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 12,
+            "duration_ms": 11,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 32,
+            "duration_ms": 36,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 121,
+            "duration_ms": 115,
             "rows_returned": 1,
             "detail": null
           },
@@ -3589,22 +3858,29 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 298,
+            "duration_ms": 403,
             "rows_returned": 500,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1527,
+            "duration_ms": 1339,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_uniqueness_1",
             "status": "succeeded",
-            "duration_ms": 447,
+            "duration_ms": 520,
             "rows_returned": 2,
+            "detail": null
+          },
+          {
+            "operation_id": "op_hypothesis_1",
+            "status": "succeeded",
+            "duration_ms": 766,
+            "rows_returned": 1,
             "detail": null
           }
         ],
@@ -3613,11 +3889,11 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 172,
-        "sample": 302,
-        "aggregate": 1682,
-        "uniqueness": 447,
-        "total": 2607
+        "metadata": 170,
+        "sample": 409,
+        "aggregate": 1536,
+        "uniqueness": 520,
+        "total": 2640
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -3934,8 +4210,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic orders with nested structs, arrays and maps",
-        "created_at": "2026-09-22T05:42:51.662000Z",
-        "last_modified": "2026-09-22T05:42:54.814000Z",
+        "created_at": "2026-09-22T05:54:08.040000Z",
+        "last_modified": "2026-09-22T05:54:11.129000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -3961,7 +4237,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:43:09.562Z",
+        "captured_at": "2026-09-22T05:54:26.631Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -3969,7 +4245,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:42:54.814000Z",
+        "version_timestamp": "2026-09-22T05:54:11.129000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -9017,27 +9293,38 @@
               "mode": "full_scope",
               "max_sample_rows": null
             }
+          },
+          {
+            "operation_id": "op_hypothesis_4",
+            "kind": "relationship_hypothesis_check",
+            "description": "inclusion of order_id in the unique key analytics.order_events.tracking_url (one left join; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "target_table": "analytics.order_events",
+              "inclusion_scope": "sample",
+              "max_sample_rows": 10000
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 15,
+            "duration_ms": 14,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 35,
+            "duration_ms": 40,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 111,
+            "duration_ms": 119,
             "rows_returned": 1,
             "detail": null
           },
@@ -9051,35 +9338,42 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 330,
+            "duration_ms": 286,
             "rows_returned": 1000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1486,
+            "duration_ms": 1461,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_deep_elements",
             "status": "succeeded",
-            "duration_ms": 630,
+            "duration_ms": 666,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_uniqueness_1",
             "status": "succeeded",
-            "duration_ms": 302,
+            "duration_ms": 408,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_referential_1",
             "status": "succeeded",
-            "duration_ms": 932,
+            "duration_ms": 888,
+            "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_hypothesis_4",
+            "status": "succeeded",
+            "duration_ms": 658,
             "rows_returned": 1,
             "detail": null
           }
@@ -9089,12 +9383,12 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 169,
-        "sample": 337,
-        "aggregate": 1923,
-        "deep_elements": 630,
-        "uniqueness": 302,
-        "total": 3371
+        "metadata": 183,
+        "sample": 294,
+        "aggregate": 1906,
+        "deep_elements": 666,
+        "uniqueness": 408,
+        "total": 3466
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -9325,8 +9619,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic order events with a JSON payload stored as STRING",
-        "created_at": "2026-09-22T05:42:53.108000Z",
-        "last_modified": "2026-09-22T05:42:53.399000Z",
+        "created_at": "2026-09-22T05:54:09.420000Z",
+        "last_modified": "2026-09-22T05:54:09.720000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -9352,7 +9646,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:43:12.929Z",
+        "captured_at": "2026-09-22T05:54:30.089Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -9360,7 +9654,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:42:53.399000Z",
+        "version_timestamp": "2026-09-22T05:54:09.720000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -12774,27 +13068,60 @@
               "mode": "full_scope",
               "max_sample_rows": null
             }
+          },
+          {
+            "operation_id": "op_hypothesis_2",
+            "kind": "relationship_hypothesis_check",
+            "description": "inclusion of event_id in the unique key analytics.customers.`display name` (one left join; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "target_table": "analytics.customers",
+              "inclusion_scope": "sample",
+              "max_sample_rows": 10000
+            }
+          },
+          {
+            "operation_id": "op_hypothesis_3",
+            "kind": "relationship_hypothesis_check",
+            "description": "inclusion of event_date_text in the unique key analytics.customers.`display name` (one left join; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "target_table": "analytics.customers",
+              "inclusion_scope": "sample",
+              "max_sample_rows": 10000
+            }
+          },
+          {
+            "operation_id": "op_hypothesis_5",
+            "kind": "relationship_hypothesis_check",
+            "description": "inclusion of order_id in the unique key analytics.order_events.tracking_url (one left join; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "target_table": "analytics.order_events",
+              "inclusion_scope": "sample",
+              "max_sample_rows": 10000
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 16,
+            "duration_ms": 10,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 29,
+            "duration_ms": 34,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 115,
+            "duration_ms": 123,
             "rows_returned": 1,
             "detail": null
           },
@@ -12808,28 +13135,49 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 256,
+            "duration_ms": 311,
             "rows_returned": 2000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1691,
+            "duration_ms": 1506,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_uniqueness_1",
             "status": "succeeded",
-            "duration_ms": 374,
+            "duration_ms": 388,
             "rows_returned": 4,
             "detail": null
           },
           {
             "operation_id": "op_referential_2",
             "status": "succeeded",
-            "duration_ms": 799,
+            "duration_ms": 701,
+            "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_hypothesis_2",
+            "status": "succeeded",
+            "duration_ms": 718,
+            "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_hypothesis_3",
+            "status": "succeeded",
+            "duration_ms": 618,
+            "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_hypothesis_5",
+            "status": "succeeded",
+            "duration_ms": 551,
             "rows_returned": 1,
             "detail": null
           }
@@ -12839,11 +13187,11 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 167,
-        "sample": 314,
-        "aggregate": 1823,
-        "uniqueness": 374,
-        "total": 2683
+        "metadata": 174,
+        "sample": 371,
+        "aggregate": 1638,
+        "uniqueness": 388,
+        "total": 2578
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -13412,8 +13760,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic returns: intentionally empty",
-        "created_at": "2026-09-22T05:42:54.344000Z",
-        "last_modified": "2026-09-22T05:42:54.481000Z",
+        "created_at": "2026-09-22T05:54:10.657000Z",
+        "last_modified": "2026-09-22T05:54:10.790000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -13439,7 +13787,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:43:15.614Z",
+        "captured_at": "2026-09-22T05:54:32.660Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -13447,7 +13795,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:42:54.481000Z",
+        "version_timestamp": "2026-09-22T05:54:10.790000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -14358,21 +14706,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 13,
+            "duration_ms": 10,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 33,
+            "duration_ms": 28,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 105,
+            "duration_ms": 109,
             "rows_returned": 1,
             "detail": null
           },
@@ -14386,14 +14734,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 186,
+            "duration_ms": 304,
             "rows_returned": 0,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 352,
+            "duration_ms": 454,
             "rows_returned": 1,
             "detail": null
           }
@@ -14403,10 +14751,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 157,
-        "sample": 187,
-        "aggregate": 402,
-        "total": 749
+        "metadata": 154,
+        "sample": 304,
+        "aggregate": 508,
+        "total": 973
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -14817,7 +15165,7 @@
     "tables_succeeded": 4,
     "tables_partial": 0,
     "tables_failed": 0,
-    "fields_profiled": 46,
+    "fields_profiled": 47,
     "checks": {
       "pass": 3,
       "fail": 1,
@@ -14825,7 +15173,7 @@
       "error": 0
     },
     "findings": {
-      "info": 18,
+      "info": 19,
       "warning": 2
     },
     "suggested_rules": 41,
@@ -14841,7 +15189,7 @@
       "violated": 1,
       "not_validated": 0
     },
-    "relationship_hypotheses": 0
+    "relationship_hypotheses": 1
   },
   "referential_validation": {
     "requested": {
@@ -14864,27 +15212,194 @@
     ]
   },
   "relationship_hypotheses": {
-    "enabled": false,
-    "reason": "disabled by configuration (deep.relationship_hypotheses.enabled = false)",
+    "enabled": true,
+    "reason": null,
     "budget": {
       "max_pairs": 5,
       "max_sample_rows": 10000,
       "inclusion_scope": "sample",
       "min_inclusion_ratio": 0.95
     },
-    "targets": 0,
-    "pairs_considered": 0,
-    "pairs_evaluated": 0,
-    "pairs_not_evaluated": 0,
-    "pairs_known_excluded": 0,
-    "pairs_disjoint_excluded": 0,
-    "pairs_rejected": {},
-    "hypotheses": [],
+    "targets": 4,
+    "pairs_considered": 12,
+    "pairs_evaluated": 5,
+    "pairs_not_evaluated": 7,
+    "pairs_known_excluded": 2,
+    "pairs_disjoint_excluded": 42,
+    "pairs_rejected": {
+      "below_threshold": 4
+    },
+    "hypotheses": [
+      {
+        "hypothesis_id": "hyp_1",
+        "status": "hypothesis",
+        "from": {
+          "table": "analytics.customers",
+          "columns": [
+            "referrer_id"
+          ]
+        },
+        "to": {
+          "table": "analytics.customers",
+          "columns": [
+            "customer_id"
+          ]
+        },
+        "cardinality": null,
+        "evidence": {
+          "inclusion_scope": "sample",
+          "from": {
+            "table": "analytics.customers",
+            "scope": "sample",
+            "consistency_mode": "pinned_delta_version",
+            "delta_version": 1
+          },
+          "to": {
+            "table": "analytics.customers",
+            "scope": "full_snapshot",
+            "consistency_mode": "pinned_delta_version",
+            "delta_version": 1
+          },
+          "metrics": [
+            {
+              "name": "source_rows",
+              "status": "measured",
+              "value": 500,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "source rows examined"
+            },
+            {
+              "name": "source_rows_with_null_key",
+              "status": "measured",
+              "value": 450,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "source rows with NULL in at least one key column (never orphans)",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "source_rows_with_complete_key",
+              "status": "measured",
+              "value": 50,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "source_rows - source_rows_with_null_key",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "included_rows",
+              "status": "measured",
+              "value": 50,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "source rows with a complete key found among the target key values",
+              "denominator": 50,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "inclusion_ratio",
+              "status": "measured",
+              "value": 1.0,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "sample",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "included_rows / source_rows_with_complete_key",
+              "denominator": 50,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "target_rows",
+              "status": "measured",
+              "value": 500,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "rows of the target table read"
+            },
+            {
+              "name": "target_rows_with_null_key",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "target rows with NULL in at least one key column (never matched)",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "target_distinct_keys",
+              "status": "measured",
+              "value": 500,
+              "value_type": "integer",
+              "unit": "keys",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "exact count of distinct complete key values in the target"
+            },
+            {
+              "name": "target_duplicate_key_groups",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "keys",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "target key values that occur in more than one row",
+              "denominator": 500,
+              "denominator_unit": "keys"
+            }
+          ],
+          "target_key_id": "k_3f0c2d221eca",
+          "target_key_unique": true,
+          "type_compatibility": [
+            {
+              "from_column": "referrer_id",
+              "from_type": "int",
+              "to_column": "customer_id",
+              "to_type": "bigint",
+              "compatible": true,
+              "rule": "same type kind (integer)"
+            }
+          ],
+          "range_relation": "contained",
+          "range_basis": "values"
+        },
+        "operation_id": "op_hypothesis_1",
+        "limitations": [
+          "Inclusion shows that source values occur among the target key values; it does not prove that the columns mean the same thing.",
+          "No cardinality is asserted and the hypothesis is never drawn in the ER diagram; declare the relationship in the configuration once a person confirms it.",
+          "Inclusion was measured on at most 10000 source rows (a bounded sample); it is not extrapolated to the table."
+        ]
+      }
+    ],
     "method": "Targets: single-column keys measured exactly unique in this run. Sources: profiled columns of a compatible type whose measured value or length range is not disjoint from the target's; column names are not used. Each pair is one inclusion check (left join against the distinct target keys).",
     "limitations": [
-      "A hypothesis is an observation about data, not a relationship: it has no cardinality, is never drawn in the ER diagram and must be confirmed by a person.",
-      "Inclusion measured on a sample describes that sample only.",
-      "Only single-column keys are considered; composite relationships are not hypothesized."
+      "Only single-column keys measured exactly unique are targets; composite relationships are not hypothesized.",
+      "Pairs beyond max_pairs and pairs whose measured ranges are disjoint are not measured: a missing hypothesis is not evidence that no relationship exists."
     ]
   }
 }

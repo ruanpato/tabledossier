@@ -186,3 +186,187 @@ def test_not_validated_detail_always_states_a_reason():
     detail = not_validated_detail("because")
     assert detail["status"] == "not_validated" and detail["reason"] == "because"
     assert detail["metrics"] == [] and detail["operation_id"] is None
+
+
+# --------------------------------------------------------------------------- hypotheses
+
+
+def _field(name, kind, metrics, physical=None, **extra):
+    path = [{"kind": "field", "name": name}]
+    node = {
+        "field_id": f"f_{abs(hash(name)) % 10**12:012d}",
+        "display_path": name,
+        "path": path,
+        "type": {"kind": kind, "physical_type": physical or kind, **extra},
+        "children": [],
+    }
+    profile = {
+        "field_id": node["field_id"],
+        "display_path": name,
+        "profiled": True,
+        "element_context": None,
+        "metrics": [
+            {"name": key, "status": "measured", "value": value} for key, value in metrics.items()
+        ],
+    }
+    return node, profile
+
+
+def _table(name, fields, unique=()):
+    nodes = [node for node, _ in fields]
+    return {
+        "table_key": name,
+        "identifier": {"parts": name.split(".")},
+        "status": "succeeded",
+        "schema": {"fields": nodes},
+        "field_profiles": [profile for _, profile in fields],
+        "uniqueness": {
+            "keys": [
+                {
+                    "key_id": "k_" + node["field_id"][2:],
+                    "field_ids": [node["field_id"]],
+                    "status": "measured",
+                    "outcome": "unique",
+                }
+                for node in nodes
+                if node["display_path"] in unique
+            ]
+        },
+    }
+
+
+def _hypothesis_tables(names):
+    """Parents with a unique id; children with a contained, an overlapping and a disjoint column."""
+    pid, ref, other, far, text, flag = names
+    parents = _table(
+        "s.parents",
+        [
+            _field(pid, "integer", {"non_null_count": 50, "min": 1, "max": 50}),
+            _field(text, "string", {"non_null_count": 50, "min_length": 3, "max_length": 5}),
+        ],
+        unique=(pid, text),
+    )
+    children = _table(
+        "s.children",
+        [
+            _field(ref, "integer", {"non_null_count": 90, "min": 2, "max": 40}),
+            _field(other, "integer", {"non_null_count": 90, "min": 30, "max": 90}),
+            _field(far, "integer", {"non_null_count": 90, "min": 100, "max": 200}),
+            _field(flag, "float", {"non_null_count": 90, "min": 1, "max": 5}, "double"),
+            _field("empty", "integer", {"non_null_count": 0}),
+        ],
+    )
+    return [parents, children]
+
+
+def _hconfig(**settings):
+    return deep_merge(
+        default_config(),
+        {
+            "analysis_level": "deep",
+            "deep": {"relationship_hypotheses": {"enabled": True, **settings}},
+        },
+    )
+
+
+def _pairs(plan):
+    return [(p["from_node"]["display_path"], p["to_node"]["display_path"]) for p in plan["pairs"]]
+
+
+def test_hypothesis_pairs_come_from_types_and_ranges():
+    from tabledossier.integrity import plan_hypotheses
+
+    tables = _hypothesis_tables(["pid", "parent_ref", "misc", "far", "code", "ratio"])
+    plan = plan_hypotheses(tables, set(), _hconfig())
+    assert _pairs(plan) == [("parent_ref", "pid"), ("misc", "pid")], "contained range first"
+    assert [p["range_relation"] for p in plan["pairs"]] == ["contained", "overlapping"]
+    assert plan["targets"] == 2 and plan["disjoint_excluded"] == 1
+    assert plan["considered"] == 2 and plan["not_evaluated"] == 0
+
+
+def test_hypotheses_never_use_column_names():
+    from tabledossier.integrity import plan_hypotheses
+
+    plain = plan_hypotheses(
+        _hypothesis_tables(["pid", "parent_ref", "misc", "far", "code", "ratio"]), set(), _hconfig()
+    )
+    # The same data with misleading names: "pid" everywhere would suggest a join by name.
+    renamed = plan_hypotheses(
+        _hypothesis_tables(["id", "x1", "pid", "parent_id", "name", "pid_ratio"]), set(), _hconfig()
+    )
+    shape = [
+        [(p["range_relation"], p["from_table_index"]) for p in plan["pairs"]]
+        for plan in (plain, renamed)
+    ]
+    assert shape[0] == shape[1]
+    assert _pairs(renamed) == [("x1", "id"), ("pid", "id")]
+
+
+def test_known_relationships_and_budget_are_respected():
+    from tabledossier.integrity import plan_hypotheses
+    from tabledossier.paths import table_lookup_key
+
+    tables = _hypothesis_tables(["pid", "parent_ref", "misc", "far", "code", "ratio"])
+    ref = tables[1]["schema"]["fields"][0]["field_id"]
+    pid = tables[0]["schema"]["fields"][0]["field_id"]
+    known = {
+        (table_lookup_key(["s", "children"]), (ref,), table_lookup_key(["s", "parents"]), (pid,))
+    }
+    plan = plan_hypotheses(tables, known, _hconfig(max_pairs=0))
+    assert plan["known_excluded"] == 1 and plan["pairs"] == [] and plan["not_evaluated"] == 1
+
+
+def test_documents_list_hypotheses_apart_and_never_draw_them(deep_profile):
+    from tabledossier.integrity import hypotheses_record, hypothesis_evidence, hypothesis_item
+
+    profile = copy.deepcopy(deep_profile)
+    customers = next(t for t in profile["tables"] if t["table_key"] == "analytics.customers")
+    node = next(n for n in customers["schema"]["fields"] if n["display_path"] == "customer_id")
+    metrics, _ = hypothesis_evidence(
+        {"rows": 60, "null_rows": 10, "orphans": 0, "t_rows": 500, "t_distinct": 500},
+        scope="full_snapshot",
+        target_scope="full_snapshot",
+    )
+    side = {
+        "table": "analytics.customers",
+        "scope": "full_snapshot",
+        "consistency_mode": "pinned_delta_version",
+        "delta_version": 1,
+    }
+    item = hypothesis_item(
+        1,
+        {"from_node": node, "to_node": node},
+        source_table=customers,
+        target_table=customers,
+        evidence={
+            "inclusion_scope": "full_scope",
+            "from": side,
+            "to": side,
+            "metrics": metrics,
+            "target_key_id": "k_" + "0" * 12,
+            "target_key_unique": True,
+            "type_compatibility": type_compatibility([node], [node]),
+            "range_relation": "contained",
+            "range_basis": "values",
+        },
+        operation_id="op_hypothesis_1",
+        sample_rows=None,
+    )
+    config = _hconfig(inclusion_scope="full_scope")
+    profile["relationship_hypotheses"] = hypotheses_record(
+        config, None, [item], evaluated=1, rejected={"below_threshold": 2}, reason=None
+    )
+    documents = build_documents(profile)
+    text = documents["relationships.md"]
+    section = text.split("## Hypotheses (data-driven, not relationships)")[1]
+    assert "`hyp_1`" in section and "100.00% (full scope)" in section and "50 of 50" in section
+    assert "2 below threshold" in section
+    assert (
+        "hyp_1" not in documents["erd.mmd"] and "analytics_customers ||" not in documents["erd.mmd"]
+    )
+    disabled = copy.deepcopy(deep_profile)
+    disabled["relationship_hypotheses"]["enabled"] = False
+    disabled["relationship_hypotheses"]["reason"] = "disabled by configuration"
+    assert (
+        "Not evaluated: disabled by configuration." in build_documents(disabled)["relationships.md"]
+    )

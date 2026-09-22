@@ -1553,13 +1553,97 @@ def render_relationships(
         "document "
         "intent and are not enforced, so they do not prove integrity of the data.",
         "",
-        "## Hypotheses",
-        "",
-        "No data-driven relationship inference was performed. Candidate identifiers in the data "
-        "dictionary are not keys unless an exact uniqueness check says so (quality report).",
-        "",
+        *_r_hypotheses(profile),
     ]
     return "\n".join(out)
+
+
+def _r_hypotheses(profile: Mapping[str, Any]) -> list[str]:
+    """Render the hypotheses section of relationships.md (never known relationships)."""
+    out = [
+        "## Hypotheses (data-driven, not relationships)",
+        "",
+        "Hypotheses are observations about the data, kept apart from the known relationships "
+        "above: they are never inferred from column names, have no cardinality and are never "
+        "drawn in `erd.mmd`. A person must confirm one before declaring it.",
+        "",
+    ]
+    record = profile.get("relationship_hypotheses")
+    if not record:
+        return [
+            *out,
+            "No data-driven relationship hypothesis was evaluated (deep level with "
+            "`deep.relationship_hypotheses.enabled`). Candidate identifiers in the data dictionary "
+            "are not keys unless an exact uniqueness check says so (quality report).",
+            "",
+        ]
+    if not record["enabled"] or (record["reason"] and not record["pairs_evaluated"]):
+        return [*out, f"Not evaluated: {md_text(record['reason'] or 'disabled')}.", ""]
+    budget = record["budget"]
+    rejected = ", ".join(
+        f"{count} {reason.replace('_', ' ')}"
+        for reason, count in sorted(record["pairs_rejected"].items())
+    )
+    out += [
+        f"Targets (single-column keys measured exactly unique): {format_count(record['targets'])}. "
+        f"Candidate pairs after the type and range filters: "
+        f"{format_count(record['pairs_considered'])}; evaluated: "
+        f"{format_count(record['pairs_evaluated'])}; left out by `max_pairs` = "
+        f"{budget['max_pairs']}: {format_count(record['pairs_not_evaluated'])}. Skipped: "
+        f"{format_count(record['pairs_known_excluded'])} known relationship(s), "
+        f"{format_count(record['pairs_disjoint_excluded'])} disjoint range(s). Rejected: "
+        f"{md_text(rejected) or 'none'}.",
+        "",
+    ]
+    rows = []
+    for item in record["hypotheses"]:
+        evidence = item["evidence"]
+        metrics = {m["name"]: m for m in evidence["metrics"]}
+        rows.append(
+            [
+                md_code(item["hypothesis_id"]),
+                f"{md_text(item['from']['table'])} ({md_text(', '.join(item['from']['columns']))})",
+                f"{md_text(item['to']['table'])} ({md_text(', '.join(item['to']['columns']))})",
+                format_value(metrics["inclusion_ratio"])
+                + f" ({md_text(evidence['inclusion_scope'].replace('_', ' '))})",
+                format_value(metrics["included_rows"])
+                + " of "
+                + format_value(metrics["source_rows_with_complete_key"]),
+                "yes" if evidence["target_key_unique"] else "no",
+                md_text(evidence["type_compatibility"][0]["rule"]),
+                md_text(
+                    f"{evidence['range_relation'].replace('_', ' ')} ({evidence['range_basis']})"
+                ),
+                _r_versions(evidence),
+            ]
+        )
+    if rows:
+        out += [
+            _r_table(
+                [
+                    "Hypothesis",
+                    "From",
+                    "To",
+                    "Inclusion",
+                    "Included rows",
+                    "Target key unique",
+                    "Types",
+                    "Measured range",
+                    "Versions read",
+                ],
+                rows,
+            ),
+            "",
+        ]
+    else:
+        out += [
+            f"No evaluated pair reached `min_inclusion_ratio` = {budget['min_inclusion_ratio']}.",
+            "",
+        ]
+    notes = sorted({note for item in record["hypotheses"] for note in item["limitations"]})
+    out += [f"- {md_text(note)}" for note in [*notes, *record["limitations"]]]
+    out.append("")
+    return out
 
 
 def _r_erd_type(node: Mapping[str, Any]) -> str:

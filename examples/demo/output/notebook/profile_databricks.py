@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c`).
+# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:01f5befac2a4833164da08b91f7755008cc2f9e7ce971661d41c56a697ea4545`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -170,7 +170,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                           'mode': 'full_scope',
                           'max_relationships': 5,
                           'max_sample_rows': 10000},
-          'relationship_hypotheses': {'enabled': False,
+          'relationship_hypotheses': {'enabled': True,
                                       'max_pairs': 5,
                                       'max_sample_rows': 10000,
                                       'inclusion_scope': 'sample',
@@ -216,7 +216,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.2.0',
- 'generation_id': 'sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c'}
+ 'generation_id': 'sha256:01f5befac2a4833164da08b91f7755008cc2f9e7ce971661d41c56a697ea4545'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -6080,7 +6080,7 @@ def merge_relationships(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, 
 
 # DBTITLE 1,Runtime: tabledossier.integrity
 # TableDossier 0.2.0 embedded runtime: module tabledossier.integrity
-# Source: src/tabledossier/integrity.py (sha256:42988273fd026fa8e812d4179d1342be2a24ec0b32ec6f68c89ae9d1a46c7a99)
+# Source: src/tabledossier/integrity.py (sha256:a5278375f083f4b3f84777b301b1f4f57655c3c1d8bfcbb3cf26e90a88ddf69f)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6557,6 +6557,46 @@ def hypothesis_evidence(
     return metrics, value
 
 
+HYPOTHESIS_LIMITATIONS = (
+    "Inclusion shows that source values occur among the target key values; it does not prove "
+    "that the columns mean the same thing.",
+    "No cardinality is asserted and the hypothesis is never drawn in the ER diagram; declare the "
+    "relationship in the configuration once a person confirms it.",
+)
+
+
+def hypothesis_item(
+    number: int,
+    pair: Mapping[str, Any],
+    *,
+    source_table: Mapping[str, Any],
+    target_table: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    operation_id: str,
+    sample_rows: int | None,
+) -> dict[str, Any]:
+    """Return one hypothesis record (always ``status: hypothesis``, never a cardinality)."""
+    limitations = list(HYPOTHESIS_LIMITATIONS)
+    if sample_rows is not None:
+        limitations.append(
+            f"Inclusion was measured on at most {sample_rows} source rows (a bounded sample); it "
+            "is not extrapolated to the table."
+        )
+    return {
+        "hypothesis_id": f"hyp_{number}",
+        "status": "hypothesis",
+        "from": {
+            "table": source_table["table_key"],
+            "columns": [pair["from_node"]["display_path"]],
+        },
+        "to": {"table": target_table["table_key"], "columns": [pair["to_node"]["display_path"]]},
+        "cardinality": None,
+        "evidence": dict(evidence),
+        "operation_id": operation_id,
+        "limitations": limitations,
+    }
+
+
 def hypotheses_record(
     config: Mapping[str, Any],
     plan: Mapping[str, Any] | None,
@@ -6592,37 +6632,12 @@ def hypotheses_record(
             "(left join against the distinct target keys)."
         ),
         "limitations": [
-            "A hypothesis is an observation about data, not a relationship: it has no cardinality, "
-            "is never drawn in the ER diagram and must be confirmed by a person.",
-            "Inclusion measured on a sample describes that sample only.",
-            "Only single-column keys are considered; composite relationships are not hypothesized.",
+            "Only single-column keys measured exactly unique are targets; composite relationships "
+            "are not hypothesized.",
+            "Pairs beyond max_pairs and pairs whose measured ranges are disjoint are not measured: "
+            "a missing hypothesis is not evidence that no relationship exists.",
         ],
     }
-
-
-def relationship_identity(
-    relationship: Mapping[str, Any],
-    resolve: Any,
-) -> tuple[str, tuple[str, ...], str, tuple[str, ...]] | None:
-    """``(from table, from field ids, to table, to field ids)`` of a known relationship.
-
-    ``resolve(end)`` returns ``(table lookup key, field ids)`` or None.
-    """
-    left = resolve("from")
-    right = resolve("to")
-    if left is None or right is None:
-        return None
-    return (left[0], tuple(left[1]), right[0], tuple(right[1]))
-
-
-def key_metric(detail: Mapping[str, Any], name: str) -> Any:
-    """Value of a measured metric of a validation detail or hypothesis evidence."""
-    return metric_value(detail.get("metrics", []), name)
-
-
-def key_metric_record(detail: Mapping[str, Any], name: str) -> Mapping[str, Any] | None:
-    """Metric record of a validation detail or hypothesis evidence."""
-    return find_metric(detail.get("metrics", []), name)
 
 # COMMAND ----------
 
@@ -7010,7 +7025,7 @@ def validate_annotations(document: Any, schema: Mapping[str, Any]) -> list[str]:
 
 # DBTITLE 1,Runtime: tabledossier.render
 # TableDossier 0.2.0 embedded runtime: module tabledossier.render
-# Source: src/tabledossier/render.py (sha256:781d5495ed72c7af99c6e9d88aa4e91b9c5a295f7dfdffd789c15a36e5c3169c)
+# Source: src/tabledossier/render.py (sha256:31bfca26a5cd3e269508a68bf8bc50415b7f1fd17430c4d18dcc7d211e2c4661)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -8566,13 +8581,97 @@ def render_relationships(
         "document "
         "intent and are not enforced, so they do not prove integrity of the data.",
         "",
-        "## Hypotheses",
-        "",
-        "No data-driven relationship inference was performed. Candidate identifiers in the data "
-        "dictionary are not keys unless an exact uniqueness check says so (quality report).",
-        "",
+        *_r_hypotheses(profile),
     ]
     return "\n".join(out)
+
+
+def _r_hypotheses(profile: Mapping[str, Any]) -> list[str]:
+    """Render the hypotheses section of relationships.md (never known relationships)."""
+    out = [
+        "## Hypotheses (data-driven, not relationships)",
+        "",
+        "Hypotheses are observations about the data, kept apart from the known relationships "
+        "above: they are never inferred from column names, have no cardinality and are never "
+        "drawn in `erd.mmd`. A person must confirm one before declaring it.",
+        "",
+    ]
+    record = profile.get("relationship_hypotheses")
+    if not record:
+        return [
+            *out,
+            "No data-driven relationship hypothesis was evaluated (deep level with "
+            "`deep.relationship_hypotheses.enabled`). Candidate identifiers in the data dictionary "
+            "are not keys unless an exact uniqueness check says so (quality report).",
+            "",
+        ]
+    if not record["enabled"] or (record["reason"] and not record["pairs_evaluated"]):
+        return [*out, f"Not evaluated: {md_text(record['reason'] or 'disabled')}.", ""]
+    budget = record["budget"]
+    rejected = ", ".join(
+        f"{count} {reason.replace('_', ' ')}"
+        for reason, count in sorted(record["pairs_rejected"].items())
+    )
+    out += [
+        f"Targets (single-column keys measured exactly unique): {format_count(record['targets'])}. "
+        f"Candidate pairs after the type and range filters: "
+        f"{format_count(record['pairs_considered'])}; evaluated: "
+        f"{format_count(record['pairs_evaluated'])}; left out by `max_pairs` = "
+        f"{budget['max_pairs']}: {format_count(record['pairs_not_evaluated'])}. Skipped: "
+        f"{format_count(record['pairs_known_excluded'])} known relationship(s), "
+        f"{format_count(record['pairs_disjoint_excluded'])} disjoint range(s). Rejected: "
+        f"{md_text(rejected) or 'none'}.",
+        "",
+    ]
+    rows = []
+    for item in record["hypotheses"]:
+        evidence = item["evidence"]
+        metrics = {m["name"]: m for m in evidence["metrics"]}
+        rows.append(
+            [
+                md_code(item["hypothesis_id"]),
+                f"{md_text(item['from']['table'])} ({md_text(', '.join(item['from']['columns']))})",
+                f"{md_text(item['to']['table'])} ({md_text(', '.join(item['to']['columns']))})",
+                format_value(metrics["inclusion_ratio"])
+                + f" ({md_text(evidence['inclusion_scope'].replace('_', ' '))})",
+                format_value(metrics["included_rows"])
+                + " of "
+                + format_value(metrics["source_rows_with_complete_key"]),
+                "yes" if evidence["target_key_unique"] else "no",
+                md_text(evidence["type_compatibility"][0]["rule"]),
+                md_text(
+                    f"{evidence['range_relation'].replace('_', ' ')} ({evidence['range_basis']})"
+                ),
+                _r_versions(evidence),
+            ]
+        )
+    if rows:
+        out += [
+            _r_table(
+                [
+                    "Hypothesis",
+                    "From",
+                    "To",
+                    "Inclusion",
+                    "Included rows",
+                    "Target key unique",
+                    "Types",
+                    "Measured range",
+                    "Versions read",
+                ],
+                rows,
+            ),
+            "",
+        ]
+    else:
+        out += [
+            f"No evaluated pair reached `min_inclusion_ratio` = {budget['min_inclusion_ratio']}.",
+            "",
+        ]
+    notes = sorted({note for item in record["hypotheses"] for note in item["limitations"]})
+    out += [f"- {md_text(note)}" for note in [*notes, *record["limitations"]]]
+    out.append("")
+    return out
 
 
 def _r_erd_type(node: Mapping[str, Any]) -> str:
@@ -9676,7 +9775,7 @@ def build_profile(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:8fb684b3a128167d5a281747b278fd4cd8b0491d2f5f39875e5613bd79ce3eba)
+# Source: src/tabledossier/runtime/spark.py (sha256:3b42b4408464b8460328304451abed3422921bfce5f4b02d9b262c8698658d92)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -9701,6 +9800,7 @@ import os
 import platform
 import re
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -12224,11 +12324,170 @@ def validate_relationships(
         relationships, config, planned=planned, limited=limited
     )
 
+
+def evaluate_hypotheses(
+    spark: Any,
+    tables: Sequence[dict[str, Any]],
+    relationships: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    *,
+    log: Callable[[str], None] = print,
+) -> dict[str, Any] | None:
+    """Measure data-driven relationship hypotheses (``deep.relationship_hypotheses``).
+
+    Candidate pairs come from ``plan_hypotheses`` (types, measured ranges and
+    exact unique keys, never names); each evaluated pair is one Spark action
+    recorded as a ``relationship_hypothesis_check`` of the source table. Pairs
+    that reach ``min_inclusion_ratio`` against a target key that is unique over
+    its whole snapshot are listed as hypotheses; the others are counted by
+    reason. Known relationships are never repeated.
+    """
+    if config["analysis_level"] != "deep":
+        return None
+    settings = config["deep"]["relationship_hypotheses"]
+    sampling = config["sampling"]
+    if not settings["enabled"]:
+        return hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="disabled by configuration (deep.relationship_hypotheses.enabled = false)",
+        )
+    sample_mode = settings["inclusion_scope"] == "sample"
+    if sample_mode and sampling["method"] == "none":
+        return hypotheses_record(
+            config,
+            None,
+            [],
+            evaluated=0,
+            rejected={},
+            reason="sample inclusion needs a sampling method (sampling.method = none)",
+        )
+    usable = [table for table in tables if table["status"] != "failed" and table["schema"]]
+    index = _sp_run_tables(spark, usable)
+    known: set[tuple[str, tuple[str, ...], str, tuple[str, ...]]] = set()
+    for relationship in relationships:
+        source = _sp_find_table(index, relationship["from"]["table"])
+        target = _sp_find_table(index, relationship["to"]["table"])
+        if source is None or target is None:
+            continue
+        from_nodes, problem = _sp_end_nodes(relationship, "from", source)
+        to_nodes, other = _sp_end_nodes(relationship, "to", target)
+        if not problem and not other:
+            known.add(
+                (
+                    table_lookup_key(source["identifier"]["parts"]),
+                    tuple(node["field_id"] for node in from_nodes),
+                    table_lookup_key(target["identifier"]["parts"]),
+                    tuple(node["field_id"] for node in to_nodes),
+                )
+            )
+    plan = plan_hypotheses(usable, known, config)
+    reason = (
+        None
+        if plan["targets"]
+        else "no single-column key was measured exactly unique in this run (deep.uniqueness)"
+    )
+    sample = (
+        {
+            "method": sampling["method"],
+            "max_rows": settings["max_sample_rows"],
+            "fraction": sampling.get("random_fraction"),
+            "seed": sampling.get("seed"),
+        }
+        if sample_mode
+        else None
+    )
+    hypotheses: list[dict[str, Any]] = []
+    rejected: Counter[str] = Counter()
+    evaluated = 0
+    for number, pair in enumerate(plan["pairs"], start=1):
+        source = usable[pair["from_table_index"]]
+        target = usable[pair["to_table_index"]]
+        op_id = f"op_hypothesis_{number}"
+        source["operations"]["planned"].append(
+            operation(
+                op_id,
+                "relationship_hypothesis_check",
+                f"inclusion of {pair['from_node']['display_path']} in the unique key "
+                f"{target['table_key']}.{pair['to_node']['display_path']} (one left join; only "
+                "counts are collected)",
+                reads_user_data=True,
+                target_table=target["table_key"],
+                inclusion_scope=settings["inclusion_scope"],
+                max_sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+        start = time.perf_counter()
+        try:
+            raw = run_inclusion_check(
+                _sp_table_frame(spark, source, filtered=True),
+                [column_for(pair["from_node"]["path"])],
+                _sp_table_frame(spark, target, filtered=False),
+                [column_for(pair["to_node"]["path"])],
+                sample=sample,
+            )
+        except Exception as exc:  # noqa: BLE001 - a failed pair never stops the run
+            record = error_record(exc, "aggregate")
+            cause = record["condition"] or record["error_class"]
+            source["operations"]["observed"].append(
+                _sp_observed(op_id, "failed", start, detail=cause)
+            )
+            rejected["check_failed"] += 1
+            continue
+        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        evaluated += 1
+        scope = "sample" if sample else source["scope"]["scope_label"]
+        metrics, inclusion = hypothesis_evidence(
+            raw, scope=scope, target_scope=_sp_full_scope(target)
+        )
+        if inclusion is None:
+            rejected["no_source_values"] += 1
+            continue
+        if raw.get("t_dup_groups"):
+            rejected["target_not_unique"] += 1
+            continue
+        if inclusion < settings["min_inclusion_ratio"]:
+            rejected["below_threshold"] += 1
+            continue
+        hypotheses.append(
+            hypothesis_item(
+                len(hypotheses) + 1,
+                pair,
+                source_table=source,
+                target_table=target,
+                evidence={
+                    "inclusion_scope": settings["inclusion_scope"],
+                    "from": _sp_side(source, scope),
+                    "to": _sp_side(target, _sp_full_scope(target)),
+                    "metrics": metrics,
+                    "target_key_id": pair["target_key_id"],
+                    "target_key_unique": True,
+                    "type_compatibility": type_compatibility(
+                        [pair["from_node"]], [pair["to_node"]]
+                    ),
+                    "range_relation": pair["range_relation"],
+                    "range_basis": pair["range_basis"],
+                },
+                operation_id=op_id,
+                sample_rows=settings["max_sample_rows"] if sample else None,
+            )
+        )
+    log(
+        f"[tabledossier] relationship hypotheses: {evaluated} pair(s) evaluated, "
+        f"{len(hypotheses)} listed"
+    )
+    return hypotheses_record(
+        config, plan, hypotheses, evaluated=evaluated, rejected=dict(rejected), reason=reason
+    )
+
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:5d8624e4766f172118d41a2b50043fcf96442c28de451e28026657805c3f4c9a)
+# Source: src/tabledossier/runtime/databricks.py (sha256:7061b363767921b4251a8b11c95cb068cbda92589ef4e14527b71e5a97f510c4)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -12423,6 +12682,19 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 if origins
                 else "  - referential validation: not requested (deep.referential)"
             )
+            hypotheses = deep["relationship_hypotheses"]
+            lines.append(
+                f"  - relationship hypotheses: up to {hypotheses['max_pairs']} pair(s) per run "
+                "chosen by type and measured ranges (never names), one inclusion check each "
+                + (
+                    f"over a sample of at most {hypotheses['max_sample_rows']} source rows"
+                    if hypotheses["inclusion_scope"] == "sample"
+                    else "over the full source scope"
+                )
+                + f"; listed from {hypotheses['min_inclusion_ratio']:.0%} inclusion"
+                if hypotheses["enabled"]
+                else "  - relationship hypotheses: off (deep.relationship_hypotheses.enabled)"
+            )
     else:
         lines.append("  - no table rows are read at the metadata level")
     capabilities = ctx["capabilities"]
@@ -12464,6 +12736,7 @@ def execute_run(
             log(f"[tabledossier] {name}: failed unexpectedly ({type(exc).__name__})")
         tables.append(table)
     relationships, referential = validate_relationships(spark, tables, config, log=log)
+    hypotheses = evaluate_hypotheses(spark, tables, relationships, config, log=log)
     finished = utc_now()
     return build_profile(
         run_id=ctx["run_id"],
@@ -12479,6 +12752,7 @@ def execute_run(
         tables=tables,
         relationships=relationships,
         referential_validation=referential,
+        relationship_hypotheses=hypotheses,
     )
 
 

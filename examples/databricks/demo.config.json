@@ -112,6 +112,9 @@
     "referential": {
       "configured": true,
       "declared": true
+    },
+    "relationship_hypotheses": {
+      "enabled": true
     }
   },
   "relationships": [

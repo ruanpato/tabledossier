@@ -16,6 +16,8 @@
 DROP TABLE IF EXISTS customers;
 
 -- Column names with spaces or dots (`display name`, `a.b`) need Delta column mapping.
+-- Planted for the relationship hypothesis demo: referrer_id holds customer ids of other customers
+-- (a self-reference that no configuration declares) for one customer in ten.
 CREATE TABLE customers
 COMMENT 'Synthetic customers (simple types, special column names, all-null and constant columns)'
 TBLPROPERTIES ('delta.columnMapping.mode' = 'name', 'delta.minReaderVersion' = '2', 'delta.minWriterVersion' = '5')
@@ -35,7 +37,8 @@ AS SELECT
   END AS score,
   CAST(NULL AS STRING) AS middle_name,
   concat('Customer ', id + 1) AS `display name`,
-  CASE WHEN id % 2 = 0 THEN 'even' ELSE 'odd' END AS `a.b`
+  CASE WHEN id % 2 = 0 THEN 'even' ELSE 'odd' END AS `a.b`,
+  CASE WHEN id % 10 = 3 THEN pmod(hash(id, 8), 500) + 1 ELSE NULL END AS referrer_id
 FROM range(500);
 
 DROP TABLE IF EXISTS orders;

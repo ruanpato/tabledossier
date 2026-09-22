@@ -25,6 +25,7 @@ from tabledossier.package import build_documents, run_manifest, running_manifest
 from tabledossier.paths import parse_table_identifier, quote_table_identifier, table_id, table_key
 from tabledossier.runtime.spark import (
     detect_capabilities,
+    evaluate_hypotheses,
     profile_table,
     spark_environment,
     validate_relationships,
@@ -200,6 +201,19 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 if origins
                 else "  - referential validation: not requested (deep.referential)"
             )
+            hypotheses = deep["relationship_hypotheses"]
+            lines.append(
+                f"  - relationship hypotheses: up to {hypotheses['max_pairs']} pair(s) per run "
+                "chosen by type and measured ranges (never names), one inclusion check each "
+                + (
+                    f"over a sample of at most {hypotheses['max_sample_rows']} source rows"
+                    if hypotheses["inclusion_scope"] == "sample"
+                    else "over the full source scope"
+                )
+                + f"; listed from {hypotheses['min_inclusion_ratio']:.0%} inclusion"
+                if hypotheses["enabled"]
+                else "  - relationship hypotheses: off (deep.relationship_hypotheses.enabled)"
+            )
     else:
         lines.append("  - no table rows are read at the metadata level")
     capabilities = ctx["capabilities"]
@@ -241,6 +255,7 @@ def execute_run(
             log(f"[tabledossier] {name}: failed unexpectedly ({type(exc).__name__})")
         tables.append(table)
     relationships, referential = validate_relationships(spark, tables, config, log=log)
+    hypotheses = evaluate_hypotheses(spark, tables, relationships, config, log=log)
     finished = utc_now()
     return build_profile(
         run_id=ctx["run_id"],
@@ -256,6 +271,7 @@ def execute_run(
         tables=tables,
         relationships=relationships,
         referential_validation=referential,
+        relationship_hypotheses=hypotheses,
     )
 
 

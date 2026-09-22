@@ -51,7 +51,8 @@
       "declared_keys": true,
       "identifier_candidates": true
     },
-    "referential": {"configured": true, "declared": true}
+    "referential": {"configured": true, "declared": true},
+    "relationship_hypotheses": {"enabled": true}
   },
   "relationships": [
     {
