@@ -192,6 +192,34 @@ compatible types (the same kind, or integer and decimal); otherwise the relation
 column types in the reason. Only counts are recorded, never orphan values. See
 [contract](contract.md#referential-validation-12).
 
+### `deep.relationship_hypotheses`
+
+Data-driven relationship hypotheses, **off by default**. They are listed apart from known relationships, never get a
+cardinality and are never drawn in the ER diagram.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | Evaluate hypotheses at the deep level. |
+| `max_pairs` | 5 | Column pairs measured per run, one Spark action each (a `relationship_hypothesis_check` operation of the source table). |
+| `max_sample_rows` | 10000 | Source rows examined per pair when `inclusion_scope` is `sample`. |
+| `inclusion_scope` | `"sample"` | `sample` (bounded prefix or random sample of the source, labelled as such) or `full_scope`. |
+| `min_inclusion_ratio` | 0.95 | Share of the source rows with a value whose value is found among the target key values, needed to list a hypothesis. |
+
+How pairs are chosen, without ever looking at column names:
+
+1. **Targets** are single-column keys measured exactly unique in this run (`deep.uniqueness`: explicit keys, declared
+   keys or identifier candidates) of integer, scale-0 decimal, string or date type.
+2. **Sources** are profiled columns of the tables in the run, of a compatible type, with at least one non-null value.
+   Known relationships (declared or configured) are skipped.
+3. The standard metrics must not rule the pair out: value ranges (numbers, dates) or length ranges (strings) that
+   do not overlap are skipped (`pairs_disjoint_excluded`). Pairs whose source range lies inside the target range are
+   measured first, then schema order, up to `max_pairs`.
+4. Each measured pair counts the source rows found among the distinct target key values (target read in full at its
+   recorded version); a hypothesis needs `min_inclusion_ratio` and a target key without duplicates. Other pairs are
+   counted by reason (`pairs_rejected`).
+
+See [contract](contract.md#relationship-hypotheses-12).
+
 ## `table_options`
 
 Keyed by table identifier (matched case-insensitively):

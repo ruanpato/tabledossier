@@ -6,13 +6,13 @@
     "version": "0.2.0"
   },
   "run": {
-    "run_id": "20260922T054255Z-4abc0135",
+    "run_id": "20260922T055411Z-d25f5538",
     "status": "succeeded",
     "analysis_level": "standard",
-    "started_at": "2026-09-22T05:42:55.013Z",
-    "finished_at": "2026-09-22T05:43:06.764Z",
-    "duration_ms": 11751,
-    "reference_time": "2026-09-22T05:42:55.013Z",
+    "started_at": "2026-09-22T05:54:11.345Z",
+    "finished_at": "2026-09-22T05:54:23.794Z",
+    "duration_ms": 12448,
+    "reference_time": "2026-09-22T05:54:11.345Z",
     "environment": {
       "engine": "spark",
       "execution_context": "spark",
@@ -155,7 +155,7 @@
           "max_sample_rows": 10000
         },
         "relationship_hypotheses": {
-          "enabled": false,
+          "enabled": true,
           "max_pairs": 5,
           "max_sample_rows": 10000,
           "inclusion_scope": "sample",
@@ -255,7 +255,7 @@
         }
       ]
     },
-    "config_fingerprint": "sha256:01a4eba0e0b786fa582616c20079c89da0f3076493402632d694f6eff5196828",
+    "config_fingerprint": "sha256:04695e6f291900c2e89c6668bfd8f76b1c7ad122221b5fb6c6dc15a32e382ec5",
     "parameter_sources": {
       "precedence": [
         "built-in defaults",
@@ -281,7 +281,7 @@
     },
     "generation": {
       "generator_version": "0.2.0",
-      "generation_id": "sha256:05a5a54059e07d580579935cebe3d5d062640de4aaa395c5ff0593b5b5dc0a4c"
+      "generation_id": "sha256:01f5befac2a4833164da08b91f7755008cc2f9e7ce971661d41c56a697ea4545"
     },
     "purpose": "Synthetic demo: document the demo analytics tables.",
     "capabilities": {
@@ -345,14 +345,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic customers (simple types, special column names, all-null and constant columns)",
-        "created_at": "2026-09-22T05:42:46.550000Z",
-        "last_modified": "2026-09-22T05:42:54.700000Z",
+        "created_at": "2026-09-22T05:54:03.104000Z",
+        "last_modified": "2026-09-22T05:54:11.007000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 25486,
+          "value": 26661,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -372,7 +372,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:42:56.236Z",
+        "captured_at": "2026-09-22T05:54:12.646Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -380,7 +380,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:42:54.700000Z",
+        "version_timestamp": "2026-09-22T05:54:11.007000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -415,12 +415,12 @@
         ]
       },
       "summary": {
-        "top_level_columns": 11,
+        "top_level_columns": 12,
         "columns_selected": null,
-        "schema_nodes": 11,
-        "fields_profiled": 11,
+        "schema_nodes": 12,
+        "fields_profiled": 12,
         "fields_omitted": 0,
-        "findings": 6,
+        "findings": 7,
         "quality_checks": 1,
         "suggested_rules": 13
       },
@@ -693,9 +693,32 @@
             "children": [],
             "children_omitted": 0,
             "children_omitted_reason": null
+          },
+          {
+            "field_id": "f_47a60170bc61",
+            "name": "referrer_id",
+            "segment_kind": "field",
+            "path": [
+              {
+                "kind": "field",
+                "name": "referrer_id"
+              }
+            ],
+            "display_path": "referrer_id",
+            "parent_field_id": null,
+            "depth": 1,
+            "type": {
+              "kind": "integer",
+              "physical_type": "int"
+            },
+            "nullable": true,
+            "comment": null,
+            "children": [],
+            "children_omitted": 0,
+            "children_omitted_reason": null
           }
         ],
-        "nodes_total": 11,
+        "nodes_total": 12,
         "nodes_omitted": 0,
         "top_level_omitted": 0,
         "limits": {
@@ -3000,6 +3023,216 @@
           "examples": null,
           "element_context": null,
           "json_paths": null
+        },
+        {
+          "field_id": "f_47a60170bc61",
+          "display_path": "referrer_id",
+          "path": [
+            {
+              "kind": "field",
+              "name": "referrer_id"
+            }
+          ],
+          "type_kind": "integer",
+          "physical_type": "int",
+          "nullable": true,
+          "comment": null,
+          "profiled": true,
+          "omission_reason": null,
+          "metrics": [
+            {
+              "name": "null_count",
+              "status": "measured",
+              "value": 450,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "rows where the field is null (includes rows whose parent struct is null)",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "non_null_count",
+              "status": "measured",
+              "value": 50,
+              "value_type": "integer",
+              "unit": "rows",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "row_count - null_count",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "null_ratio",
+              "status": "measured",
+              "value": 0.9,
+              "value_type": "ratio",
+              "unit": "ratio",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "derived",
+              "method": "null_count / row_count",
+              "denominator": 500,
+              "denominator_unit": "rows"
+            },
+            {
+              "name": "approx_distinct_count",
+              "status": "measured",
+              "value": 47,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "approximate",
+              "source": "aggregate",
+              "method": "approx_count_distinct (HyperLogLog++)",
+              "details": {
+                "relative_standard_deviation": 0.02
+              }
+            },
+            {
+              "name": "all_values_equal",
+              "status": "measured",
+              "value": false,
+              "value_type": "boolean",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "min(field) = max(field) over non-null values"
+            },
+            {
+              "name": "min",
+              "status": "measured",
+              "value": 2,
+              "value_type": "integer",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "minimum over non-null values (finite values only for floating point)"
+            },
+            {
+              "name": "max",
+              "status": "measured",
+              "value": 497,
+              "value_type": "integer",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "maximum over non-null values (finite values only for floating point)"
+            },
+            {
+              "name": "mean",
+              "status": "measured",
+              "value": 271.76,
+              "value_type": "float",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "average over non-null values (finite values only for floating point)"
+            },
+            {
+              "name": "stddev",
+              "status": "measured",
+              "value": 150.81892914271438,
+              "value_type": "float",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "sample standard deviation (stddev_samp), computed in double precision"
+            },
+            {
+              "name": "quantiles",
+              "status": "measured",
+              "value": [
+                {
+                  "probability": 0.05,
+                  "value": 34
+                },
+                {
+                  "probability": 0.25,
+                  "value": 157
+                },
+                {
+                  "probability": 0.5,
+                  "value": 260
+                },
+                {
+                  "probability": 0.75,
+                  "value": 429
+                },
+                {
+                  "probability": 0.95,
+                  "value": 488
+                }
+              ],
+              "value_type": "quantiles",
+              "unit": null,
+              "scope": "full_snapshot",
+              "accuracy": "approximate",
+              "source": "aggregate",
+              "method": "percentile_approx over non-null (finite) values",
+              "details": {
+                "element_type": "integer",
+                "accuracy_parameter": 10000
+              }
+            },
+            {
+              "name": "zero_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values equal to zero",
+              "denominator": 50,
+              "denominator_unit": "values"
+            },
+            {
+              "name": "negative_count",
+              "status": "measured",
+              "value": 0,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values below zero",
+              "denominator": 50,
+              "denominator_unit": "values"
+            },
+            {
+              "name": "positive_count",
+              "status": "measured",
+              "value": 50,
+              "value_type": "integer",
+              "unit": "values",
+              "scope": "full_snapshot",
+              "accuracy": "exact",
+              "source": "aggregate",
+              "method": "values above zero",
+              "denominator": 50,
+              "denominator_unit": "values"
+            }
+          ],
+          "semantics": {
+            "observed_format": null,
+            "candidate_roles": []
+          },
+          "json_profile": null,
+          "concentration": null,
+          "examples": null,
+          "element_context": null,
+          "json_paths": null
         }
       ],
       "constraints": [],
@@ -3158,6 +3391,31 @@
           },
           "severity_reason": "info: descriptive signal only.",
           "limitations": "Few distinct values in the analysed scope; the set of allowed values must be defined by a data owner."
+        },
+        {
+          "finding_id": "fd_adb773af67a4",
+          "code": "high_null_ratio",
+          "severity": "info",
+          "field_id": "f_47a60170bc61",
+          "display_path": "referrer_id",
+          "title": "High null ratio",
+          "message": "90.0% of rows in scope are null.",
+          "evidence": [
+            {
+              "metric": "null_count",
+              "value": 450
+            },
+            {
+              "metric": "null_ratio",
+              "value": 0.9
+            }
+          ],
+          "threshold": {
+            "name": "high_null_ratio",
+            "value": 0.5
+          },
+          "severity_reason": "info: sparse fields are frequently legitimate (optional attributes).",
+          "limitations": "Nullity of nested fields includes rows where a parent struct is null; see null_count_parent_present."
         }
       ],
       "quality_checks": [
@@ -3499,8 +3757,8 @@
             "description": "one shared aggregation over the analysed scope (single agg call; not a guarantee of a single physical scan)",
             "reads_user_data": true,
             "details": {
-              "expressions": 114,
-              "fields": 11
+              "expressions": 126,
+              "fields": 12
             }
           }
         ],
@@ -3508,21 +3766,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 46,
+            "duration_ms": 58,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 1168,
+            "duration_ms": 1231,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 293,
+            "duration_ms": 299,
             "rows_returned": 1,
             "detail": null
           },
@@ -3536,14 +3794,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 548,
+            "duration_ms": 551,
             "rows_returned": 500,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 2047,
+            "duration_ms": 2347,
             "rows_returned": 1,
             "detail": null
           }
@@ -3553,10 +3811,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 1533,
-        "sample": 552,
-        "aggregate": 2230,
-        "total": 4321
+        "metadata": 1610,
+        "sample": 556,
+        "aggregate": 2553,
+        "total": 4727
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -3583,8 +3841,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic orders with nested structs, arrays and maps",
-        "created_at": "2026-09-22T05:42:51.662000Z",
-        "last_modified": "2026-09-22T05:42:54.814000Z",
+        "created_at": "2026-09-22T05:54:08.040000Z",
+        "last_modified": "2026-09-22T05:54:11.129000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -3610,7 +3868,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:43:00.282Z",
+        "captured_at": "2026-09-22T05:54:17.069Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -3618,7 +3876,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:42:54.814000Z",
+        "version_timestamp": "2026-09-22T05:54:11.129000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -7721,21 +7979,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 24,
+            "duration_ms": 21,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 913,
+            "duration_ms": 963,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 132,
+            "duration_ms": 130,
             "rows_returned": 1,
             "detail": null
           },
@@ -7749,14 +8007,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 500,
+            "duration_ms": 520,
             "rows_returned": 1000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1460,
+            "duration_ms": 1570,
             "rows_returned": 1,
             "detail": null
           }
@@ -7766,10 +8024,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 1079,
-        "sample": 507,
-        "aggregate": 1659,
-        "total": 3253
+        "metadata": 1125,
+        "sample": 528,
+        "aggregate": 1794,
+        "total": 3456
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -7796,8 +8054,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic order events with a JSON payload stored as STRING",
-        "created_at": "2026-09-22T05:42:53.108000Z",
-        "last_modified": "2026-09-22T05:42:53.399000Z",
+        "created_at": "2026-09-22T05:54:09.420000Z",
+        "last_modified": "2026-09-22T05:54:09.720000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -7823,7 +8081,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:43:03.003Z",
+        "captured_at": "2026-09-22T05:54:19.959Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -7831,7 +8089,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:42:53.399000Z",
+        "version_timestamp": "2026-09-22T05:54:09.720000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -11053,21 +11311,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 13,
+            "duration_ms": 16,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 391,
+            "duration_ms": 402,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 125,
+            "duration_ms": 122,
             "rows_returned": 1,
             "detail": null
           },
@@ -11081,14 +11339,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 434,
+            "duration_ms": 404,
             "rows_returned": 2000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1391,
+            "duration_ms": 1431,
             "rows_returned": 1,
             "detail": null
           }
@@ -11098,10 +11356,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 535,
-        "sample": 480,
-        "aggregate": 1506,
-        "total": 2524
+        "metadata": 547,
+        "sample": 451,
+        "aggregate": 1575,
+        "total": 2576
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -11128,8 +11386,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic returns: intentionally empty",
-        "created_at": "2026-09-22T05:42:54.344000Z",
-        "last_modified": "2026-09-22T05:42:54.481000Z",
+        "created_at": "2026-09-22T05:54:10.657000Z",
+        "last_modified": "2026-09-22T05:54:10.790000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -11155,7 +11413,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:43:05.917Z",
+        "captured_at": "2026-09-22T05:54:22.922Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -11163,7 +11421,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:42:54.481000Z",
+        "version_timestamp": "2026-09-22T05:54:10.790000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -12073,42 +12331,42 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 14,
+            "duration_ms": 13,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 779,
+            "duration_ms": 791,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 113,
+            "duration_ms": 118,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_constraints",
             "status": "skipped",
-            "duration_ms": 0,
+            "duration_ms": 1,
             "rows_returned": null,
             "detail": "declared key constraints are read from Unity Catalog information_schema only"
           },
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 285,
+            "duration_ms": 298,
             "rows_returned": 0,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 392,
+            "duration_ms": 385,
             "rows_returned": 1,
             "detail": null
           }
@@ -12118,10 +12376,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 912,
-        "sample": 285,
-        "aggregate": 441,
-        "total": 1641
+        "metadata": 933,
+        "sample": 298,
+        "aggregate": 442,
+        "total": 1676
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -12216,7 +12474,7 @@
     "tables_succeeded": 4,
     "tables_partial": 0,
     "tables_failed": 0,
-    "fields_profiled": 39,
+    "fields_profiled": 40,
     "checks": {
       "pass": 3,
       "fail": 1,
@@ -12224,7 +12482,7 @@
       "error": 0
     },
     "findings": {
-      "info": 18,
+      "info": 19,
       "warning": 2
     },
     "suggested_rules": 43,

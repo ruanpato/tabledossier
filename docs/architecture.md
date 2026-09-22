@@ -122,7 +122,10 @@ After every table was profiled, **referential validation** (`deep.referential`) 
 relationships whose two tables are in the run: each check re-reads both tables at their recorded Delta versions (the
 source with its filters, the target in full), groups the target by its key, left-joins the source to it and
 aggregates both sides in one collected action. It is recorded as a `referential_check` operation of the source
-table; at most `max_relationships` run.
+table; at most `max_relationships` run. **Relationship hypotheses** (`deep.relationship_hypotheses`, off by default)
+then pair single-column keys measured exactly unique with profiled columns of a compatible type whose measured
+ranges overlap (names are never used), and measure the inclusion of at most `max_pairs` pairs with the same kind of
+action; they are recorded apart from `relationships`.
 
 The number of Spark actions per table is bounded by the configuration (one sample, `max_aggregate_passes` plus
 `deep.max_extra_passes` aggregations and explodes, plus `deep.uniqueness.max_passes` uniqueness passes); it does not
