@@ -115,6 +115,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Execution on Databricks workspaces (see `docs/compatibility.md`).
 
-[0.3.0]: https://github.com/ruanpato/tabledossier/compare/v0.2.0...develop
+[0.3.0]: https://github.com/ruanpato/tabledossier/compare/v0.2.0...release/0.3.0
 [0.2.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.1.0
