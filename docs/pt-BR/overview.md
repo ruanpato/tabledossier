@@ -24,8 +24,8 @@ Um notebook gerado **não contém resultados**; métricas existem apenas depois 
 
 ## Princípios
 
-- **Contrato canônico** versionado (JSON Schema 1.1, que só acrescenta ao 1.0; a CLI lê os dois) independente de
-  Spark, Databricks ou PostgreSQL. Cada métrica
+- **Contrato canônico** versionado (JSON Schema 1.2, que só acrescenta ao 1.1, que só acrescenta ao 1.0; a CLI lê
+  os três) independente de Spark, Databricks ou PostgreSQL. Cada métrica
   informa `status`, `scope` (escopo), `accuracy` (exatidão) e `source` (origem). "Não calculado" nunca vira zero.
 - **Código único**: as células do runtime são os próprios módulos do pacote, copiados de forma legível e
   verificável (com SHA-256), sem payloads codificados.
@@ -50,11 +50,20 @@ Um notebook gerado **não contém resultados**; métricas existem apenas depois 
   - **caminhos JSON** de colunas texto a partir da amostra (presença, tipos, heterogeneidade), com validação no
     escopo completo quando o runtime oferece as funções (variant ou `get_json_object`);
   - no máximo `deep.max_extra_passes` ações Spark extras por tabela, independentemente do número de colunas.
-- Unicidade exata e validação referencial ainda não existem (planejadas para a 0.3.0).
+- `deep`, parte II (cada verificação é opcional e desligada por padrão):
+  - **unicidade exata** de chaves explícitas (inclusive compostas), de PK/UNIQUE declaradas e de candidatas a
+    identificador: linhas no escopo, linhas com NULL na chave, chaves distintas, grupos e linhas duplicados, em no
+    máximo `deep.uniqueness.max_passes` ações por tabela (as chaves compartilham o passe);
+  - **validação referencial** de relacionamentos configurados e de FKs declaradas entre tabelas da mesma execução:
+    uma ação por relacionamento, as duas tabelas lidas nas versões Delta registradas, órfãs e sua razão;
+    `validated` só no escopo completo sem órfãs, `violated` com órfãs, senão `not_validated` com o motivo;
+  - **hipóteses de relacionamento** (desligadas por padrão), vindas só dos dados — nunca de nomes de colunas —,
+    separadas dos relacionamentos conhecidos, sem cardinalidade e nunca desenhadas no diagrama ER;
+  - só contagens saem do motor: valores duplicados e órfãos nunca são coletados.
 
 ## Estado atual
 
-Versão 0.2.0. O runtime foi executado com Spark local 3.5 e 4.0, em modo clássico e por um servidor Spark
+Versão 0.3.0. O runtime foi executado com Spark local 3.5 e 4.0, em modo clássico e por um servidor Spark
 Connect local, com dados sintéticos; **ainda não foi validado em um workspace Databricks**. Veja [compatibilidade](../compatibility.md) (em inglês) e o
 [roteiro de smoke test](../databricks-smoke-test.md).
 

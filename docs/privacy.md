@@ -15,6 +15,10 @@
   and keys seen in fewer than two sampled documents or in less than 10% of the documents containing their object are
   collapsed into `*`, because such keys are often data (identifiers, e-mails, dates). Tests plant secret markers in
   elements, map keys and values, JSON keys and JSON values and check that none reaches the profile or the documents.
+- **Deep level, part II.** Exact uniqueness, referential validation and relationship hypotheses return only counts
+  to the driver: duplicated key values, orphan values and matching values are never collected, persisted or
+  rendered (tests plant secret markers in duplicated keys and orphan values). Profiles name the key columns and the
+  relationships that were checked.
 - Engine error messages are reduced to their first line with quoted literals and URIs replaced by placeholders,
   both in profiles and in notebook logs. Identifiers you asked to profile (backtick-quoted) are kept.
 - Storage locations, table owners and table properties are not recorded (only Delta `CHECK` constraint
