@@ -127,3 +127,37 @@ def test_metadata_level_notebook_run(spark, demo_tables, notebook, tmp_path):
             op["kind"] not in ("sample_collect", "aggregate_pass")
             for op in table["operations"]["planned"]
         )
+
+
+def test_deep_notebook_run_exports_a_valid_1_1_package(
+    spark, spark_mode, demo_tables, notebook, tmp_path
+):
+    namespace = run_notebook(
+        notebook,
+        spark,
+        _widgets(
+            demo_tables,
+            tmp_path / "results",
+            analysis_level="deep",
+            config_json=json.dumps({"deep": {"max_extra_passes": 1}}),
+        ),
+    )
+    export = namespace["td_export"]
+    assert export["validation_errors"] == []
+    run_dir = Path(export["run_dir"])
+    profile = json.loads((run_dir / "profile.json").read_text(encoding="utf-8"))
+    assert check_profile(profile) == []
+    assert profile["schema_version"] == "1.1" and profile["run"]["analysis_level"] == "deep"
+    assert profile["run"]["environment"]["spark_connect"] is (spark_mode == "connect")
+    for table in profile["tables"]:
+        deep = table["deep"]
+        assert deep is not None and deep["extra_passes"]["planned"] <= 1
+        reads = [op for op in table["operations"]["planned"] if op["reads_user_data"]]
+        assert len(reads) <= 1 + 2 + 1
+    regenerated = build_documents(profile)
+    for name, text in regenerated.items():
+        assert (run_dir / name).read_text(encoding="utf-8") == text, name
+    assert "## 6. Deep analysis: coverage and budget" in regenerated["quality_report.md"]
+    assert "JSON paths (transient sample" in regenerated["data_dictionary.md"]
+    plan_text = namespace["describe_plan"](namespace["td_ctx"])
+    assert "deep level" in plan_text and "at most 1 extra pass(es)" in plan_text

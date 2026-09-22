@@ -420,7 +420,8 @@ def candidate_roles(
                     ],
                     "limitations": (
                         "Approximate distinct counts do not prove uniqueness or a primary key; "
-                        "exact validation requires an additional read (planned for 'deep')."
+                        "exact validation requires an additional read (planned for a later "
+                        "release)."
                     ),
                 }
             )

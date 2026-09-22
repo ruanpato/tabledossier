@@ -429,6 +429,10 @@ def _r_description(node: Mapping[str, Any], note: Mapping[str, Any]) -> str:
     return "<br>".join(parts) if parts else f"_{UNKNOWN_DESCRIPTION}_"
 
 
+def _r_unit_one(unit: str) -> str:
+    return {"elements": "element", "entries": "entry"}.get(unit, unit)
+
+
 def _r_nulls(profile_field: Mapping[str, Any] | None) -> str:
     if not profile_field or not profile_field.get("profiled"):
         return "—"
@@ -440,6 +444,18 @@ def _r_nulls(profile_field: Mapping[str, Any] | None) -> str:
     if count.get("status") != "measured":
         return format_value(count)
     text = format_count(count["value"])
+    context = profile_field.get("element_context")
+    if context:
+        # Element fields: the denominator is the collection's elements or entries, not rows.
+        total = count.get("denominator")
+        share = (
+            f"{format_ratio(ratio_metric['value'])} of "
+            if ratio_metric is not None and ratio_metric.get("status") == "measured"
+            else ""
+        )
+        if isinstance(total, int):
+            text += f" ({share}{format_count(total)} {context['unit']})"
+        return text
     if ratio_metric is not None and ratio_metric.get("status") == "measured":
         text += f" ({format_ratio(ratio_metric['value'])})"
     return text
@@ -448,6 +464,12 @@ def _r_nulls(profile_field: Mapping[str, Any] | None) -> str:
 def _r_distinct(profile_field: Mapping[str, Any] | None) -> str:
     if not profile_field or not profile_field.get("profiled"):
         return "—"
+    exact = find_metric(profile_field["metrics"], "distinct_count")
+    if exact is not None:
+        if exact.get("status") != "measured":
+            return format_value(exact)
+        label = " (sample)" if exact.get("scope") == "sample" else ""
+        return format_count(exact["value"]) + label
     metric = find_metric(profile_field["metrics"], "approx_distinct_count")
     if metric is None:
         return "—"
@@ -480,6 +502,9 @@ def _r_node_notes(
     node: Mapping[str, Any], field: Mapping[str, Any] | None, findings: list[str]
 ) -> str:
     notes = []
+    context = (field or {}).get("element_context")
+    if context:
+        notes.append(f"per {_r_unit_one(context['unit'])} of {context['collection_display_path']}")
     if field is not None and not field.get("profiled") and field.get("omission_reason"):
         notes.append(f"not profiled ({field['omission_reason']})")
     if node.get("children_omitted"):
@@ -616,6 +641,14 @@ def render_data_dictionary(
             out += ["### Field measurements", ""]
             for field in detailed:
                 out += [f"#### {md_code(field['display_path'])}", ""]
+                context = field.get("element_context")
+                if context:
+                    out += [
+                        f"Measured per {md_text(_r_unit_one(context['unit']))} of "
+                        f"{md_code(context['collection_display_path'])}: denominators are "
+                        f"{md_text(context['unit'])} of the collection in scope, not rows.",
+                        "",
+                    ]
                 out.append(
                     _r_table(
                         ["Metric", "Value", "Accuracy, source", "Scope", "Denominator"],
@@ -656,6 +689,8 @@ def render_data_dictionary(
                         out.append(
                             f"Key names not listed: {md_text(json_profile['keys_omitted_reason'])}."
                         )
+                if field.get("json_paths"):
+                    out += ["", *_r_json_paths(field["json_paths"])]
                 concentration = field.get("concentration")
                 if concentration and concentration.get("observations"):
                     out.append("")
@@ -678,6 +713,105 @@ def render_data_dictionary(
                     )
                 out.append("")
     return "\n".join(out)
+
+
+def _r_json_full_scope(item: Mapping[str, Any]) -> str:
+    full = item.get("full_scope")
+    if not full:
+        return "—"
+    if full["status"] == "not_computed" or not full.get("metrics"):
+        return "_not computed_" + (f": {md_text(full['reason'])}" if full.get("reason") else "")
+    parts = []
+    for metric in full["metrics"]:
+        label = {
+            "path_present_count": "present",
+            "path_json_null_count": "JSON null",
+            "path_type_match_count": f"{(metric.get('details') or {}).get('expected_type')}",
+            "path_non_null_count": "non-null",
+        }.get(metric["name"], metric["name"])
+        if metric["status"] != "measured":
+            parts.append(f"{md_text(label)} {format_value(metric)}")
+            continue
+        denominator = metric.get("denominator")
+        share = (
+            f" ({format_ratio(metric['value'] / denominator)})"
+            if isinstance(denominator, int) and denominator
+            else ""
+        )
+        parts.append(f"{md_text(label)} {format_count(metric['value'])}{share}")
+    return "; ".join(parts)
+
+
+def _r_json_paths(catalog: Mapping[str, Any]) -> list[str]:
+    """Render the JSON path catalogue of a string field (sample-based, not a schema)."""
+    lines = [
+        f"JSON paths (transient sample: {format_count(catalog['documents'])} JSON "
+        f"document(s) of {format_count(catalog['eligible_observations'])} sampled value(s); "
+        "not a complete or guaranteed schema).",
+        "",
+    ]
+    full = catalog.get("full_scope") or {}
+    if full.get("method"):
+        documents = full.get("documents") or {}
+        lines.append(
+            f"Full-scope validation with `{full['method']}`"
+            + (
+                f" over {format_count(documents['value'])} JSON document(s) in scope"
+                if documents.get("status") == "measured"
+                else ""
+            )
+            + ". "
+            + " ".join(md_text(note) for note in full.get("limitations", []))
+        )
+    elif full.get("status") in ("unsupported", "not_computed"):
+        lines.append(
+            f"Full-scope validation: _{full['status'].replace('_', ' ')}_ — "
+            f"{md_text(full.get('reason') or '')}."
+        )
+    paths = catalog.get("paths")
+    if paths is None:
+        lines.append(
+            f"Path names not listed: {md_text(catalog.get('paths_omitted_reason') or '')} "
+            f"({format_count(catalog['paths_observed'])} path(s) observed)."
+        )
+        return lines
+    if not paths:
+        lines.append(md_text(catalog.get("paths_omitted_reason") or "No paths observed."))
+        return lines
+    lines += [
+        "",
+        _r_table(
+            [
+                "Path",
+                "Present in (sample)",
+                "Types (sample)",
+                "Heterogeneous",
+                "Full scope (documents)",
+            ],
+            [
+                [
+                    md_code(item["path"]) + (" _(keys collapsed)_" if item.get("map_like") else ""),
+                    f"{format_count(item['present_in'])}"
+                    + (
+                        f" ({format_ratio(item['presence_ratio'])})"
+                        if item.get("presence_ratio") is not None
+                        else ""
+                    ),
+                    md_text(", ".join(f"{name} {count}" for name, count in item["types"].items())),
+                    "yes" if item["heterogeneous"] else "no",
+                    _r_json_full_scope(item),
+                ]
+                for item in paths
+            ],
+        ),
+    ]
+    if catalog.get("paths_omitted"):
+        lines.append("")
+        lines.append(
+            f"{format_count(catalog['paths_omitted'])} further path(s) not listed: "
+            f"{md_text(catalog.get('paths_omitted_reason') or '')}."
+        )
+    return lines
 
 
 # --------------------------------------------------------------------------- quality report
@@ -774,9 +908,29 @@ def render_quality_report(
         "",
     ]
     completeness = []
+    element_completeness = []
     for table in profile["tables"]:
         for field in table.get("field_profiles", []):
             if not field.get("profiled"):
+                continue
+            context = field.get("element_context")
+            if context:
+                nulls = find_metric(field["metrics"], "null_count")
+                if nulls is not None:
+                    element_completeness.append(
+                        [
+                            md_text(table["table_key"]),
+                            md_code(field["display_path"]),
+                            _r_nulls(field),
+                            format_value(parent)
+                            if (
+                                parent := find_metric(field["metrics"], "null_count_parent_present")
+                            )
+                            else "—",
+                            md_text(context["unit"]),
+                            md_text(SCOPE_LABELS.get(nulls["scope"], nulls["scope"])),
+                        ]
+                    )
                 continue
             nulls = find_metric(field["metrics"], "null_count")
             ratio_metric = find_metric(field["metrics"], "null_ratio")
@@ -806,9 +960,26 @@ def render_quality_report(
         "For nested fields, *Null count* includes rows where a parent struct is null; *Nulls while "
         "parent present* counts only rows whose parent exists.",
         "",
-        "## 3. Heuristic alerts (not failures)",
-        "",
     ]
+    if element_completeness:
+        out += [
+            "Array elements and map entries (deep level) count nulls among the elements or entries "
+            "of the collection, never among rows:",
+            "",
+            _r_table(
+                [
+                    "Table",
+                    "Element field",
+                    "Nulls (of elements or entries)",
+                    "Nulls while parent present",
+                    "Unit",
+                    "Scope",
+                ],
+                element_completeness,
+            ),
+            "",
+        ]
+    out += ["## 3. Heuristic alerts (not failures)", ""]
     alert_rows = []
     for table in profile["tables"]:
         for finding in table.get("findings", []):
@@ -870,7 +1041,14 @@ def render_quality_report(
         "descriptive only.",
         "- **Business accuracy** cannot be inferred from distributions.",
         "",
-        "## 6. Limitations",
+    ]
+    deep_tables = [table for table in profile["tables"] if table.get("deep")]
+    if profile["run"].get("analysis_level") == "deep":
+        out += _r_deep_coverage(deep_tables)
+    out += [
+        "## 7. Limitations"
+        if profile["run"].get("analysis_level") == "deep"
+        else "## 6. Limitations",
         "",
     ]
     for table in profile["tables"]:
@@ -902,6 +1080,102 @@ def render_quality_report(
         out += [f"- {md_text(line)}" for line in lines] or ["- none recorded"]
         out.append("")
     return "\n".join(out)
+
+
+def _r_deep_coverage(tables: list[Mapping[str, Any]]) -> list[str]:
+    """Render what the deep level covered and what its budgets limited."""
+    out = [
+        "## 6. Deep analysis: coverage and budget",
+        "",
+        "Element metrics are exact over the analysed scope (higher-order functions inside the "
+        "shared passes). Element distinct counts come from one explode pass, usually over a "
+        "bounded sample. JSON paths are catalogued from the transient sample and are not a "
+        "complete schema.",
+        "",
+    ]
+    if not tables:
+        return [*out, "No table reached the deep analysis (see errors).", ""]
+    rows = []
+    for table in tables:
+        deep = table["deep"]
+        passes = deep["extra_passes"]
+        distinct = deep.get("element_distinct") or {}
+        distinct_text = "—"
+        if distinct:
+            distinct_text = md_text(distinct["status"].replace("_", " "))
+            if distinct.get("elements_examined") is not None:
+                distinct_text += (
+                    f", {format_count(distinct['elements_examined'])} element(s) examined"
+                    + (f" ({distinct['method']} sample)" if distinct["mode"] == "sample" else "")
+                )
+        rows.append(
+            [
+                md_text(table["table_key"]),
+                md_text(deep["targets"].replace("_", " ")),
+                format_count(sum(c["element_fields_profiled"] for c in deep["collections"]))
+                + f" in {len(deep['collections'])} collection(s)",
+                format_count(sum(j["paths_listed"] for j in deep["json_fields"]))
+                + f" in {len(deep['json_fields'])} field(s)",
+                format_count(sum(j["paths_validated"] for j in deep["json_fields"])),
+                distinct_text,
+                f"{passes['planned']} of {passes['budget']}",
+                format_count(deep["expressions"]["omitted"]),
+            ]
+        )
+    out.append(
+        _r_table(
+            [
+                "Table",
+                "Targets",
+                "Element fields",
+                "JSON paths listed",
+                "Paths validated (full scope)",
+                "Element distinct counts",
+                "Extra passes used",
+                "Deep expressions omitted",
+            ],
+            rows,
+        )
+    )
+    out.append("")
+    limited = [(table, item) for table in tables for item in table["deep"]["limited"]]
+    ineligible = [(table, item) for table in tables for item in table["deep"]["not_eligible"]]
+    if limited:
+        out += ["**Limited by the deep budgets**", ""]
+        out.append(
+            _r_table(
+                ["Table", "Item", "Budget", "Detail"],
+                [
+                    [
+                        md_text(table["table_key"]),
+                        md_code(item["item"]),
+                        md_code(item["reason"]),
+                        md_text(item["detail"]),
+                    ]
+                    for table, item in limited
+                ],
+            )
+        )
+        out.append("")
+    else:
+        out += ["Nothing was limited by the deep budgets.", ""]
+    if ineligible:
+        out += ["**Requested deep targets that were not eligible**", ""]
+        out.append(
+            _r_table(
+                ["Table", "Target", "Reason"],
+                [
+                    [
+                        md_text(table["table_key"]),
+                        md_code(item["display_path"]),
+                        md_text(item["reason"]),
+                    ]
+                    for table, item in ineligible
+                ],
+            )
+        )
+        out.append("")
+    return out
 
 
 # --------------------------------------------------------------------------- relationships / ERD
@@ -1023,8 +1297,8 @@ def render_relationships(
         "## Hypotheses",
         "",
         "No data-driven relationship inference was performed. Candidate identifiers in the data "
-        "dictionary are not keys; exact uniqueness and referential validation are planned for the "
-        "`deep` level.",
+        "dictionary are not keys; exact uniqueness and referential validation are planned for a "
+        "later release (deep level, part II).",
         "",
     ]
     return "\n".join(out)

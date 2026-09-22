@@ -53,6 +53,7 @@ RUNTIME_MODULES = (
     ("tabledossier.metrics", "metrics.py"),
     ("tabledossier.planning", "planning.py"),
     ("tabledossier.semantic", "semantic.py"),
+    ("tabledossier.deep", "deep.py"),
     ("tabledossier.findings", "findings.py"),
     ("tabledossier.quality", "quality.py"),
     ("tabledossier.relationships", "relationships.py"),
@@ -284,7 +285,8 @@ def generate_notebook(config: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
                 "reading any table.",
                 "3. Profiles each table sequentially: catalog metadata and, at the `standard` "
                 "level, one bounded "
-                "sample and a bounded number of shared aggregation passes.",
+                "sample and a bounded number of shared aggregation passes. The `deep` level adds "
+                "array/map element metrics and JSON paths within explicit budgets.",
                 "4. Writes `profile.json`, `manifest.json` and the derived documentation to the "
                 "results directory.",
                 "",
@@ -320,8 +322,8 @@ def generate_notebook(config: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
                 "| --- | --- |",
                 "| `tables_json` | JSON list of `catalog.schema.table` identifiers (quote unusual "
                 "names with backticks). |",
-                "| `analysis_level` | `metadata` (no row reads) or `standard` (sample + "
-                "aggregations). |",
+                "| `analysis_level` | `metadata` (no row reads), `standard` (sample + "
+                "aggregations) or `deep` (standard + elements and JSON paths, budgeted). |",
                 "| `output_dir` | Directory where a new `<run_id>/` folder is created. |",
                 "| `config_json` | Optional JSON object merged over the generated configuration "
                 "(no secrets). |",

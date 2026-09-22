@@ -14,7 +14,7 @@ from tabledossier.config import sanitized_config, table_options_for
 from tabledossier.contract import PROFILE_KIND, PROFILE_SCHEMA_VERSION
 from tabledossier.findings import field_findings
 from tabledossier.jsonutil import fingerprint
-from tabledossier.metrics import measured, not_measured, ratio
+from tabledossier.metrics import measured, metric_value, not_measured, ratio
 from tabledossier.paths import (
     field_id,
     parse_display_path,
@@ -93,9 +93,9 @@ METRIC_INFO: dict[str, tuple[str | None, str, str]] = {
     "max_size": ("elements", "exact", "maximum size over non-null collections"),
     "mean_size": ("elements", "exact", "average size over non-null collections"),
     "total_element_count": ("elements", "exact", "sum of array sizes over non-null arrays"),
-    "total_entry_count": ("elements", "exact", "sum of map sizes over non-null maps"),
+    "total_entry_count": ("entries", "exact", "sum of map sizes over non-null maps"),
     "null_element_count": ("elements", "exact", "null elements inside non-null arrays"),
-    "null_value_count": ("elements", "exact", "null values inside non-null maps"),
+    "null_value_count": ("entries", "exact", "null values inside non-null maps"),
     "json_invalid_count": (
         "values",
         "exact",
@@ -153,6 +153,8 @@ def aggregate_metric(
     unit, accuracy, method = METRIC_INFO[name]
     if kind == "binary" and name in ("min_length", "max_length"):
         unit = "bytes"
+    if kind == "map" and unit == "elements":
+        unit = "entries"
     details: dict[str, Any] = {}
     if spec["op"] == "approx_distinct":
         details["relative_standard_deviation"] = spec["params"]["rsd"]
@@ -205,7 +207,7 @@ def aggregate_metric(
     elif name == "null_element_count":
         denominator, denominator_unit = denominators.get("total_element_count"), "elements"
     elif name == "null_value_count":
-        denominator, denominator_unit = denominators.get("total_entry_count"), "elements"
+        denominator, denominator_unit = denominators.get("total_entry_count"), "entries"
     return measured(
         name,
         raw,
@@ -341,7 +343,210 @@ def field_profile(
         "json_profile": None,
         "concentration": None,
         "examples": None,
+        "element_context": None,
+        "json_paths": None,
     }
+
+
+# metric name -> (unit or None for the element unit, method); element metrics are exact.
+ELEMENT_METRIC_INFO: dict[str, tuple[str | None, str]] = {
+    "element_count": (None, "size of the collection summed over rows (denominator of the others)"),
+    "null_count": (
+        None,
+        "elements whose value is null (includes elements whose parent struct is null); "
+        "higher-order functions per row, summed",
+    ),
+    "non_null_count": (None, "element_count - null_count"),
+    "null_ratio": ("ratio", "null_count / element_count"),
+    "null_count_parent_present": (
+        None,
+        "elements whose parent struct is not null and the field is null",
+    ),
+    "null_ratio_given_parent_present": (
+        "ratio",
+        "null_count_parent_present / elements with a non-null parent",
+    ),
+    "finite_count": (None, "non-null values that are neither NaN nor infinite"),
+    "nan_count": (None, "NaN values (distinct from SQL NULL)"),
+    "positive_infinity_count": (None, "+Infinity values"),
+    "negative_infinity_count": (None, "-Infinity values"),
+    "min": (None, "array_min per row, then min over rows (finite values only for floats)"),
+    "max": (None, "array_max per row, then max over rows (finite values only for floats)"),
+    "zero_count": (None, "values equal to zero"),
+    "negative_count": (None, "values below zero"),
+    "positive_count": (None, "values above zero"),
+    "empty_count": (None, "empty strings"),
+    "whitespace_only_count": (None, "non-empty strings made only of whitespace (regex ^\\s+$)"),
+    "min_length": ("characters", "minimum length over non-null values"),
+    "max_length": ("characters", "maximum length over non-null values"),
+    "true_count": (None, "values equal to true"),
+    "false_count": (None, "values equal to false"),
+    "after_reference_count": (None, "values after the run reference instant (run.reference_time)"),
+    "distinct_count": (None, "exact count of distinct non-null values among the elements examined"),
+}
+ELEMENT_METRIC_ORDER = list(ELEMENT_METRIC_INFO)
+_AS_ELEMENT_NON_NULL_DENOMINATOR = (
+    "finite_count",
+    "nan_count",
+    "positive_infinity_count",
+    "negative_infinity_count",
+    "empty_count",
+    "whitespace_only_count",
+    "true_count",
+    "false_count",
+    "after_reference_count",
+)
+
+
+def element_field_metrics(
+    node: Mapping[str, Any],
+    context: Mapping[str, Any],
+    specs: Sequence[Mapping[str, Any]],
+    results: Mapping[str, Any],
+    failed_aliases: Mapping[str, str],
+    *,
+    scope: str,
+    element_total: int | None,
+    parent_null_count: int | None,
+    static: Sequence[Mapping[str, Any]],
+    extra: Sequence[Mapping[str, Any]] = (),
+) -> list[dict[str, Any]]:
+    """Build the metrics of an array element or map entry field.
+
+    Denominators are the elements (arrays) or entries (maps) of the collection
+    in scope, never rows. ``element_total`` is the collection's measured
+    ``total_element_count``/``total_entry_count``; ``parent_null_count`` is
+    the null count of the enclosing element struct (for struct leaves).
+    """
+    kind = node["type"]["kind"]
+    unit = context["unit"]
+    collection = context["collection_display_path"]
+    out: dict[str, dict[str, Any]] = {}
+    raw: dict[str, Any] = {}
+    for spec in specs:
+        name = spec["metric"]
+        if spec["alias"] in failed_aliases:
+            out[name] = not_measured(
+                name, "error", failed_aliases[spec["alias"]], scope=scope, source="aggregate"
+            )
+        else:
+            raw[name] = results.get(spec["alias"])
+    if isinstance(element_total, int):
+        out["element_count"] = measured(
+            "element_count",
+            element_total,
+            unit=unit,
+            scope=scope,
+            accuracy="exact",
+            source="derived",
+            method=f"{unit} of {collection} in scope ({ELEMENT_METRIC_INFO['element_count'][1]})",
+        )
+    null_count = raw.get("null_count")
+    null_count = 0 if null_count is None and "null_count" in raw else null_count
+    non_null = (
+        element_total - null_count
+        if isinstance(element_total, int) and isinstance(null_count, int)
+        else None
+    )
+    finite = raw.get("finite_count") if kind == "float" else non_null
+    if kind == "float" and finite is None and "finite_count" in raw:
+        finite = 0
+    for name, value in raw.items():
+        info_unit, method = ELEMENT_METRIC_INFO[name]
+        metric_unit = info_unit or unit
+        if kind == "binary" and name in ("min_length", "max_length"):
+            metric_unit = "bytes"
+        details = None
+        if name == "after_reference_count":
+            details = {"reference": "run.reference_time"}
+        if name in ("min", "max", "min_length", "max_length"):
+            if value is None:
+                out[name] = not_measured(
+                    name,
+                    "insufficient_data",
+                    f"no non-null {unit} in scope"
+                    if kind != "float"
+                    else f"no finite non-null {unit} in scope",
+                    scope=scope,
+                    source="aggregate",
+                )
+                continue
+            value_type = kind if name in ("min", "max") and kind.startswith("timestamp") else None
+            out[name] = measured(
+                name,
+                value,
+                value_type=value_type,
+                unit=None if name in ("min", "max") else metric_unit,
+                scope=scope,
+                accuracy="exact",
+                source="aggregate",
+                method=method,
+            )
+            continue
+        count = 0 if value is None else int(value)
+        denominator: int | None = None
+        if name == "null_count":
+            denominator = element_total
+        elif name in ("zero_count", "negative_count", "positive_count"):
+            denominator = finite if isinstance(finite, int) else None
+        elif name in _AS_ELEMENT_NON_NULL_DENOMINATOR:
+            denominator = non_null
+        elif name == "null_count_parent_present":
+            denominator = (
+                element_total - parent_null_count
+                if isinstance(element_total, int) and isinstance(parent_null_count, int)
+                else None
+            )
+        out[name] = measured(
+            name,
+            count,
+            unit=metric_unit,
+            scope=scope,
+            accuracy="exact",
+            source="aggregate",
+            method=method,
+            denominator=denominator,
+            denominator_unit=unit if denominator is not None else None,
+            details=details,
+        )
+    if isinstance(non_null, int) and "null_count" in out:
+        out["non_null_count"] = measured(
+            "non_null_count",
+            non_null,
+            unit=unit,
+            scope=scope,
+            accuracy="exact",
+            source="derived",
+            method=ELEMENT_METRIC_INFO["non_null_count"][1],
+            denominator=element_total,
+            denominator_unit=unit,
+        )
+        out["null_ratio"] = ratio(
+            "null_ratio",
+            null_count,
+            element_total,
+            scope=scope,
+            source="derived",
+            method=ELEMENT_METRIC_INFO["null_ratio"][1],
+            denominator_unit=unit,
+        )
+    parent_metric = out.get("null_count_parent_present")
+    if parent_metric is not None and parent_metric["status"] == "measured":
+        out["null_ratio_given_parent_present"] = ratio(
+            "null_ratio_given_parent_present",
+            parent_metric["value"],
+            parent_metric.get("denominator"),
+            scope=scope,
+            source="derived",
+            method=ELEMENT_METRIC_INFO["null_ratio_given_parent_present"][1],
+            denominator_unit=f"{unit} with a non-null parent",
+        )
+    for metric in extra:
+        out.setdefault(metric["name"], dict(metric))
+    for item in static:
+        out.setdefault(item["metric"]["name"], dict(item["metric"]))
+    order = {name: index for index, name in enumerate(ELEMENT_METRIC_ORDER)}
+    return [out[name] for name in sorted(out, key=lambda n: (order.get(n, len(order)), n))]
 
 
 def policy_field_ids(config: Mapping[str, Any], table_lookup: str, list_name: str) -> set[str]:
@@ -396,6 +601,7 @@ def new_table(
         },
         "timings_ms": {},
         "notes": [],
+        "deep": None,
     }
 
 
@@ -413,6 +619,19 @@ def finalize_table(table: dict[str, Any], config: Mapping[str, Any]) -> None:
     findings: list[dict[str, Any]] = []
     for field in table["field_profiles"]:
         if not field["profiled"]:
+            continue
+        context = field.get("element_context")
+        if context:
+            # Element fields: counts are elements or entries of a collection, never rows.
+            total = metric_value(field["metrics"], "element_count")
+            findings.extend(
+                field_findings(
+                    field,
+                    thresholds,
+                    total if isinstance(total, int) else None,
+                    unit=context["unit"],
+                )
+            )
             continue
         if field["metrics"] or field["semantics"] is not None:
             semantics = field["semantics"] or {"observed_format": None, "candidate_roles": []}
