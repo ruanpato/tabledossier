@@ -3,6 +3,20 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Release workflow (`.github/workflows/release.yml`): a tag `v*` checks the tag against `__version__`, the CHANGELOG
+  section and the branch, builds the wheel and the sdist, runs the unit tests against the wheel, writes `SHA256SUMS`
+  and creates a **draft** GitHub release with the notes of the CHANGELOG section; only that job can write, with the
+  `GITHUB_TOKEN`, and nothing is published to PyPI. Pull requests that change the release inputs run it as a dry run.
+  The checks and notes come from `scripts/release.py` (unit-tested). Decision record 0007.
+
+### Changed
+
+- The sdist includes `scripts/` (needed by its unit tests); the CI wheel check no longer hard-codes the version.
+
 ## [0.3.0] - 2026-09-22
 
 "Deep II": exact uniqueness, referential validation and data-driven relationship hypotheses.
@@ -115,6 +129,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Execution on Databricks workspaces (see `docs/compatibility.md`).
 
+[Unreleased]: https://github.com/ruanpato/tabledossier/compare/v0.3.0...develop
 [0.3.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.1.0
