@@ -25,14 +25,16 @@
 | `planning` | Schema tree, field selection, sample plan, aggregate specs and budgets | yes | stdlib |
 | `semantic` | Format detectors, Wilson intervals, JSON shape, candidate roles | yes | stdlib |
 | `deep` | Deep level: targets, element nodes and metric specs, explode-pass plan, JSON path catalogue and validation plan | yes | stdlib |
+| `keys` | Deep level, part II: requested keys, eligibility, budget and passes of exact uniqueness, key records | yes | stdlib |
 | `findings` | Heuristic findings | yes | stdlib |
 | `quality` | Configured checks, proposed rules | yes | stdlib |
 | `relationships` | Declared and provided relationships | yes | stdlib |
+| `integrity` | Deep level, part II: type compatibility, referential validation records, relationship hypothesis planning and records | yes | stdlib |
 | `contract` | Version checks and profile invariants | yes | stdlib |
 | `render` | Markdown and Mermaid documents | yes | stdlib |
 | `package` | Result package, manifests, no-overwrite writing | yes | stdlib |
 | `assemble` | Engine-neutral assembly of metrics, tables and the profile | yes | stdlib |
-| `runtime.spark` | Spark adapter: metadata, snapshot, sample, aggregate passes, deep expressions and the element explode pass | yes | stdlib + PySpark |
+| `runtime.spark` | Spark adapter: metadata, snapshot, sample, aggregate passes, deep expressions, the element explode pass and the uniqueness passes | yes | stdlib + PySpark |
 | `runtime.databricks` | Run orchestration: parameters, destination probe, batch, export | yes | stdlib + PySpark (via `runtime.spark`) |
 | `resources`, `validation`, `notebook`, `cli` | Packaged schemas, formal validation (`jsonschema`), notebook composition, CLI | no | stdlib + jsonschema |
 
@@ -109,9 +111,16 @@ The deep level runs the standard steps above and adds, per table:
    (`count`, `count(DISTINCT)`) return to the driver.
 5. **Coverage.** `table.deep` records targets, extra passes used against the budget, omitted expressions and
    everything a budget limited.
+6. **Exact uniqueness** (part II), when keys are requested (`deep.uniqueness`): explicit keys, declared
+   PRIMARY KEY/UNIQUE constraints and identifier candidates are resolved against the schema tree, merged when they
+   name the same columns and cut to `max_keys`. Each of at most `max_passes` actions turns every row of the analysed
+   scope into one entry per key (position, a NULL flag and typed slots for the key columns), explodes them once,
+   groups by entry and aggregates the group sizes per key. Only counts reach the driver; `table.uniqueness` records
+   them with the outcome, and `unique` proposals cite them.
 
 The number of Spark actions per table is bounded by the configuration (one sample, `max_aggregate_passes` plus
-`deep.max_extra_passes` aggregations and explodes); it does not grow with the number of columns or metrics (tested).
+`deep.max_extra_passes` aggregations and explodes, plus `deep.uniqueness.max_passes` uniqueness passes); it does not
+grow with the number of columns, metrics or keys (tested).
 
 ## Testing against Spark Connect
 

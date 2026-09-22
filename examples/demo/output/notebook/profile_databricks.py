@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:fa764e5225fa840d28c42d0452254dac2dba3c503d80e2925860a1bac14db9d9`).
+# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -149,9 +149,20 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
           'max_json_paths': 50,
           'max_json_depth': 3,
           'max_json_object_keys': 50,
-          'uniqueness': {'keys': [],
-                         'declared_keys': False,
-                         'identifier_candidates': False,
+          'uniqueness': {'keys': [{'table': 'analytics.customers',
+                                   'columns': ['customer_id'],
+                                   'id': 'customers_key'},
+                                  {'table': 'analytics.orders',
+                                   'columns': ['order_id'],
+                                   'id': 'orders_key'},
+                                  {'table': 'analytics.order_events',
+                                   'columns': ['event_id'],
+                                   'id': 'events_key'},
+                                  {'table': 'analytics.order_events',
+                                   'columns': ['order_id', 'event_type'],
+                                   'id': 'events_per_order_and_type'}],
+                         'declared_keys': True,
+                         'identifier_candidates': True,
                          'max_keys': 5,
                          'max_passes': 1},
           'referential': {'configured': False,
@@ -205,7 +216,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.2.0',
- 'generation_id': 'sha256:fa764e5225fa840d28c42d0452254dac2dba3c503d80e2925860a1bac14db9d9'}
+ 'generation_id': 'sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -3578,7 +3589,7 @@ def operation(
 
 # DBTITLE 1,Runtime: tabledossier.semantic
 # TableDossier 0.2.0 embedded runtime: module tabledossier.semantic
-# Source: src/tabledossier/semantic.py (sha256:b0156fd261c487fa464be9388aa0b91214795a49d2966f84257a00bee1bee015)
+# Source: src/tabledossier/semantic.py (sha256:14e1b52707b12164c1eda7d2cdbb06f534676f56df0a9420ee44f329096edcc6)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -4005,8 +4016,8 @@ def candidate_roles(
                     ],
                     "limitations": (
                         "Approximate distinct counts do not prove uniqueness or a primary key; "
-                        "exact validation requires an additional read (planned for a later "
-                        "release)."
+                        "exact validation requires an additional read (deep.uniqueness at the "
+                        "deep level)."
                     ),
                 }
             )
@@ -5529,7 +5540,7 @@ def field_findings(
 
 # DBTITLE 1,Runtime: tabledossier.quality
 # TableDossier 0.2.0 embedded runtime: module tabledossier.quality
-# Source: src/tabledossier/quality.py (sha256:8f94e11e49b169cd62e844241b45360317dbdb4786af1d078a4f5e69923e32b9)
+# Source: src/tabledossier/quality.py (sha256:5f728d2906f91e8477c5a690f2bb5b9f0c5532aaa029548c03952af89c45dcd2)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5757,8 +5768,11 @@ def _q_rule(
     rationale: str,
     evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    identity: list[Any] = [table_key, column, rule_type]
+    if column is None and parameters:
+        identity.append(dict(parameters))
     return {
-        "rule_id": "sr_" + short_hash([table_key, column, rule_type]),
+        "rule_id": "sr_" + short_hash(identity),
         "table": table_key,
         "column": column,
         "rule_type": rule_type,
@@ -5770,12 +5784,47 @@ def _q_rule(
     }
 
 
+def _q_exact_evidence(key: Mapping[str, Any]) -> list[dict[str, Any]]:
+    values = {m["name"]: m["value"] for m in key["metrics"] if m["status"] == "measured"}
+    return [
+        {"check": "exact_uniqueness", "key_id": key["key_id"], "scope": key["scope"]},
+        *(
+            {"metric": name, "value": values[name]}
+            for name in (
+                "rows_with_complete_key",
+                "distinct_keys",
+                "duplicate_key_groups",
+                "rows_with_null_key",
+            )
+            if name in values
+        ),
+    ]
+
+
+def _q_exact_rationale(key: Mapping[str, Any]) -> str:
+    values = {m["name"]: m["value"] for m in key["metrics"] if m["status"] == "measured"}
+    text = (
+        f"Exact uniqueness check: no duplicate among {values.get('rows_with_complete_key')} "
+        "row(s) with a complete key in the analysed scope"
+    )
+    if key["outcome"] == "unique_non_null":
+        text += f"; {values.get('rows_with_null_key')} row(s) have NULL in the key"
+    return text + ". This describes the analysed scope, not future data."
+
+
 def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Propose rules from observations of one table (never applied automatically)."""
+    """Propose rules from observations of one table (never applied automatically).
+
+    ``unique`` proposals cite the exact uniqueness check of the deep level when
+    one measured the column; an exact check that found duplicates suppresses
+    the proposal.
+    """
     if table.get("status") == "failed":
         return []
     table_key = table["table_key"]
     rules = []
+    exact = {tuple(key["field_ids"]): key for key in measured_keys(table)}
+    proposed_keys: set[tuple[str, ...]] = set()
     min_rows = thresholds["identifier_min_rows"]
     for field in table.get("field_profiles", []):
         if not field.get("profiled") or field.get("element_context"):
@@ -5808,6 +5857,21 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
         semantics = field.get("semantics") or {}
         for role in semantics.get("candidate_roles", []):
             if role["role"] == "identifier_candidate":
+                key = exact.get((field["field_id"],))
+                if key is not None:
+                    proposed_keys.add((field["field_id"],))
+                    if key["outcome"] in ("unique", "unique_non_null"):
+                        rules.append(
+                            _q_rule(
+                                table_key,
+                                column,
+                                "unique",
+                                {},
+                                _q_exact_rationale(key),
+                                [*_q_exact_evidence(key), *role["evidence"]],
+                            )
+                        )
+                    continue
                 rules.append(
                     _q_rule(
                         table_key,
@@ -5815,7 +5879,7 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
                         "unique",
                         {},
                         "Approximate distinct count close to non-null count; confirm with an exact "
-                        "uniqueness check before adopting.",
+                        "uniqueness check (deep.uniqueness) before adopting.",
                         role["evidence"],
                     )
                 )
@@ -5869,6 +5933,20 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
                         ],
                     )
                 )
+    for ids, key in exact.items():
+        if ids in proposed_keys or key["outcome"] not in ("unique", "unique_non_null"):
+            continue
+        single = len(key["columns"]) == 1
+        rules.append(
+            _q_rule(
+                table_key,
+                key["columns"][0] if single else None,
+                "unique",
+                {} if single else {"columns": list(key["columns"])},
+                _q_exact_rationale(key),
+                _q_exact_evidence(key),
+            )
+        )
     return rules
 
 
@@ -6931,7 +7009,7 @@ def validate_annotations(document: Any, schema: Mapping[str, Any]) -> list[str]:
 
 # DBTITLE 1,Runtime: tabledossier.render
 # TableDossier 0.2.0 embedded runtime: module tabledossier.render
-# Source: src/tabledossier/render.py (sha256:dfebe59359a116a54da7518ead5d7ed0540d503daf64705369f311267f52f162)
+# Source: src/tabledossier/render.py (sha256:729836f354961f60bf60e5d91279526aefbb38224228926fd1c611202176b516)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -7968,8 +8046,7 @@ def render_quality_report(
         "",
         "- **Validity** is only evaluated through configured checks. Formats observed on samples "
         "are hypotheses.",
-        "- **Uniqueness** is only approximated (HyperLogLog-based distinct counts); no exact "
-        "uniqueness check ran.",
+        _r_uniqueness_dimension(profile),
         "- **Referential integrity** is not verified: declared or provided relationships were not "
         "validated.",
         "- **Timeliness** needs a time column and an agreed SLA; `after_reference_count` is "
@@ -7978,14 +8055,11 @@ def render_quality_report(
         "",
     ]
     deep_tables = [table for table in profile["tables"] if table.get("deep")]
-    if profile["run"].get("analysis_level") == "deep":
+    deep_level = profile["run"].get("analysis_level") == "deep"
+    if deep_level:
         out += _r_deep_coverage(deep_tables)
-    out += [
-        "## 7. Limitations"
-        if profile["run"].get("analysis_level") == "deep"
-        else "## 6. Limitations",
-        "",
-    ]
+        out += _r_uniqueness(profile)
+    out += ["## 8. Limitations" if deep_level else "## 6. Limitations", ""]
     for table in profile["tables"]:
         lines = []
         consistency = table.get("consistency") or {}
@@ -8015,6 +8089,124 @@ def render_quality_report(
         out += [f"- {md_text(line)}" for line in lines] or ["- none recorded"]
         out.append("")
     return "\n".join(out)
+
+
+def _r_uniqueness_dimension(profile: Mapping[str, Any]) -> str:
+    if any(measured_keys(table) for table in profile["tables"]):
+        return (
+            "- **Uniqueness** is established only for the keys of section 7, exactly and over "
+            "their analysed scope; other columns only have approximate (HyperLogLog-based) "
+            "distinct counts."
+        )
+    return (
+        "- **Uniqueness** is only approximated (HyperLogLog-based distinct counts); no exact "
+        "uniqueness check ran."
+    )
+
+
+_R_OUTCOMES = {
+    "unique": "unique",
+    "unique_non_null": "unique among complete keys (some keys have NULL)",
+    "duplicates": "**duplicates**",
+    "empty": "no complete key in scope",
+}
+
+
+def _r_uniqueness(profile: Mapping[str, Any]) -> list[str]:
+    """Render section 7 of the DQR: exact uniqueness of keys, with its evidence."""
+    out = ["## 7. Uniqueness (exact)", ""]
+    records = [(table, table.get("uniqueness")) for table in profile["tables"]]
+    keys = [(table, key) for table, record in records if record for key in record["keys"]]
+    if not keys:
+        return [
+            *out,
+            "Not established: no key was checked for exact uniqueness in this run (configure "
+            "`deep.uniqueness`: explicit keys, declared keys or identifier candidates).",
+            "",
+        ]
+    semantics = next(record["null_semantics"] for _, record in records if record)
+    out += [
+        "Each key was checked with an exact grouped aggregation over the analysed scope; several "
+        "keys of a table share one pass. Only counts are recorded: duplicated values are never "
+        "collected. " + semantics,
+        "",
+    ]
+    rows = []
+    for table, key in keys:
+        if key["status"] != "measured":
+            continue
+        values = {m["name"]: m for m in key["metrics"]}
+
+        def cell(name: str, values: Mapping[str, Any] = values) -> str:
+            return format_value(values[name]) if name in values else "—"
+
+        rows.append(
+            [
+                md_text(table["table_key"]),
+                md_code(", ".join(key["columns"])),
+                md_text(", ".join(origin.replace("_", " ") for origin in key["origins"])),
+                _R_OUTCOMES.get(key["outcome"], md_text(key["outcome"])),
+                cell("rows_in_scope"),
+                cell("rows_with_null_key"),
+                cell("distinct_keys"),
+                cell("duplicate_key_groups"),
+                cell("rows_in_duplicate_groups"),
+                cell("max_rows_per_key"),
+                md_text(SCOPE_LABELS.get(key["scope"], key["scope"])),
+            ]
+        )
+    if rows:
+        out += [
+            _r_table(
+                [
+                    "Table",
+                    "Key",
+                    "Origin",
+                    "Outcome",
+                    "Rows in scope",
+                    "Rows with NULL in the key",
+                    "Distinct keys",
+                    "Duplicate groups",
+                    "Rows in duplicate groups",
+                    "Most rows per key",
+                    "Scope",
+                ],
+                rows,
+            ),
+            "",
+        ]
+    skipped = [(table, key) for table, key in keys if key["status"] != "measured"]
+    if skipped:
+        out += ["**Keys not measured**", ""]
+        out.append(
+            _r_table(
+                ["Table", "Key", "Origin", "Status", "Reason"],
+                [
+                    [
+                        md_text(table["table_key"]),
+                        md_code(", ".join(key["columns"])) if key["columns"] else "—",
+                        md_text(", ".join(origin.replace("_", " ") for origin in key["origins"])),
+                        md_code(key["status"]),
+                        md_text(key["reason"] or ""),
+                    ]
+                    for table, key in skipped
+                ],
+            )
+        )
+        out.append("")
+    notes = [
+        md_text(note) for note in sorted({note for _, key in keys for note in key["limitations"]})
+    ]
+    notes += [
+        f"{md_text(table['table_key'])}: {md_text(note)}"
+        for table, record in records
+        if record
+        for note in record["notes"]
+    ]
+    out += [f"- {note}" for note in notes]
+    if notes:
+        out.append("")
+    return out
 
 
 def _r_deep_coverage(tables: list[Mapping[str, Any]]) -> list[str]:
@@ -9340,7 +9532,7 @@ def build_profile(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:a07c04b2dee66361b1b15104904410097cc57f9177e9505d9280beab5808d625)
+# Source: src/tabledossier/runtime/spark.py (sha256:5186d724a51b5b4a966cfd7db4b6d811f5419b20c69b91949cf031c85ab34e86)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -9961,6 +10153,67 @@ def run_element_distinct(
         ]
     row = exploded.agg(*aggregates).collect()[0]
     return {key: (0 if value is None else int(value)) for key, value in row.asDict().items()}
+
+
+def _sp_any_null(columns: Sequence[Any]) -> Any:
+    condition = columns[0].isNull()
+    for column in columns[1:]:
+        condition = condition | column.isNull()
+    return condition
+
+
+def run_uniqueness_pass(
+    frame: Any, keys: Sequence[Mapping[str, Any]], nodes_by_id: Mapping[str, Any]
+) -> dict[int, dict[str, Any]]:
+    """Check several keys exactly in one Spark action and return counts per key position.
+
+    Each row becomes one entry per key: a struct with the key position, a flag
+    for NULL in any key column and one typed slot per key column of every key
+    (only the entry's own slots are set). The entries are exploded once,
+    grouped by position, flag and slots, and the group sizes are aggregated per
+    key. Only counts come back to the driver, never key values.
+    """
+    schema = frame.schema
+    slots: list[tuple[int, Any, Any]] = []
+    for position, key in enumerate(keys):
+        for fid in key["field_ids"]:
+            path = nodes_by_id[fid]["path"]
+            slots.append((position, column_for(path), _sp_data_type(schema, path)))
+    names = [f"s{index}" for index in range(len(slots))]
+
+    def entry(position: int) -> Any:
+        own = [column for owner, column, _ in slots if owner == position]
+        values = [
+            (column if owner == position else F.lit(None).cast(data_type)).alias(names[index])
+            for index, (owner, column, data_type) in enumerate(slots)
+        ]
+        return F.struct(F.lit(position).alias("l"), _sp_any_null(own).alias("z"), *values)
+
+    if len(keys) == 1:
+        exploded = frame.select(entry(0).alias("e"))
+    else:
+        entries = F.array(*[entry(position) for position in range(len(keys))])
+        exploded = frame.select(F.explode(entries).alias("e"))
+    element = F.col("e")
+    flat = exploded.select(*[element.getField(name).alias(name) for name in ("l", "z", *names)])
+    groups = flat.groupBy("l", "z", *names).agg(F.count(F.lit(1)).alias("n"))
+    complete = ~F.col("z")
+    repeated = complete & (F.col("n") > F.lit(1))
+    stats = groups.groupBy("l").agg(
+        F.sum("n").alias("rows"),
+        F.sum(F.when(F.col("z"), F.col("n"))).alias("null_rows"),
+        F.count(F.when(complete, 1)).alias("distinct"),
+        F.count(F.when(repeated, 1)).alias("dup_groups"),
+        F.sum(F.when(repeated, F.col("n"))).alias("dup_rows"),
+        F.max(F.when(complete, F.col("n"))).alias("max_n"),
+    )
+    out: dict[int, dict[str, Any]] = {}
+    for row in stats.collect():
+        values = row.asDict()
+        out[int(values.pop("l"))] = {
+            key: (None if value is None else int(value)) for key, value in values.items()
+        }
+    return out
 
 
 # --------------------------------------------------------------------------- metadata
@@ -10725,9 +10978,8 @@ def profile_table(
 
     scope = scope_label(pinned, bool(filters))
     table["scope"]["scope_label"] = scope
-    frame = base
-    if filters:
-        frame = frame.filter(filter_condition(filters))
+    scoped = base.filter(filter_condition(filters)) if filters else base
+    frame = scoped
     if selected is not None:
         frame = frame.select(*[F.col(quote_name(name)) for name in selected])
 
@@ -11076,6 +11328,7 @@ def profile_table(
             json_unsupported=json_unsupported,
             scope=scope,
         )
+        _sp_uniqueness(table, scoped, tree, nodes_by_id, config, scope=scope, log=log)
     timings["total"] = _sp_ms(total_start)
     finalize_table(table, config)
     extra = (
@@ -11091,6 +11344,87 @@ def profile_table(
 
 
 # --------------------------------------------------------------------------- deep helpers
+
+
+def _sp_identifier_candidates(
+    table: Mapping[str, Any], config: Mapping[str, Any]
+) -> list[list[dict[str, Any]]]:
+    """Paths of the fields the standard metrics mark as identifier candidates (schema order)."""
+    out = []
+    for field in table["field_profiles"]:
+        if not field["profiled"] or field.get("element_context") or not field["metrics"]:
+            continue
+        roles = candidate_roles(
+            field["type_kind"],
+            field["metrics"],
+            (field.get("semantics") or {}).get("observed_format"),
+            config["thresholds"],
+            field["physical_type"],
+        )
+        if any(role["role"] == "identifier_candidate" for role in roles):
+            out.append([dict(segment) for segment in field["path"]])
+    return out
+
+
+def _sp_uniqueness(
+    table: dict[str, Any],
+    frame: Any,
+    tree: Mapping[str, Any],
+    nodes_by_id: Mapping[str, Any],
+    config: Mapping[str, Any],
+    *,
+    scope: str,
+    log: Callable[[str], None],
+) -> None:
+    """Plan, run and record the exact uniqueness checks of one table (deep level)."""
+    lookup = table_lookup_key(table["identifier"]["parts"])
+    requested = requested_keys(
+        config, lookup, table["constraints"], _sp_identifier_candidates(table, config)
+    )
+    plan = plan_uniqueness(tree, requested, config)
+    planned = table["operations"]["planned"]
+    observed = table["operations"]["observed"]
+    for number, members in enumerate(plan["passes"], start=1):
+        planned.append(
+            operation(
+                f"op_uniqueness_{number}",
+                "uniqueness_pass",
+                "exact uniqueness of "
+                f"{len(members)} key(s) in one grouped aggregation over the analysed scope (each "
+                "row is exploded once per key; only counts are collected)",
+                reads_user_data=True,
+                keys=len(members),
+                columns=sum(len(plan["keys"][m]["field_ids"]) for m in members),
+            )
+        )
+    results: dict[int, dict[str, Any]] = {}
+    errors: dict[int, str] = {}
+    start = time.perf_counter()
+    for number, members in enumerate(plan["passes"], start=1):
+        op_id = f"op_uniqueness_{number}"
+        pass_start = time.perf_counter()
+        try:
+            raw = run_uniqueness_pass(frame, [plan["keys"][m] for m in members], nodes_by_id)
+        except Exception as exc:  # noqa: BLE001 - a failed pass leaves its keys unmeasured
+            record = error_record(exc, "aggregate")
+            table["errors"].append(record)
+            cause = record["condition"] or record["error_class"]
+            for member in members:
+                errors[member] = "uniqueness pass failed: " + cause
+            observed.append(_sp_observed(op_id, "failed", pass_start, detail=cause))
+            continue
+        for index, member in enumerate(members):
+            results[member] = raw.get(index, {})
+        observed.append(_sp_observed(op_id, "succeeded", pass_start, rows=len(raw)))
+    if plan["passes"]:
+        table["timings_ms"]["uniqueness"] = _sp_ms(start)
+        log(
+            f"[tabledossier] {table['table_key']}: {sum(len(m) for m in plan['passes'])} key(s) "
+            f"checked for exact uniqueness in {len(plan['passes'])} pass(es)"
+        )
+    table["uniqueness"] = uniqueness_record(
+        plan, results, errors, config=config, scope=scope, requested_any=bool(requested)
+    )
 
 
 def _sp_json_method(
@@ -11478,7 +11812,7 @@ def _sp_finish_deep(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
 # TableDossier 0.2.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:a776c9ef9670444546110c87aea6e8868a061f75d6b442e54ef7acfdf276b6c2)
+# Source: src/tabledossier/runtime/databricks.py (sha256:9e8db705a04ad8b148a5f17309799fd5dfcb029d8ecd7924c8baf8128ded0c03)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -11634,6 +11968,23 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                     else ""
                 ),
             ]
+            uniqueness = deep["uniqueness"]
+            sources = [
+                name
+                for name, enabled in (
+                    (f"{len(uniqueness['keys'])} listed key(s)", bool(uniqueness["keys"])),
+                    ("declared keys", uniqueness["declared_keys"]),
+                    ("identifier candidates", uniqueness["identifier_candidates"]),
+                )
+                if enabled
+            ]
+            lines.append(
+                f"      exact uniqueness ({', '.join(sources)}): up to {uniqueness['max_keys']} "
+                f"key(s) per table in at most {uniqueness['max_passes']} grouped pass(es); counts "
+                "only"
+                if sources
+                else "      exact uniqueness: no key requested (deep.uniqueness)"
+            )
     else:
         lines.append("  - no table rows are read at the metadata level")
     capabilities = ctx["capabilities"]

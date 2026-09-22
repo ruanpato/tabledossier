@@ -6,13 +6,13 @@
     "version": "0.2.0"
   },
   "run": {
-    "run_id": "20260922T051713Z-7a2ff090",
+    "run_id": "20260922T053002Z-3bcfafc9",
     "status": "succeeded",
     "analysis_level": "deep",
-    "started_at": "2026-09-22T05:17:13.118Z",
-    "finished_at": "2026-09-22T05:17:21.473Z",
-    "duration_ms": 8354,
-    "reference_time": "2026-09-22T05:17:13.118Z",
+    "started_at": "2026-09-22T05:30:02.834Z",
+    "finished_at": "2026-09-22T05:30:11.877Z",
+    "duration_ms": 9042,
+    "reference_time": "2026-09-22T05:30:02.834Z",
     "environment": {
       "engine": "spark",
       "execution_context": "spark",
@@ -111,9 +111,39 @@
         "max_json_depth": 3,
         "max_json_object_keys": 50,
         "uniqueness": {
-          "keys": [],
-          "declared_keys": false,
-          "identifier_candidates": false,
+          "keys": [
+            {
+              "table": "analytics.customers",
+              "columns": [
+                "customer_id"
+              ],
+              "id": "customers_key"
+            },
+            {
+              "table": "analytics.orders",
+              "columns": [
+                "order_id"
+              ],
+              "id": "orders_key"
+            },
+            {
+              "table": "analytics.order_events",
+              "columns": [
+                "event_id"
+              ],
+              "id": "events_key"
+            },
+            {
+              "table": "analytics.order_events",
+              "columns": [
+                "order_id",
+                "event_type"
+              ],
+              "id": "events_per_order_and_type"
+            }
+          ],
+          "declared_keys": true,
+          "identifier_candidates": true,
           "max_keys": 5,
           "max_passes": 1
         },
@@ -225,7 +255,7 @@
         }
       ]
     },
-    "config_fingerprint": "sha256:cc66265c9beb400f9a708def4a565e88bf3383cfde682de103aa03b14c14c24c",
+    "config_fingerprint": "sha256:3d15c7869830698a02186af2f872a005dab491a6574b67aa8ab1ee713a0ce138",
     "parameter_sources": {
       "precedence": [
         "built-in defaults",
@@ -251,7 +281,7 @@
     },
     "generation": {
       "generator_version": "0.2.0",
-      "generation_id": "sha256:fa764e5225fa840d28c42d0452254dac2dba3c503d80e2925860a1bac14db9d9"
+      "generation_id": "sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec"
     },
     "purpose": "Synthetic demo: document the demo analytics tables.",
     "capabilities": {
@@ -315,8 +345,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic customers (simple types, special column names, all-null and constant columns)",
-        "created_at": "2026-09-22T05:16:54.253000Z",
-        "last_modified": "2026-09-22T05:17:01.795000Z",
+        "created_at": "2026-09-22T05:29:43.602000Z",
+        "last_modified": "2026-09-22T05:29:51.264000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -342,7 +372,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:13.165Z",
+        "captured_at": "2026-09-22T05:30:02.891Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -350,7 +380,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:17:01.795000Z",
+        "version_timestamp": "2026-09-22T05:29:51.264000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -894,7 +924,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -2722,7 +2752,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -3001,7 +3031,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_bf578f74a945",
@@ -3102,7 +3132,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_d16707673d3f",
@@ -3181,8 +3211,29 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Exact uniqueness check: no duplicate among 500 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
           "evidence": [
+            {
+              "check": "exact_uniqueness",
+              "key_id": "k_3f0c2d221eca",
+              "scope": "full_snapshot"
+            },
+            {
+              "metric": "rows_with_complete_key",
+              "value": 500
+            },
+            {
+              "metric": "distinct_keys",
+              "value": 500
+            },
+            {
+              "metric": "duplicate_key_groups",
+              "value": 0
+            },
+            {
+              "metric": "rows_with_null_key",
+              "value": 0
+            },
             {
               "metric": "approx_distinct_count",
               "value": 499
@@ -3365,8 +3416,29 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Exact uniqueness check: no duplicate among 500 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
           "evidence": [
+            {
+              "check": "exact_uniqueness",
+              "key_id": "k_77961aaac07d",
+              "scope": "full_snapshot"
+            },
+            {
+              "metric": "rows_with_complete_key",
+              "value": 500
+            },
+            {
+              "metric": "distinct_keys",
+              "value": 500
+            },
+            {
+              "metric": "duplicate_key_groups",
+              "value": 0
+            },
+            {
+              "metric": "rows_with_null_key",
+              "value": 0
+            },
             {
               "metric": "approx_distinct_count",
               "value": 507
@@ -3473,27 +3545,37 @@
               "fields": 11,
               "deep_expressions": 0
             }
+          },
+          {
+            "operation_id": "op_uniqueness_1",
+            "kind": "uniqueness_pass",
+            "description": "exact uniqueness of 2 key(s) in one grouped aggregation over the analysed scope (each row is exploded once per key; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "keys": 2,
+              "columns": 2
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 10,
+            "duration_ms": 13,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 32,
+            "duration_ms": 38,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 111,
+            "duration_ms": 107,
             "rows_returned": 1,
             "detail": null
           },
@@ -3507,15 +3589,22 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 231,
+            "duration_ms": 287,
             "rows_returned": 500,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1359,
+            "duration_ms": 1227,
             "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_uniqueness_1",
+            "status": "succeeded",
+            "duration_ms": 402,
+            "rows_returned": 2,
             "detail": null
           }
         ],
@@ -3524,10 +3613,11 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 160,
-        "sample": 235,
-        "aggregate": 1516,
-        "total": 1914
+        "metadata": 165,
+        "sample": 291,
+        "aggregate": 1382,
+        "uniqueness": 402,
+        "total": 2245
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -3563,7 +3653,267 @@
           "JSON path catalogues come from the transient sample; they are not a complete schema."
         ]
       },
-      "uniqueness": null
+      "uniqueness": {
+        "keys": [
+          {
+            "key_id": "k_3f0c2d221eca",
+            "origins": [
+              "configured",
+              "identifier_candidate"
+            ],
+            "names": [
+              "customers_key"
+            ],
+            "columns": [
+              "customer_id"
+            ],
+            "field_ids": [
+              "f_36192e8e5330"
+            ],
+            "status": "measured",
+            "reason": null,
+            "outcome": "unique",
+            "scope": "full_snapshot",
+            "operation_id": "op_uniqueness_1",
+            "metrics": [
+              {
+                "name": "rows_in_scope",
+                "status": "measured",
+                "value": 500,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows read by the uniqueness pass (analysed scope)"
+              },
+              {
+                "name": "rows_with_null_key",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows with NULL in at least one key column",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "rows_with_complete_key",
+                "status": "measured",
+                "value": 500,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_in_scope - rows_with_null_key",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "distinct_keys",
+                "status": "measured",
+                "value": 500,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "exact count of distinct key values among rows with a complete key (grouped aggregation)"
+              },
+              {
+                "name": "duplicate_key_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "key values that occur in more than one row",
+                "denominator": 500,
+                "denominator_unit": "keys"
+              },
+              {
+                "name": "rows_in_duplicate_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows whose key value occurs in more than one row",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "surplus_duplicate_rows",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "max_rows_per_key",
+                "status": "measured",
+                "value": 1,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "largest number of rows sharing one complete key value"
+              }
+            ],
+            "limitations": []
+          },
+          {
+            "key_id": "k_77961aaac07d",
+            "origins": [
+              "identifier_candidate"
+            ],
+            "names": [],
+            "columns": [
+              "`display name`"
+            ],
+            "field_ids": [
+              "f_ba3e04a746a8"
+            ],
+            "status": "measured",
+            "reason": null,
+            "outcome": "unique",
+            "scope": "full_snapshot",
+            "operation_id": "op_uniqueness_1",
+            "metrics": [
+              {
+                "name": "rows_in_scope",
+                "status": "measured",
+                "value": 500,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows read by the uniqueness pass (analysed scope)"
+              },
+              {
+                "name": "rows_with_null_key",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows with NULL in at least one key column",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "rows_with_complete_key",
+                "status": "measured",
+                "value": 500,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_in_scope - rows_with_null_key",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "distinct_keys",
+                "status": "measured",
+                "value": 500,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "exact count of distinct key values among rows with a complete key (grouped aggregation)"
+              },
+              {
+                "name": "duplicate_key_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "key values that occur in more than one row",
+                "denominator": 500,
+                "denominator_unit": "keys"
+              },
+              {
+                "name": "rows_in_duplicate_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows whose key value occurs in more than one row",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "surplus_duplicate_rows",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+                "denominator": 500,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "max_rows_per_key",
+                "status": "measured",
+                "value": 1,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "largest number of rows sharing one complete key value"
+              }
+            ],
+            "limitations": []
+          }
+        ],
+        "sources": {
+          "configured": true,
+          "declared_keys": true,
+          "identifier_candidates": true
+        },
+        "budget": {
+          "max_keys": 5,
+          "max_passes": 1
+        },
+        "passes": {
+          "budget": 1,
+          "planned": 1
+        },
+        "limited": [],
+        "null_semantics": "A row with NULL in any key column is counted in rows_with_null_key and excluded from the distinct and duplicate counts: NULLs are not treated as equal, as in a SQL UNIQUE constraint. A PRIMARY KEY also forbids NULLs, so it holds only when the outcome is 'unique'.",
+        "notes": []
+      }
     },
     {
       "table_id": "t_f70c26467a5c",
@@ -3584,8 +3934,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic orders with nested structs, arrays and maps",
-        "created_at": "2026-09-22T05:16:59.185000Z",
-        "last_modified": "2026-09-22T05:17:01.896000Z",
+        "created_at": "2026-09-22T05:29:48.517000Z",
+        "last_modified": "2026-09-22T05:29:51.370000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -3611,7 +3961,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:15.147Z",
+        "captured_at": "2026-09-22T05:30:05.143Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -3619,7 +3969,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:17:01.896000Z",
+        "version_timestamp": "2026-09-22T05:29:51.370000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -4478,7 +4828,7 @@
                     "observed_format": "uuid"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -8048,7 +8398,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_21934206214c",
@@ -8321,8 +8671,29 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Exact uniqueness check: no duplicate among 1000 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
           "evidence": [
+            {
+              "check": "exact_uniqueness",
+              "key_id": "k_d571deb1cbbb",
+              "scope": "filtered_snapshot"
+            },
+            {
+              "metric": "rows_with_complete_key",
+              "value": 1000
+            },
+            {
+              "metric": "distinct_keys",
+              "value": 1000
+            },
+            {
+              "metric": "duplicate_key_groups",
+              "value": 0
+            },
+            {
+              "metric": "rows_with_null_key",
+              "value": 0
+            },
             {
               "metric": "approx_distinct_count",
               "value": 1011
@@ -8624,27 +8995,37 @@
               "max_elements": 100000,
               "fields": 6
             }
+          },
+          {
+            "operation_id": "op_uniqueness_1",
+            "kind": "uniqueness_pass",
+            "description": "exact uniqueness of 1 key(s) in one grouped aggregation over the analysed scope (each row is exploded once per key; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "keys": 1,
+              "columns": 1
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 45,
+            "duration_ms": 17,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 63,
+            "duration_ms": 39,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 138,
+            "duration_ms": 110,
             "rows_returned": 1,
             "detail": null
           },
@@ -8658,21 +9039,28 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 321,
+            "duration_ms": 293,
             "rows_returned": 1000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1413,
+            "duration_ms": 1562,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_deep_elements",
             "status": "succeeded",
-            "duration_ms": 848,
+            "duration_ms": 700,
+            "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_uniqueness_1",
+            "status": "succeeded",
+            "duration_ms": 280,
             "rows_returned": 1,
             "detail": null
           }
@@ -8682,11 +9070,12 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 254,
-        "sample": 332,
-        "aggregate": 1869,
-        "deep_elements": 848,
-        "total": 3317
+        "metadata": 175,
+        "sample": 301,
+        "aggregate": 2015,
+        "deep_elements": 700,
+        "uniqueness": 280,
+        "total": 3481
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -8755,7 +9144,148 @@
           "JSON path catalogues come from the transient sample; they are not a complete schema."
         ]
       },
-      "uniqueness": null
+      "uniqueness": {
+        "keys": [
+          {
+            "key_id": "k_d571deb1cbbb",
+            "origins": [
+              "configured",
+              "identifier_candidate"
+            ],
+            "names": [
+              "orders_key"
+            ],
+            "columns": [
+              "order_id"
+            ],
+            "field_ids": [
+              "f_5fdaca1526b8"
+            ],
+            "status": "measured",
+            "reason": null,
+            "outcome": "unique",
+            "scope": "filtered_snapshot",
+            "operation_id": "op_uniqueness_1",
+            "metrics": [
+              {
+                "name": "rows_in_scope",
+                "status": "measured",
+                "value": 1000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows read by the uniqueness pass (analysed scope)"
+              },
+              {
+                "name": "rows_with_null_key",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows with NULL in at least one key column",
+                "denominator": 1000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "rows_with_complete_key",
+                "status": "measured",
+                "value": 1000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_in_scope - rows_with_null_key",
+                "denominator": 1000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "distinct_keys",
+                "status": "measured",
+                "value": 1000,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "exact count of distinct key values among rows with a complete key (grouped aggregation)"
+              },
+              {
+                "name": "duplicate_key_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "key values that occur in more than one row",
+                "denominator": 1000,
+                "denominator_unit": "keys"
+              },
+              {
+                "name": "rows_in_duplicate_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows whose key value occurs in more than one row",
+                "denominator": 1000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "surplus_duplicate_rows",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+                "denominator": 1000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "max_rows_per_key",
+                "status": "measured",
+                "value": 1,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "filtered_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "largest number of rows sharing one complete key value"
+              }
+            ],
+            "limitations": []
+          }
+        ],
+        "sources": {
+          "configured": true,
+          "declared_keys": true,
+          "identifier_candidates": true
+        },
+        "budget": {
+          "max_keys": 5,
+          "max_passes": 1
+        },
+        "passes": {
+          "budget": 1,
+          "planned": 1
+        },
+        "limited": [],
+        "null_semantics": "A row with NULL in any key column is counted in rows_with_null_key and excluded from the distinct and duplicate counts: NULLs are not treated as equal, as in a SQL UNIQUE constraint. A PRIMARY KEY also forbids NULLs, so it holds only when the outcome is 'unique'.",
+        "notes": []
+      }
     },
     {
       "table_id": "t_c56e0f3525a5",
@@ -8776,14 +9306,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic order events with a JSON payload stored as STRING",
-        "created_at": "2026-09-22T05:17:00.431000Z",
-        "last_modified": "2026-09-22T05:17:00.674000Z",
+        "created_at": "2026-09-22T05:29:49.832000Z",
+        "last_modified": "2026-09-22T05:29:50.110000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 150898,
+          "value": 150900,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -8803,7 +9333,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:18.466Z",
+        "captured_at": "2026-09-22T05:30:08.608Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -8811,7 +9341,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:17:00.674000Z",
+        "version_timestamp": "2026-09-22T05:29:50.110000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -8853,7 +9383,7 @@
         "fields_omitted": 0,
         "findings": 7,
         "quality_checks": 0,
-        "suggested_rules": 17
+        "suggested_rules": 15
       },
       "table_metrics": [
         {
@@ -9169,7 +9699,7 @@
             {
               "name": "approx_distinct_count",
               "status": "measured",
-              "value": 1965,
+              "value": 1962,
               "value_type": "integer",
               "unit": "values",
               "scope": "full_snapshot",
@@ -9317,7 +9847,7 @@
                 "evidence": [
                   {
                     "metric": "approx_distinct_count",
-                    "value": 1965
+                    "value": 1962
                   },
                   {
                     "metric": "non_null_count",
@@ -9328,7 +9858,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -9337,9 +9867,9 @@
             "scope": "sample",
             "accuracy": "exact_for_sample",
             "observations": 2000,
-            "sample_distinct_count": 2000,
-            "top_1_share": 0.0005,
-            "top_5_share": 0.0025,
+            "sample_distinct_count": 1997,
+            "top_1_share": 0.001,
+            "top_5_share": 0.004,
             "note": "Exact for the sample only; not extrapolated to the population."
           },
           "examples": null,
@@ -11005,7 +11535,7 @@
                     "observed_format": "numeric_string"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -11483,7 +12013,7 @@
                     "observed_format": "url"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -11638,7 +12168,7 @@
           "evidence": [
             {
               "metric": "approx_distinct_count",
-              "value": 1965
+              "value": 1962
             },
             {
               "metric": "non_null_count",
@@ -11654,7 +12184,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_e7abefd97926",
@@ -11787,7 +12317,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_49658ba9e3ea",
@@ -11819,7 +12349,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         }
       ],
       "quality_checks": [],
@@ -11841,30 +12371,6 @@
             {
               "metric": "non_null_count",
               "value": 2000
-            }
-          ]
-        },
-        {
-          "rule_id": "sr_9e70c64e42e9",
-          "table": "analytics.order_events",
-          "column": "event_id",
-          "rule_type": "unique",
-          "parameters": {},
-          "status": "proposed",
-          "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
-          "evidence": [
-            {
-              "metric": "approx_distinct_count",
-              "value": 1965
-            },
-            {
-              "metric": "non_null_count",
-              "value": 2000
-            },
-            {
-              "metric": "null_ratio",
-              "value": 0.0
             }
           ]
         },
@@ -12011,33 +12517,6 @@
           ]
         },
         {
-          "rule_id": "sr_06bef1d73f79",
-          "table": "analytics.order_events",
-          "column": "amount_text",
-          "rule_type": "unique",
-          "parameters": {},
-          "status": "proposed",
-          "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
-          "evidence": [
-            {
-              "metric": "approx_distinct_count",
-              "value": 2019
-            },
-            {
-              "metric": "non_null_count",
-              "value": 2000
-            },
-            {
-              "metric": "null_ratio",
-              "value": 0.0
-            },
-            {
-              "observed_format": "numeric_string"
-            }
-          ]
-        },
-        {
           "rule_id": "sr_cb446a61ffec",
           "table": "analytics.order_events",
           "column": "amount_text",
@@ -12121,8 +12600,29 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Exact uniqueness check: no duplicate among 2000 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
           "evidence": [
+            {
+              "check": "exact_uniqueness",
+              "key_id": "k_fd0f460276d2",
+              "scope": "full_snapshot"
+            },
+            {
+              "metric": "rows_with_complete_key",
+              "value": 2000
+            },
+            {
+              "metric": "distinct_keys",
+              "value": 2000
+            },
+            {
+              "metric": "duplicate_key_groups",
+              "value": 0
+            },
+            {
+              "metric": "rows_with_null_key",
+              "value": 0
+            },
             {
               "metric": "approx_distinct_count",
               "value": 1980
@@ -12233,27 +12733,37 @@
               "fields": 10,
               "deep_expressions": 4
             }
+          },
+          {
+            "operation_id": "op_uniqueness_1",
+            "kind": "uniqueness_pass",
+            "description": "exact uniqueness of 4 key(s) in one grouped aggregation over the analysed scope (each row is exploded once per key; only counts are collected)",
+            "reads_user_data": true,
+            "details": {
+              "keys": 4,
+              "columns": 5
+            }
           }
         ],
         "observed": [
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 19,
+            "duration_ms": 11,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 91,
+            "duration_ms": 29,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 128,
+            "duration_ms": 106,
             "rows_returned": 1,
             "detail": null
           },
@@ -12267,15 +12777,22 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 316,
+            "duration_ms": 237,
             "rows_returned": 2000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1550,
+            "duration_ms": 1395,
             "rows_returned": 1,
+            "detail": null
+          },
+          {
+            "operation_id": "op_uniqueness_1",
+            "status": "succeeded",
+            "duration_ms": 414,
+            "rows_returned": 4,
             "detail": null
           }
         ],
@@ -12284,10 +12801,11 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 244,
-        "sample": 370,
-        "aggregate": 1680,
-        "total": 2298
+        "metadata": 152,
+        "sample": 292,
+        "aggregate": 1527,
+        "uniqueness": 414,
+        "total": 2390
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -12333,7 +12851,509 @@
           "JSON path catalogues come from the transient sample; they are not a complete schema."
         ]
       },
-      "uniqueness": null
+      "uniqueness": {
+        "keys": [
+          {
+            "key_id": "k_d6838258df6a",
+            "origins": [
+              "configured",
+              "identifier_candidate"
+            ],
+            "names": [
+              "events_key"
+            ],
+            "columns": [
+              "event_id"
+            ],
+            "field_ids": [
+              "f_312b44a9ac2b"
+            ],
+            "status": "measured",
+            "reason": null,
+            "outcome": "duplicates",
+            "scope": "full_snapshot",
+            "operation_id": "op_uniqueness_1",
+            "metrics": [
+              {
+                "name": "rows_in_scope",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows read by the uniqueness pass (analysed scope)"
+              },
+              {
+                "name": "rows_with_null_key",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows with NULL in at least one key column",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "rows_with_complete_key",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_in_scope - rows_with_null_key",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "distinct_keys",
+                "status": "measured",
+                "value": 1997,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "exact count of distinct key values among rows with a complete key (grouped aggregation)"
+              },
+              {
+                "name": "duplicate_key_groups",
+                "status": "measured",
+                "value": 3,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "key values that occur in more than one row",
+                "denominator": 1997,
+                "denominator_unit": "keys"
+              },
+              {
+                "name": "rows_in_duplicate_groups",
+                "status": "measured",
+                "value": 6,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows whose key value occurs in more than one row",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "surplus_duplicate_rows",
+                "status": "measured",
+                "value": 3,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "max_rows_per_key",
+                "status": "measured",
+                "value": 2,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "largest number of rows sharing one complete key value"
+              }
+            ],
+            "limitations": []
+          },
+          {
+            "key_id": "k_7aa29cc3c139",
+            "origins": [
+              "configured"
+            ],
+            "names": [
+              "events_per_order_and_type"
+            ],
+            "columns": [
+              "order_id",
+              "event_type"
+            ],
+            "field_ids": [
+              "f_5fdaca1526b8",
+              "f_b98b26aed874"
+            ],
+            "status": "measured",
+            "reason": null,
+            "outcome": "duplicates",
+            "scope": "full_snapshot",
+            "operation_id": "op_uniqueness_1",
+            "metrics": [
+              {
+                "name": "rows_in_scope",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows read by the uniqueness pass (analysed scope)"
+              },
+              {
+                "name": "rows_with_null_key",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows with NULL in at least one key column",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "rows_with_complete_key",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_in_scope - rows_with_null_key",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "distinct_keys",
+                "status": "measured",
+                "value": 1000,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "exact count of distinct key values among rows with a complete key (grouped aggregation)"
+              },
+              {
+                "name": "duplicate_key_groups",
+                "status": "measured",
+                "value": 1000,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "key values that occur in more than one row",
+                "denominator": 1000,
+                "denominator_unit": "keys"
+              },
+              {
+                "name": "rows_in_duplicate_groups",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows whose key value occurs in more than one row",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "surplus_duplicate_rows",
+                "status": "measured",
+                "value": 1000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "max_rows_per_key",
+                "status": "measured",
+                "value": 2,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "largest number of rows sharing one complete key value"
+              }
+            ],
+            "limitations": []
+          },
+          {
+            "key_id": "k_e13171eaa755",
+            "origins": [
+              "identifier_candidate"
+            ],
+            "names": [],
+            "columns": [
+              "amount_text"
+            ],
+            "field_ids": [
+              "f_6c7707ab7c40"
+            ],
+            "status": "measured",
+            "reason": null,
+            "outcome": "duplicates",
+            "scope": "full_snapshot",
+            "operation_id": "op_uniqueness_1",
+            "metrics": [
+              {
+                "name": "rows_in_scope",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows read by the uniqueness pass (analysed scope)"
+              },
+              {
+                "name": "rows_with_null_key",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows with NULL in at least one key column",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "rows_with_complete_key",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_in_scope - rows_with_null_key",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "distinct_keys",
+                "status": "measured",
+                "value": 1978,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "exact count of distinct key values among rows with a complete key (grouped aggregation)"
+              },
+              {
+                "name": "duplicate_key_groups",
+                "status": "measured",
+                "value": 22,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "key values that occur in more than one row",
+                "denominator": 1978,
+                "denominator_unit": "keys"
+              },
+              {
+                "name": "rows_in_duplicate_groups",
+                "status": "measured",
+                "value": 44,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows whose key value occurs in more than one row",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "surplus_duplicate_rows",
+                "status": "measured",
+                "value": 22,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "max_rows_per_key",
+                "status": "measured",
+                "value": 2,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "largest number of rows sharing one complete key value"
+              }
+            ],
+            "limitations": []
+          },
+          {
+            "key_id": "k_fd0f460276d2",
+            "origins": [
+              "identifier_candidate"
+            ],
+            "names": [],
+            "columns": [
+              "tracking_url"
+            ],
+            "field_ids": [
+              "f_e1a86af5a919"
+            ],
+            "status": "measured",
+            "reason": null,
+            "outcome": "unique",
+            "scope": "full_snapshot",
+            "operation_id": "op_uniqueness_1",
+            "metrics": [
+              {
+                "name": "rows_in_scope",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows read by the uniqueness pass (analysed scope)"
+              },
+              {
+                "name": "rows_with_null_key",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows with NULL in at least one key column",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "rows_with_complete_key",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_in_scope - rows_with_null_key",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "distinct_keys",
+                "status": "measured",
+                "value": 2000,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "exact count of distinct key values among rows with a complete key (grouped aggregation)"
+              },
+              {
+                "name": "duplicate_key_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "keys",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "key values that occur in more than one row",
+                "denominator": 2000,
+                "denominator_unit": "keys"
+              },
+              {
+                "name": "rows_in_duplicate_groups",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "rows whose key value occurs in more than one row",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "surplus_duplicate_rows",
+                "status": "measured",
+                "value": 0,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "derived",
+                "method": "rows_with_complete_key - distinct_keys (rows beyond the first of each key value)",
+                "denominator": 2000,
+                "denominator_unit": "rows"
+              },
+              {
+                "name": "max_rows_per_key",
+                "status": "measured",
+                "value": 1,
+                "value_type": "integer",
+                "unit": "rows",
+                "scope": "full_snapshot",
+                "accuracy": "exact",
+                "source": "aggregate",
+                "method": "largest number of rows sharing one complete key value"
+              }
+            ],
+            "limitations": []
+          }
+        ],
+        "sources": {
+          "configured": true,
+          "declared_keys": true,
+          "identifier_candidates": true
+        },
+        "budget": {
+          "max_keys": 5,
+          "max_passes": 1
+        },
+        "passes": {
+          "budget": 1,
+          "planned": 1
+        },
+        "limited": [],
+        "null_semantics": "A row with NULL in any key column is counted in rows_with_null_key and excluded from the distinct and duplicate counts: NULLs are not treated as equal, as in a SQL UNIQUE constraint. A PRIMARY KEY also forbids NULLs, so it holds only when the outcome is 'unique'.",
+        "notes": []
+      }
     },
     {
       "table_id": "t_56332bf765b7",
@@ -12354,8 +13374,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic returns: intentionally empty",
-        "created_at": "2026-09-22T05:17:01.488000Z",
-        "last_modified": "2026-09-22T05:17:01.607000Z",
+        "created_at": "2026-09-22T05:29:50.949000Z",
+        "last_modified": "2026-09-22T05:29:51.074000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -12381,7 +13401,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:20.703Z",
+        "captured_at": "2026-09-22T05:30:11.003Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -12389,7 +13409,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:17:01.607000Z",
+        "version_timestamp": "2026-09-22T05:29:51.074000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -13300,21 +14320,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 18,
+            "duration_ms": 12,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 30,
+            "duration_ms": 33,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 105,
+            "duration_ms": 122,
             "rows_returned": 1,
             "detail": null
           },
@@ -13328,14 +14348,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 203,
+            "duration_ms": 194,
             "rows_returned": 0,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 348,
+            "duration_ms": 448,
             "rows_returned": 1,
             "detail": null
           }
@@ -13345,10 +14365,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 158,
-        "sample": 203,
-        "aggregate": 452,
-        "total": 817
+        "metadata": 173,
+        "sample": 194,
+        "aggregate": 548,
+        "total": 918
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -13384,7 +14404,27 @@
           "JSON path catalogues come from the transient sample; they are not a complete schema."
         ]
       },
-      "uniqueness": null
+      "uniqueness": {
+        "keys": [],
+        "sources": {
+          "configured": false,
+          "declared_keys": true,
+          "identifier_candidates": true
+        },
+        "budget": {
+          "max_keys": 5,
+          "max_passes": 1
+        },
+        "passes": {
+          "budget": 1,
+          "planned": 0
+        },
+        "limited": [],
+        "null_semantics": "A row with NULL in any key column is counted in rows_with_null_key and excluded from the distinct and duplicate counts: NULLs are not treated as equal, as in a SQL UNIQUE constraint. A PRIMARY KEY also forbids NULLs, so it holds only when the outcome is 'unique'.",
+        "notes": [
+          "No key was requested for this table (deep.uniqueness.keys, declared_keys, identifier_candidates)."
+        ]
+      }
     }
   ],
   "relationships": [
@@ -13484,12 +14524,12 @@
       "info": 18,
       "warning": 2
     },
-    "suggested_rules": 43,
+    "suggested_rules": 41,
     "uniqueness": {
-      "keys_measured": 0,
-      "unique": 0,
+      "keys_measured": 7,
+      "unique": 4,
       "unique_non_null": 0,
-      "duplicates": 0,
+      "duplicates": 3,
       "empty": 0
     },
     "relationships": {

@@ -73,6 +73,43 @@
       ]
     }
   },
+  "deep": {
+    "uniqueness": {
+      "keys": [
+        {
+          "table": "demo.analytics.customers",
+          "columns": [
+            "customer_id"
+          ],
+          "id": "customers_key"
+        },
+        {
+          "table": "demo.analytics.orders",
+          "columns": [
+            "order_id"
+          ],
+          "id": "orders_key"
+        },
+        {
+          "table": "demo.analytics.order_events",
+          "columns": [
+            "event_id"
+          ],
+          "id": "events_key"
+        },
+        {
+          "table": "demo.analytics.order_events",
+          "columns": [
+            "order_id",
+            "event_type"
+          ],
+          "id": "events_per_order_and_type"
+        }
+      ],
+      "declared_keys": true,
+      "identifier_candidates": true
+    }
+  },
   "relationships": [
     {
       "id": "orders_customer",
