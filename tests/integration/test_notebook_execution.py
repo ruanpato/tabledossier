@@ -222,3 +222,10 @@ def test_deep_notebook_run_exports_a_valid_1_2_package(
     assert "JSON paths (transient sample" in regenerated["data_dictionary.md"]
     plan_text = namespace["describe_plan"](namespace["td_ctx"])
     assert "deep level" in plan_text and "at most 1 extra pass(es)" in plan_text
+    summary_line = namespace["summary_text"](profile).splitlines()[-1]
+    assert summary_line.startswith("Keys measured: ") and "Hypotheses: 1." in summary_line
+    per_table, per_run = plan_text.split("After every table was profiled (per run):")
+    assert "exact uniqueness" in per_table
+    assert "one left join against the grouped target each" in per_run
+    assert "relationship hypotheses" in per_run
+    assert "job summary is returned with dbutils.notebook.exit" in per_run

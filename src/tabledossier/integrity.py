@@ -26,7 +26,6 @@ from tabledossier.keys import declared_column_segments
 from tabledossier.metrics import measured, metric_value, numeric_value, ratio
 from tabledossier.paths import parse_display_path, table_lookup_key
 
-VALIDATION_MODES = ("full_scope", "sample")
 HYPOTHESIS_KINDS = ("integer", "decimal", "string", "date")
 TARGET_SCOPE_NOTE = (
     "The target is read in full at its recorded version (the target table's filters are not "

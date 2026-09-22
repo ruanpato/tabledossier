@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:22b4918fe230d30f0c49c4894f0da03eb4624e4eeb6576ffd82d6f21a80e1e7a`).
+# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:792b7e8ab64d4fcb467bb39d24a2bdb9faea330225b61be9f5f65ec7ded1be72`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -218,7 +218,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.3.0',
- 'generation_id': 'sha256:22b4918fe230d30f0c49c4894f0da03eb4624e4eeb6576ffd82d6f21a80e1e7a'}
+ 'generation_id': 'sha256:792b7e8ab64d4fcb467bb39d24a2bdb9faea330225b61be9f5f65ec7ded1be72'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -1577,7 +1577,7 @@ __version__ = "0.3.0"
 
 # DBTITLE 1,Runtime: tabledossier.jsonutil
 # TableDossier 0.3.0 embedded runtime: module tabledossier.jsonutil
-# Source: src/tabledossier/jsonutil.py (sha256:99d26d9fabd2890d26071f5d37027b638166f0f957567a139526ddd34545920e)
+# Source: src/tabledossier/jsonutil.py (sha256:378c3e5f9f1c369e0ca53869855120453636e79c2fac4552702ffba368e9242c)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -1609,8 +1609,6 @@ import math
 from decimal import Decimal
 from typing import Any
 
-FLOAT_SPECIALS = ("NaN", "Infinity", "-Infinity")
-
 
 def canonical_json(obj: Any) -> str:
     """Return a deterministic, compact JSON encoding used for fingerprints."""
@@ -1627,11 +1625,6 @@ def pretty_json(obj: Any) -> str:
 def fingerprint(obj: Any) -> str:
     """Return ``sha256:<hex>`` of the canonical JSON encoding of ``obj``."""
     return "sha256:" + hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
-
-
-def text_fingerprint(text: str) -> str:
-    """Return ``sha256:<hex>`` of UTF-8 ``text``."""
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def short_hash(obj: Any, length: int = 12) -> str:
@@ -2226,7 +2219,7 @@ def field_id(segments: list[dict[str, Any]]) -> str:
 
 # DBTITLE 1,Runtime: tabledossier.config
 # TableDossier 0.3.0 embedded runtime: module tabledossier.config
-# Source: src/tabledossier/config.py (sha256:02d8b7272b59bdbc1972806d5fe135a8a7bfba368a82d23764eb6a05df78dd2f)
+# Source: src/tabledossier/config.py (sha256:5f121e95801d1d6ff839f31034cc01480bbb1560f6e5e58f94066c4f8544f055)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -2257,7 +2250,6 @@ CONFIG_VERSION = "1.0"
 ANALYSIS_LEVELS = ("metadata", "standard", "deep")
 ROW_READING_LEVELS = ("standard", "deep")
 DEEP_ALL_TARGETS = "all_within_budget"
-WIDGET_NAMES = tuple(name for name, _ in NOTEBOOK_WIDGETS)
 DEDICATED_WIDGET_KEYS = {
     "tables": "tables_json",
     "analysis_level": "analysis_level",
@@ -4065,7 +4057,7 @@ def candidate_roles(
 
 # DBTITLE 1,Runtime: tabledossier.deep
 # TableDossier 0.3.0 embedded runtime: module tabledossier.deep
-# Source: src/tabledossier/deep.py (sha256:504fb2edd4b5d0ed40a6dbe06f0a7967a523c5c6f5e82767bb51c866cdcdcdbb)
+# Source: src/tabledossier/deep.py (sha256:fad2af92ebc4b4904a97aaa72dff50296f32000946572400c1fe372533c2de24)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -4105,10 +4097,7 @@ from typing import Any
 
 
 COLLECTION_KINDS = ("array", "map")
-ELEMENT_SEGMENTS = ("array_element", "map_key", "map_value")
 DEEP_OPERATION_KINDS = ("deep_aggregate_pass", "element_explode_pass")
-# Deep candidates are always cheaper to drop than any standard metric (tiers 0-4).
-DEEP_TIERS = (5, 6, 7)
 JSON_TYPE_PATTERNS = {
     "object": "^OBJECT",
     "array": "^ARRAY",
@@ -4125,6 +4114,7 @@ _DP_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _DP_UNQUOTABLE = re.compile(r"['\\\[\]]")
 
 # (metric, op, tier, cost) per element kind; evaluated per row with higher-order functions.
+# Deep tiers are 5-7: deep candidates are always dropped before any standard metric (tiers 0-4).
 _DP_COMMON = [("null_count", "el_count_null", 5, 1)]
 _DP_NUMERIC = [
     ("min", "el_min", 6, 1),
@@ -4149,11 +4139,6 @@ _DP_BOOLEAN = [("true_count", "el_count_true", 6, 1), ("false_count", "el_count_
 _DP_TEMPORAL = [("min", "el_min", 6, 1), ("max", "el_max", 6, 1)]
 _DP_BINARY = [("min_length", "el_min_length", 6, 1), ("max_length", "el_max_length", 6, 1)]
 DEEP_EXTREME_METRICS = ("min", "max")
-
-
-def deep_enabled(config: Mapping[str, Any]) -> bool:
-    """Return True when the run uses the deep level."""
-    return config.get("analysis_level") == "deep"
 
 
 def collection_unit(kind: str) -> str:
@@ -6305,7 +6290,7 @@ def merge_relationships(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, 
 
 # DBTITLE 1,Runtime: tabledossier.integrity
 # TableDossier 0.3.0 embedded runtime: module tabledossier.integrity
-# Source: src/tabledossier/integrity.py (sha256:eea2d3ea2eb02034fefd2ac4be5d435134627b2c8bac0e6080eccd7c337b1176)
+# Source: src/tabledossier/integrity.py (sha256:ddf44175d564bcad100e53dae71972c75e9fbcbc7bb4aad12055482ef792934b)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6336,7 +6321,6 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 
-VALIDATION_MODES = ("full_scope", "sample")
 HYPOTHESIS_KINDS = ("integer", "decimal", "string", "date")
 TARGET_SCOPE_NOTE = (
     "The target is read in full at its recorded version (the target table's filters are not "
@@ -12730,7 +12714,7 @@ def evaluate_hypotheses(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
 # TableDossier 0.3.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:a0f95d5cc14ea7013a3456be8d2145ce5c3c3ca27c0228f66df5240e7d9d5a85)
+# Source: src/tabledossier/runtime/databricks.py (sha256:182fdb119cd4985a036a9dddb7e162fe4e3e12a7500c92360a9d7202f9f811d8)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -12833,7 +12817,8 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
     lines += [f"  - {name}" for name in config["tables"]]
     lines.append("Per table, the engine will be asked for:")
     lines.append(
-        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL, key constraints (no row scan)"
+        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL and Unity Catalog key constraints "
+        "from information_schema (no row scan)"
     )
     if config["analysis_level"] in ("standard", "deep"):
         pinning = (
@@ -12912,10 +12897,11 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 )
                 if enabled
             ]
+            lines.append("After every table was profiled (per run):")
             lines.append(
                 f"  - referential validation of {' and '.join(origins)} relationships between "
                 f"tables of this run: up to {referential['max_relationships']} check(s) per run, "
-                "one anti join each, "
+                "one left join against the grouped target each, "
                 + (
                     "over the full source scope"
                     if referential["mode"] == "full_scope"
@@ -12940,6 +12926,12 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("  - no table rows are read at the metadata level")
+    lines.append(
+        "After the export: a small JSON job summary is returned with dbutils.notebook.exit when "
+        "it exists (jobs.exit_summary)"
+        if config["jobs"]["exit_summary"]
+        else "After the export: no job summary (jobs.exit_summary = false)"
+    )
     capabilities = ctx["capabilities"]
     lines.append(
         "Detected capabilities: "
@@ -13062,6 +13054,17 @@ def summary_text(profile: Mapping[str, Any]) -> str:
         f"{checks['error']} error. Findings: {summary['findings']['warning']} warning, "
         f"{summary['findings']['info']} info."
     )
+    if profile["run"]["analysis_level"] == "deep":
+        keys = summary.get("uniqueness") or {}
+        relationships = summary.get("relationships") or {}
+        lines.append(
+            f"Keys measured: {keys.get('keys_measured', 0)} ({keys.get('unique', 0)} unique, "
+            f"{keys.get('unique_non_null', 0)} unique except NULLs, {keys.get('duplicates', 0)} "
+            f"with duplicates). Relationships: {relationships.get('validated', 0)} validated, "
+            f"{relationships.get('violated', 0)} violated, "
+            f"{relationships.get('not_validated', 0)} not validated. Hypotheses: "
+            f"{summary.get('relationship_hypotheses', 0)}."
+        )
     return "\n".join(lines)
 
 

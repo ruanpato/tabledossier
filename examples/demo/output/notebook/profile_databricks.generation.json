@@ -2,12 +2,12 @@
   "kind": "tabledossier.generation_manifest",
   "manifest_version": "1.0",
   "tool_version": "0.3.0",
-  "generation_id": "sha256:22b4918fe230d30f0c49c4894f0da03eb4624e4eeb6576ffd82d6f21a80e1e7a",
+  "generation_id": "sha256:792b7e8ab64d4fcb467bb39d24a2bdb9faea330225b61be9f5f65ec7ded1be72",
   "contains_results": false,
   "notebook": {
     "file_name": "profile_databricks.py",
     "format": "databricks_source_python",
-    "sha256": "sha256:95684a463d37045d71d70e41f8dab8fea5b859582fe05dd7479acdd10fa6681e",
+    "sha256": "sha256:ff912135698bcdc89cdf661873da76013c120c2805f409a5daef65f85e9cec05",
     "cells": 43
   },
   "config_fingerprint": "sha256:d06c5bef0b6b1a77dbc2966006c5bd58b3bf48ba48c8688db7e64e1a38cd40b9",
@@ -25,7 +25,7 @@
     {
       "module": "tabledossier.jsonutil",
       "source_path": "src/tabledossier/jsonutil.py",
-      "sha256": "sha256:99d26d9fabd2890d26071f5d37027b638166f0f957567a139526ddd34545920e"
+      "sha256": "sha256:378c3e5f9f1c369e0ca53869855120453636e79c2fac4552702ffba368e9242c"
     },
     {
       "module": "tabledossier.schemacheck",
@@ -45,7 +45,7 @@
     {
       "module": "tabledossier.config",
       "source_path": "src/tabledossier/config.py",
-      "sha256": "sha256:02d8b7272b59bdbc1972806d5fe135a8a7bfba368a82d23764eb6a05df78dd2f"
+      "sha256": "sha256:5f121e95801d1d6ff839f31034cc01480bbb1560f6e5e58f94066c4f8544f055"
     },
     {
       "module": "tabledossier.metrics",
@@ -65,7 +65,7 @@
     {
       "module": "tabledossier.deep",
       "source_path": "src/tabledossier/deep.py",
-      "sha256": "sha256:504fb2edd4b5d0ed40a6dbe06f0a7967a523c5c6f5e82767bb51c866cdcdcdbb"
+      "sha256": "sha256:fad2af92ebc4b4904a97aaa72dff50296f32000946572400c1fe372533c2de24"
     },
     {
       "module": "tabledossier.keys",
@@ -90,7 +90,7 @@
     {
       "module": "tabledossier.integrity",
       "source_path": "src/tabledossier/integrity.py",
-      "sha256": "sha256:eea2d3ea2eb02034fefd2ac4be5d435134627b2c8bac0e6080eccd7c337b1176"
+      "sha256": "sha256:ddf44175d564bcad100e53dae71972c75e9fbcbc7bb4aad12055482ef792934b"
     },
     {
       "module": "tabledossier.contract",
@@ -120,7 +120,7 @@
     {
       "module": "tabledossier.runtime.databricks",
       "source_path": "src/tabledossier/runtime/databricks.py",
-      "sha256": "sha256:a0f95d5cc14ea7013a3456be8d2145ce5c3c3ca27c0228f66df5240e7d9d5a85"
+      "sha256": "sha256:182fdb119cd4985a036a9dddb7e162fe4e3e12a7500c92360a9d7202f9f811d8"
     }
   ],
   "embedded_schemas": [

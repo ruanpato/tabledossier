@@ -116,7 +116,8 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
     lines += [f"  - {name}" for name in config["tables"]]
     lines.append("Per table, the engine will be asked for:")
     lines.append(
-        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL, key constraints (no row scan)"
+        "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL and Unity Catalog key constraints "
+        "from information_schema (no row scan)"
     )
     if config["analysis_level"] in ("standard", "deep"):
         pinning = (
@@ -195,10 +196,11 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                 )
                 if enabled
             ]
+            lines.append("After every table was profiled (per run):")
             lines.append(
                 f"  - referential validation of {' and '.join(origins)} relationships between "
                 f"tables of this run: up to {referential['max_relationships']} check(s) per run, "
-                "one anti join each, "
+                "one left join against the grouped target each, "
                 + (
                     "over the full source scope"
                     if referential["mode"] == "full_scope"
@@ -223,6 +225,12 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("  - no table rows are read at the metadata level")
+    lines.append(
+        "After the export: a small JSON job summary is returned with dbutils.notebook.exit when "
+        "it exists (jobs.exit_summary)"
+        if config["jobs"]["exit_summary"]
+        else "After the export: no job summary (jobs.exit_summary = false)"
+    )
     capabilities = ctx["capabilities"]
     lines.append(
         "Detected capabilities: "
@@ -345,6 +353,17 @@ def summary_text(profile: Mapping[str, Any]) -> str:
         f"{checks['error']} error. Findings: {summary['findings']['warning']} warning, "
         f"{summary['findings']['info']} info."
     )
+    if profile["run"]["analysis_level"] == "deep":
+        keys = summary.get("uniqueness") or {}
+        relationships = summary.get("relationships") or {}
+        lines.append(
+            f"Keys measured: {keys.get('keys_measured', 0)} ({keys.get('unique', 0)} unique, "
+            f"{keys.get('unique_non_null', 0)} unique except NULLs, {keys.get('duplicates', 0)} "
+            f"with duplicates). Relationships: {relationships.get('validated', 0)} validated, "
+            f"{relationships.get('violated', 0)} violated, "
+            f"{relationships.get('not_validated', 0)} not validated. Hypotheses: "
+            f"{summary.get('relationship_hypotheses', 0)}."
+        )
     return "\n".join(lines)
 
 

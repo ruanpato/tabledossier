@@ -25,6 +25,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Messages about missing `tables_json` or `output_dir` mention Job parameters; the notebook texts mention the deep
   part II checks and the job summary.
 - The sdist includes `scripts/` (needed by its unit tests); the CI wheel check no longer hard-codes the version.
+- The analysis plan printed by the notebook separates per-table operations from per-run ones (referential validation,
+  hypotheses, job summary) and describes the referential check as a left join against the grouped target (it said
+  "anti join"); the run summary adds the counts of keys, relationships and hypotheses at the deep level.
 - Declared key constraints are assembled from `information_schema` rows by a pure function of the embedded runtime
   (`relationships.key_constraints_from_rows`); the Spark adapter only runs the parameterized queries. Constraints are
   identified by catalog, schema and name, compared case-insensitively, and columns follow `ordinal_position` whatever
@@ -32,6 +35,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Declared PRIMARY KEY, UNIQUE and FOREIGN KEY columns are matched to the table's top-level columns case-insensitively
   when the catalog spells them differently (only when exactly one column matches), for `deep.uniqueness.declared_keys`
   and `deep.referential.declared`.
+
+### Removed
+
+- Unused names of the embedded runtime: `integrity.VALIDATION_MODES`, `deep.DEEP_TIERS`, `deep.ELEMENT_SEGMENTS`,
+  `deep.deep_enabled`, `config.WIDGET_NAMES`, `jsonutil.FLOAT_SPECIALS` and `jsonutil.text_fingerprint`. The remaining
+  vocabulary constants (metric statuses, scopes, accuracies and sources, path segment kinds, key origins and outcomes,
+  deep operation kinds) are now tested against the enumerations of the profile schema.
 
 ### Fixed
 
