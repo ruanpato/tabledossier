@@ -48,10 +48,29 @@ def test_committed_documents_match_renderer(demo_profile, demo_annotations):
 
 
 def test_committed_manifest_describes_the_package():
-    manifest = json.loads((OUTPUT / "run" / "manifest.json").read_text(encoding="utf-8"))
-    assert check_document(manifest, "manifest") == []
-    listed = {entry["path"] for entry in manifest["files"]}
-    assert listed == {p.name for p in (OUTPUT / "run").iterdir()} - {"manifest.json"}
+    for directory in ("run", "deep"):
+        manifest = json.loads((OUTPUT / directory / "manifest.json").read_text(encoding="utf-8"))
+        assert check_document(manifest, "manifest") == []
+        listed = {entry["path"] for entry in manifest["files"]}
+        assert listed == {p.name for p in (OUTPUT / directory).iterdir()} - {"manifest.json"}
+        assert manifest["profile_validation"] == {"checked": True, "valid": True, "errors": []}
+
+
+def test_committed_deep_profile_is_valid_and_matches_renderer():
+    profile = json.loads((OUTPUT / "deep" / "profile.json").read_text(encoding="utf-8"))
+    assert profile["schema_version"] == "1.1"
+    assert profile["run"]["analysis_level"] == "deep"
+    assert check_profile(profile) == []
+    for name, text in build_documents(profile).items():
+        committed = (OUTPUT / "deep" / name).read_text(encoding="utf-8")
+        assert committed == text, f"deep/{name} is stale; rebuild the demo outputs"
+    orders = next(t for t in profile["tables"] if t["table_key"] == "analytics.orders")
+    elements = [f for f in orders["field_profiles"] if f.get("element_context")]
+    assert elements and all(f["profiled"] for f in elements)
+    assert orders["deep"]["extra_passes"]["planned"] <= orders["deep"]["budget"]["max_extra_passes"]
+    events = next(t for t in profile["tables"] if t["table_key"] == "analytics.order_events")
+    payload = next(f for f in events["field_profiles"] if f["display_path"] == "payload")
+    assert payload["json_paths"]["paths"], "the demo shows a JSON path catalogue"
 
 
 def test_databricks_demo_config_mirrors_local_demo():

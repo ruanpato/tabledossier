@@ -71,8 +71,8 @@ jobs:
           import glob, zipfile
           names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
           for required in ("tabledossier/py.typed", "tabledossier/schemas/profile.schema.json",
-                           "tabledossier-0.1.0.dist-info/licenses/LICENSE",
-                           "tabledossier-0.1.0.dist-info/licenses/NOTICE"):
+                           "tabledossier-0.2.0.dist-info/licenses/LICENSE",
+                           "tabledossier-0.2.0.dist-info/licenses/NOTICE"):
               assert any(n.endswith(required.split("/", 1)[1]) for n in names), required
           PY
 
