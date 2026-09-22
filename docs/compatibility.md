@@ -38,12 +38,18 @@ Delta tests are not skipped in Connect mode. With PySpark 3.5 on Python 3.12, th
 
 ## Pending validation (needs a Databricks workspace)
 
+Status: **pending** for every runtime and access mode — no smoke-test result has been recorded yet.
+
 - Importing the `.py` source notebook and rendering of cells/widgets.
-- Widget behaviour when re-running and when parameters are passed by Jobs.
-- Writing to Unity Catalog volumes and workspace files; transfer with the Databricks CLI.
+- Widget behaviour when re-running and when parameters are passed by Jobs; the job summary returned with
+  `dbutils.notebook.exit` (Jobs output, `dbutils.notebook.run`).
+- Writing to Unity Catalog volumes and workspace files (including from serverless compute); transfer with the Databricks CLI.
 - Databricks Spark Connect sessions (shared access mode, serverless): the same APIs pass with a local Connect
-  server, but Databricks may restrict some of them (e.g. configuration reads, catalog functions).
-- Unity Catalog `information_schema` constraint queries (not testable locally).
+  server, but Databricks may restrict some of them (`spark.conf.get`, `catalog.functionExists`, and
+  `toLocalIterator` used by the sample). The runtime records a refused configuration read as `null` and a refused
+  function check as `unknown`; the [smoke test](databricks-smoke-test.md#only-measurable-on-databricks) says where to
+  look.
+- Unity Catalog `information_schema` constraint queries (tested locally against a simulated `information_schema` with the same column layout, never against Unity Catalog).
 - `try_parse_json` and the variant functions on 15.4/16.4 LTS (detected at run time; JSON validity falls back to
   `unsupported` and JSON path validation to `get_json_object`).
 - Deep level cost and memory on large tables (higher-order functions over large arrays, the element explode pass).
