@@ -64,6 +64,29 @@ Profile, configuration and annotation formats are defined by the JSON Schemas in
 Update the schema, `docs/contract.md` or `docs/configuration.md`, the invariants in `contract.py` if needed, and add
 a CHANGELOG entry. Breaking changes require a new schema version.
 
+## Branching and releases
+
+The project follows gitflow:
+
+- `develop` is the integration branch. Work happens on `feature/<topic>` branches cut from `develop` and returns to
+  it through a pull request with green CI.
+- A release is prepared on `release/X.Y.Z`, cut from `develop`, and a fix to a published release on
+  `hotfix/X.Y.Z`, cut from `main`. Only these branches are merged into `main`, always through a pull request with a
+  **merge commit** (no squash or rebase). A hotfix is merged back into `develop` as well.
+- Each release merged into `main` gets an annotated tag `vX.Y.Z` on the merge commit, and a GitHub release.
+
+Repository rulesets enforce this:
+
+| Ruleset | Target | Rules |
+| --- | --- | --- |
+| `main` | `main` | No deletion or force push; changes only through a pull request (merge commits only, review threads resolved, stale reviews dismissed) with all CI jobs green on a branch up to date with `main` |
+| `develop` | `develop` | No deletion or force push; changes only through a pull request with all CI jobs green |
+| `release-tags-immutable` | tags `v*` | A release tag is never moved or deleted |
+| `release-tags-creation` | tags `v*` | Only repository administrators create release tags |
+
+No ruleset has a bypass for pushes to `main` or `develop`: nobody pushes to them directly.
+
 ## Pull requests
 
-Describe the behaviour change, the tests you ran (with versions) and any limitation you introduced or removed.
+Open pull requests against `develop` (or against `main` for `release/*` and `hotfix/*` branches). Describe the
+behaviour change, the tests you ran (with versions) and any limitation you introduced or removed.
