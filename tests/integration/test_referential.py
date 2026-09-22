@@ -250,18 +250,22 @@ def test_declared_foreign_keys_are_checked_when_requested(spark, schema, capabil
 
     def declared(spark, parts):
         if parts[-1] != "orders":
-            return [], None
-        return [
-            {
-                "name": "orders_customers_fk",
-                "constraint_type": "foreign_key",
-                "columns": ["cust_id"],
-                "expression": None,
-                "referenced": {"table": f"{catalog}.{DB}.customers", "columns": ["cust_id"]},
-                "enforcement": "not_enforced",
-                "source": "information_schema",
-            }
-        ], None
+            return [], [], None
+        return (
+            [
+                {
+                    "name": "orders_customers_fk",
+                    "constraint_type": "foreign_key",
+                    "columns": ["cust_id"],
+                    "expression": None,
+                    "referenced": {"table": f"{catalog}.{DB}.customers", "columns": ["cust_id"]},
+                    "enforcement": "not_enforced",
+                    "source": "information_schema",
+                }
+            ],
+            [],
+            None,
+        )
 
     monkeypatch.setattr(runtime, "read_unity_constraints", declared)
     off = _config([], configured=False)

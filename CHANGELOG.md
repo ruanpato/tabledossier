@@ -16,6 +16,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - The sdist includes `scripts/` (needed by its unit tests); the CI wheel check no longer hard-codes the version.
+- Declared key constraints are assembled from `information_schema` rows by a pure function of the embedded runtime
+  (`relationships.key_constraints_from_rows`); the Spark adapter only runs the parameterized queries. Constraints are
+  identified by catalog, schema and name, compared case-insensitively, and columns follow `ordinal_position` whatever
+  the row order.
+- Declared PRIMARY KEY, UNIQUE and FOREIGN KEY columns are matched to the table's top-level columns case-insensitively
+  when the catalog spells them differently (only when exactly one column matches), for `deep.uniqueness.declared_keys`
+  and `deep.referential.declared`.
+
+### Fixed
+
+- A foreign key whose referenced constraint is missing, unreadable or does not match its columns is no longer recorded
+  with a `?` column: it keeps `referenced: null`, is not documented as a relationship, and a table note says why.
+- A catalog whose `information_schema` cannot be read for a referenced constraint no longer hides the other key
+  constraints of the table.
 
 ## [0.3.0] - 2026-09-22
 

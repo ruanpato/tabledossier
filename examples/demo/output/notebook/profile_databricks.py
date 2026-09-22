@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:2c25321afc2633083069aa9bfe3280129049b8f08278c535e49c26fd64869569`).
+# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:48428b856f112aa66e10e863a38d1e5aeb975ab18caea9999bd9e525e1353017`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -216,7 +216,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.3.0',
- 'generation_id': 'sha256:2c25321afc2633083069aa9bfe3280129049b8f08278c535e49c26fd64869569'}
+ 'generation_id': 'sha256:48428b856f112aa66e10e863a38d1e5aeb975ab18caea9999bd9e525e1353017'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -4901,7 +4901,7 @@ def _dp_json_metric(
 
 # DBTITLE 1,Runtime: tabledossier.keys
 # TableDossier 0.3.0 embedded runtime: module tabledossier.keys
-# Source: src/tabledossier/keys.py (sha256:be6a343d1c43ac3e17a049917275e7f42d49b46f84eb108d2eca908e4f019e96)
+# Source: src/tabledossier/keys.py (sha256:209158129f791679ac1fc520588069a7b54beee890012311201137dc3818726b)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -4947,6 +4947,27 @@ def _ky_segments_of_config(columns: Sequence[Any]) -> list[list[dict[str, Any]]]
         return [column_reference_segments(column) for column in columns]
     except IdentifierError:
         return None
+
+
+def declared_column_segments(
+    columns: Sequence[Any], fields: Sequence[Mapping[str, Any]]
+) -> list[list[dict[str, Any]]]:
+    """Typed paths of the columns of a declared constraint (literal top-level names).
+
+    Catalog identifiers are case-insensitive: a name that is not a top-level
+    column of ``fields`` (the schema tree) is matched to the only top-level
+    column with the same case-folded name, if there is exactly one.
+    """
+    names = [str(node.get("name")) for node in fields]
+    out = []
+    for column in columns:
+        text = str(column)
+        if text not in names:
+            same = [name for name in names if name.casefold() == text.casefold()]
+            if len(same) == 1:
+                text = same[0]
+        out.append([field_segment(text)])
+    return out
 
 
 def requested_keys(
@@ -5045,6 +5066,8 @@ def plan_uniqueness(
     index_by_set: dict[tuple[str, ...], int] = {}
     for item in requested:
         segments = item["segments"]
+        if segments and item["origin"] in ("declared_primary_key", "declared_unique"):
+            segments = declared_column_segments(item["requested"], tree.get("fields", []))
         if not segments:
             keys.append(
                 _ky_key(item, [], [], "not_eligible", "the key lists no valid column reference")
@@ -5970,7 +5993,7 @@ def suggested_rules_document(profile: Mapping[str, Any]) -> dict[str, Any]:
 
 # DBTITLE 1,Runtime: tabledossier.relationships
 # TableDossier 0.3.0 embedded runtime: module tabledossier.relationships
-# Source: src/tabledossier/relationships.py (sha256:1ce3c756ef6905f9ad5f3d79841e257da7e65b4317cc986c378e405a58678ac7)
+# Source: src/tabledossier/relationships.py (sha256:9998a8aa06ce10bc19dd47628430431400b71458a46b4c2e8b7b7e264e5315ab)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5984,6 +6007,10 @@ Relationships are never inferred from column names (a column ending in
 ``_id`` proves nothing). Each record keeps its origin, participating columns
 (composite keys included), enforcement, validation state and scope.
 Cardinality is recorded only when a person provided it.
+
+Declared PRIMARY KEY, UNIQUE and FOREIGN KEY constraints are assembled here
+from ``information_schema`` rows (:func:`key_constraints_from_rows`); the
+Spark adapter only runs the parameterized queries that return those rows.
 """
 
 from collections.abc import Iterable, Mapping
@@ -5995,6 +6022,192 @@ DECLARED_NOTE = (
     "informational (not enforced): the declaration alone does not prove the data."
 )
 PROVIDED_NOTE = "Provided by a person; the statement alone does not prove the data."
+INFORMATION_SCHEMA_KINDS = {
+    "PRIMARY KEY": "primary_key",
+    "FOREIGN KEY": "foreign_key",
+    "UNIQUE": "unique",
+}
+
+
+def _rel_text(value: Any) -> str:
+    return "" if value is None else str(value)
+
+
+def _rel_fold(*parts: Any) -> tuple[str, ...]:
+    return tuple(_rel_text(part).casefold() for part in parts)
+
+
+def _rel_kind(value: Any) -> str | None:
+    return INFORMATION_SCHEMA_KINDS.get(" ".join(_rel_text(value).upper().split()))
+
+
+def _rel_position(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _rel_reference(row: Mapping[str, Any]) -> tuple[str, str, str] | None:
+    if not row.get("unique_constraint_name"):
+        return None
+    return (
+        _rel_text(row.get("unique_constraint_catalog")),
+        _rel_text(row.get("unique_constraint_schema")),
+        _rel_text(row.get("unique_constraint_name")),
+    )
+
+
+def referenced_constraint_keys(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, str, str]]:
+    """Return ``(catalog, schema, name)`` of the constraints referenced by foreign keys.
+
+    ``rows`` are the ``information_schema`` rows of one table (see
+    :func:`key_constraints_from_rows`). Each referenced constraint is listed
+    once, compared case-insensitively, in the order of first appearance.
+    """
+    seen: set[tuple[str, ...]] = set()
+    out = []
+    for row in rows:
+        reference = _rel_reference(row)
+        if _rel_kind(row.get("constraint_type")) != "foreign_key" or reference is None:
+            continue
+        if _rel_fold(*reference) not in seen:
+            seen.add(_rel_fold(*reference))
+            out.append(reference)
+    return out
+
+
+def _rel_referenced(
+    name: str,
+    reference: tuple[str, str, str] | None,
+    positions: list[int | None],
+    targets: Mapping[tuple[str, ...], list[Mapping[str, Any]]],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Resolve the referenced table and columns of one foreign key, or say why not."""
+    if reference is None:
+        return None, (
+            f"Foreign key {name}: information_schema.referential_constraints lists no referenced "
+            "constraint, so the relationship is not documented."
+        )
+    target_rows = targets.get(_rel_fold(*reference), [])
+    label = ".".join(reference)
+    if not target_rows:
+        return None, (
+            f"Foreign key {name} references constraint {label}, whose columns are not visible in "
+            "information_schema (missing, or not readable with these permissions), so the "
+            "relationship is not documented."
+        )
+    tables = {
+        _rel_fold(row.get("table_catalog"), row.get("table_schema"), row.get("table_name"))
+        for row in target_rows
+    }
+    by_position: dict[int, str] = {}
+    for row in target_rows:
+        position = _rel_position(row.get("ordinal_position"))
+        if position is not None:
+            by_position.setdefault(position, _rel_text(row.get("column_name")))
+    columns = [
+        by_position.get(position if position is not None else index + 1)
+        for index, position in enumerate(positions)
+    ]
+    if len(tables) != 1 or None in columns or len(by_position) != len(columns):
+        return None, (
+            f"Foreign key {name}: its columns do not match the columns of the referenced "
+            f"constraint {label}, so the relationship is not documented."
+        )
+    first = target_rows[0]
+    return {
+        "table": table_key(
+            [
+                _rel_text(first.get("table_catalog")),
+                _rel_text(first.get("table_schema")),
+                _rel_text(first.get("table_name")),
+            ]
+        ),
+        "columns": [str(column) for column in columns],
+    }, None
+
+
+def key_constraints_from_rows(
+    rows: Iterable[Mapping[str, Any]], referenced_rows: Iterable[Mapping[str, Any]]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Assemble PRIMARY KEY, UNIQUE and FOREIGN KEY records from ``information_schema`` rows.
+
+    ``rows`` join ``table_constraints``, ``key_column_usage`` and
+    ``referential_constraints`` for one table (``constraint_catalog``,
+    ``constraint_schema``, ``constraint_name``, ``constraint_type``,
+    ``column_name``, ``ordinal_position``, ``position_in_unique_constraint``,
+    ``unique_constraint_catalog``, ``unique_constraint_schema``,
+    ``unique_constraint_name``). ``referenced_rows`` are ``key_column_usage``
+    rows of the constraints named by :func:`referenced_constraint_keys`
+    (``constraint_catalog``, ``constraint_schema``, ``constraint_name``,
+    ``table_catalog``, ``table_schema``, ``table_name``, ``column_name``,
+    ``ordinal_position``).
+
+    Catalog, schema and constraint names are compared case-insensitively, as
+    Unity Catalog does, and row order does not matter: constraints are sorted
+    by name and columns by ``ordinal_position``. Other constraint types (CHECK)
+    are ignored. Returns ``(constraints, notes)``; a foreign key whose
+    referenced columns cannot be resolved keeps ``referenced: None`` and a note
+    says why (it is then not documented as a relationship).
+    """
+    grouped: dict[tuple[str, ...], dict[str, Any]] = {}
+    for row in rows:
+        kind = _rel_kind(row.get("constraint_type"))
+        if kind is None:
+            continue
+        identity = _rel_fold(
+            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        )
+        entry = grouped.setdefault(
+            identity,
+            {
+                "name": _rel_text(row.get("constraint_name")),
+                "kind": kind,
+                "columns": {},
+                "reference": None,
+            },
+        )
+        position = _rel_position(row.get("ordinal_position"))
+        order = position if position is not None else len(entry["columns"]) + 1
+        entry["columns"].setdefault(
+            order,
+            (
+                _rel_text(row.get("column_name")),
+                _rel_position(row.get("position_in_unique_constraint")),
+            ),
+        )
+        entry["reference"] = entry["reference"] or _rel_reference(row)
+    targets: dict[tuple[str, ...], list[Mapping[str, Any]]] = {}
+    for row in referenced_rows:
+        identity = _rel_fold(
+            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        )
+        targets.setdefault(identity, []).append(row)
+    constraints = []
+    notes = []
+    for entry in sorted(grouped.values(), key=lambda item: (item["name"].casefold(), item["name"])):
+        ordered = [entry["columns"][order] for order in sorted(entry["columns"])]
+        referenced = None
+        if entry["kind"] == "foreign_key":
+            positions = [position for _, position in ordered]
+            referenced, note = _rel_referenced(
+                entry["name"], entry["reference"], positions, targets
+            )
+            if note:
+                notes.append(note)
+        constraints.append(
+            {
+                "name": entry["name"],
+                "constraint_type": entry["kind"],
+                "columns": [column for column, _ in ordered],
+                "expression": None,
+                "referenced": referenced,
+                "enforcement": "not_enforced",
+                "source": "information_schema",
+            }
+        )
+    return constraints, notes
 
 
 def _rel_table(text: str) -> str:
@@ -6080,7 +6293,7 @@ def merge_relationships(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, 
 
 # DBTITLE 1,Runtime: tabledossier.integrity
 # TableDossier 0.3.0 embedded runtime: module tabledossier.integrity
-# Source: src/tabledossier/integrity.py (sha256:a5278375f083f4b3f84777b301b1f4f57655c3c1d8bfcbb3cf26e90a88ddf69f)
+# Source: src/tabledossier/integrity.py (sha256:eea2d3ea2eb02034fefd2ac4be5d435134627b2c8bac0e6080eccd7c337b1176)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6170,15 +6383,19 @@ def type_compatibility(
     return out
 
 
-def end_segments(relationship: Mapping[str, Any], end: str) -> list[list[dict[str, Any]]]:
+def end_segments(
+    relationship: Mapping[str, Any], end: str, fields: Sequence[Mapping[str, Any]] = ()
+) -> list[list[dict[str, Any]]]:
     """Typed paths of one end of a relationship record.
 
-    Declared constraints list literal top-level column names; configured and
-    annotated relationships list display paths.
+    Declared constraints list literal top-level column names, matched to the
+    top-level columns of ``fields`` (the schema tree of that end's table)
+    case-insensitively when the exact name is absent; configured and annotated
+    relationships list display paths.
     """
     columns = relationship[end]["columns"]
     if relationship["origin"] == "declared_constraint":
-        return [[field_segment(str(column))] for column in columns]
+        return declared_column_segments(columns, fields)
     return [parse_display_path(column) for column in columns]
 
 
@@ -9775,7 +9992,7 @@ def build_profile(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
 # TableDossier 0.3.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:c99fa30e180d408f8b8f1430a8f69de3716f580487474031bf1b24664c91d943)
+# Source: src/tabledossier/runtime/spark.py (sha256:9db4efb3a0aceb16df1bf8fbf8b629f1d3f4108bf293f8d7f981649cb65c6cd5)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -10590,21 +10807,26 @@ def _sp_full_name(spark: Any, parts: list[str]) -> list[str] | None:
         return None
 
 
-def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str, Any]], str | None]:
+def read_unity_constraints(
+    spark: Any, parts: list[str]
+) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """Read PRIMARY/FOREIGN KEY/UNIQUE constraints from Unity Catalog information_schema.
 
-    Returns ``(constraints, note)``; ``note`` explains when nothing could be read.
+    Returns ``(constraints, notes, skipped)``: ``notes`` explain foreign keys
+    whose references could not be resolved, ``skipped`` why nothing was read.
     """
     full = _sp_full_name(spark, parts)
     if full is None or full[0].casefold() in _SP_UNITY_EXCLUDED:
-        return [], "declared key constraints are read from Unity Catalog information_schema only"
+        return (
+            [],
+            [],
+            "declared key constraints are read from Unity Catalog information_schema only",
+        )
     catalog, schema, table = full
-    return (
-        query_key_constraints(
-            spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
-        ),
-        None,
+    constraints, notes = query_key_constraints(
+        spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
     )
+    return constraints, notes, None
 
 
 def query_key_constraints(
@@ -10613,19 +10835,22 @@ def query_key_constraints(
     schema: str,
     table: str,
     information_schema: Callable[[str], str],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Query key constraints of one table from ``information_schema``-shaped views.
 
     ``information_schema`` maps a catalog name to the quoted prefix of its
     ``information_schema`` (Unity Catalog: ``<catalog>.information_schema``).
-    Table and schema names are bound parameters, never interpolated.
+    Schema, table and constraint names are bound parameters, never
+    interpolated. The rows are assembled by :func:`key_constraints_from_rows`;
+    the referenced constraints of foreign keys are read from the
+    ``information_schema`` of their own catalog.
     """
     info = information_schema(catalog)
     query = (
-        "SELECT tc.constraint_name, tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
+        "SELECT tc.constraint_catalog, tc.constraint_schema, tc.constraint_name, "
+        "tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
         "kcu.position_in_unique_constraint, rc.unique_constraint_catalog, "
-        "rc.unique_constraint_schema, "
-        "rc.unique_constraint_name "
+        "rc.unique_constraint_schema, rc.unique_constraint_name "
         f"FROM {info}.table_constraints tc "
         f"JOIN {info}.key_column_usage kcu ON tc.constraint_catalog = kcu.constraint_catalog "
         "AND tc.constraint_schema = kcu.constraint_schema AND tc.constraint_name = "
@@ -10635,74 +10860,35 @@ def query_key_constraints(
         "AND tc.constraint_schema = rc.constraint_schema AND tc.constraint_name = "
         "rc.constraint_name "
         "WHERE lower(tc.table_schema) = lower(:schema_name) AND lower(tc.table_name) = "
-        "lower(:table_name) "
-        "ORDER BY tc.constraint_name, kcu.ordinal_position"
+        "lower(:table_name)"
     )
     rows = [
         row.asDict()
         for row in spark.sql(query, args={"schema_name": schema, "table_name": table}).collect()
     ]
-    grouped: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        entry = grouped.setdefault(
-            row["constraint_name"],
-            {
-                "type": str(row["constraint_type"]).upper(),
-                "columns": [],
-                "positions": [],
-                "ref": None,
-            },
-        )
-        entry["columns"].append(row["column_name"])
-        entry["positions"].append(row.get("position_in_unique_constraint"))
-        if row.get("unique_constraint_name"):
-            entry["ref"] = (
-                row["unique_constraint_catalog"],
-                row["unique_constraint_schema"],
-                row["unique_constraint_name"],
+    referenced: list[dict[str, Any]] = []
+    notes: list[str] = []
+    for ref_catalog, ref_schema, ref_name in referenced_constraint_keys(rows):
+        try:
+            referenced.extend(
+                row.asDict()
+                for row in spark.sql(
+                    "SELECT constraint_catalog, constraint_schema, constraint_name, "
+                    "table_catalog, table_schema, table_name, column_name, ordinal_position "
+                    f"FROM {information_schema(ref_catalog)}.key_column_usage "
+                    "WHERE lower(constraint_schema) = lower(:schema_name) "
+                    "AND lower(constraint_name) = lower(:constraint_name)",
+                    args={"schema_name": ref_schema, "constraint_name": ref_name},
+                ).collect()
             )
-    constraints = []
-    kinds = {"PRIMARY KEY": "primary_key", "FOREIGN KEY": "foreign_key", "UNIQUE": "unique"}
-    for name, entry in grouped.items():
-        kind = kinds.get(entry["type"])
-        if kind is None:
-            continue
-        referenced = None
-        if kind == "foreign_key" and entry["ref"]:
-            ref_catalog, ref_schema, ref_name = entry["ref"]
-            ref_rows = spark.sql(
-                "SELECT table_catalog, table_schema, table_name, column_name, ordinal_position "
-                f"FROM {information_schema(ref_catalog)}.key_column_usage "
-                "WHERE lower(constraint_schema) = lower(:schema_name) AND constraint_name = "
-                ":constraint_name "
-                "ORDER BY ordinal_position",
-                args={"schema_name": ref_schema, "constraint_name": ref_name},
-            ).collect()
-            if ref_rows:
-                by_position = {int(r["ordinal_position"]): r["column_name"] for r in ref_rows}
-                columns = [
-                    by_position.get(int(position) if position is not None else index + 1, "?")
-                    for index, position in enumerate(entry["positions"])
-                ]
-                first = ref_rows[0]
-                referenced = {
-                    "table": table_key(
-                        [first["table_catalog"], first["table_schema"], first["table_name"]]
-                    ),
-                    "columns": columns,
-                }
-        constraints.append(
-            {
-                "name": name,
-                "constraint_type": kind,
-                "columns": list(entry["columns"]),
-                "expression": None,
-                "referenced": referenced,
-                "enforcement": "not_enforced",
-                "source": "information_schema",
-            }
-        )
-    return constraints
+        except Exception as exc:  # noqa: BLE001 - one unreadable catalog keeps the other keys
+            record = error_record(exc, "metadata")
+            notes.append(
+                f"The referenced constraint {ref_catalog}.{ref_schema}.{ref_name} could not be "
+                f"read from information_schema ({record['condition'] or record['error_class']})."
+            )
+    constraints, unresolved = key_constraints_from_rows(rows, referenced)
+    return constraints, notes + unresolved
 
 
 # --------------------------------------------------------------------------- sample
@@ -11114,15 +11300,16 @@ def profile_table(
         )
         start = time.perf_counter()
         try:
-            declared, note = read_unity_constraints(spark, parts)
+            declared, notes, skipped = read_unity_constraints(spark, parts)
             constraints.extend(declared)
             observed.append(
                 _sp_observed(
-                    "op_constraints", "skipped" if note else "succeeded", start, detail=note
+                    "op_constraints", "skipped" if skipped else "succeeded", start, detail=skipped
                 )
             )
-            if note:
-                table["notes"].append(note[0].upper() + note[1:] + ".")
+            if skipped:
+                table["notes"].append(skipped[0].upper() + skipped[1:] + ".")
+            table["notes"].extend(notes)
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
             observed.append(
@@ -12163,11 +12350,10 @@ def _sp_find_table(index: Mapping[str, Any], text: str) -> Any:
 def _sp_end_nodes(
     relationship: Mapping[str, Any], end: str, table: Mapping[str, Any]
 ) -> tuple[list[Any], str]:
-    by_id = {
-        node["field_id"]: node for node in iter_nodes((table["schema"] or {}).get("fields", []))
-    }
+    fields = (table["schema"] or {}).get("fields", [])
+    by_id = {node["field_id"]: node for node in iter_nodes(fields)}
     try:
-        paths = end_segments(relationship, end)
+        paths = end_segments(relationship, end, fields)
     except IdentifierError as exc:
         return [], f"{end} columns: {exc}"
     nodes = [by_id.get(field_id(path)) for path in paths]

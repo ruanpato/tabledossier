@@ -28,7 +28,7 @@
 | `keys` | Deep level, part II: requested keys, eligibility, budget and passes of exact uniqueness, key records | yes | stdlib |
 | `findings` | Heuristic findings | yes | stdlib |
 | `quality` | Configured checks, proposed rules | yes | stdlib |
-| `relationships` | Declared and provided relationships | yes | stdlib |
+| `relationships` | Declared and provided relationships; declared key constraints assembled from `information_schema` rows | yes | stdlib |
 | `integrity` | Deep level, part II: type compatibility, referential validation records, relationship hypothesis planning and records | yes | stdlib |
 | `contract` | Version checks and profile invariants | yes | stdlib |
 | `render` | Markdown and Mermaid documents | yes | stdlib |
@@ -79,7 +79,9 @@ simulated; every Spark call is real. This is not a substitute for validation on 
 ## Execution per table (standard level)
 
 1. `DESCRIBE TABLE EXTENDED` (resolution + catalog metadata), `DESCRIBE DETAIL` (Delta), Unity Catalog
-   `information_schema` key constraints (parameterized SQL, quoted identifiers).
+   `information_schema` key constraints (parameterized SQL, quoted identifiers; the referenced constraints of foreign
+   keys are read from the `information_schema` of their own catalog, and the rows are assembled into constraints by a
+   pure function of `relationships`).
 2. Delta: `DESCRIBE HISTORY … LIMIT 1`, then `SELECT * FROM <table> VERSION AS OF <n>` for every read.
 3. Schema tree from the snapshot's `DataFrame.schema`; filters (DataFrame API) and column projection.
 4. One projected sample: `substring(col, 1, max_value_chars)` + truncation flag per string field, `limit(max_rows)`,
