@@ -29,7 +29,9 @@ from tabledossier.widgets import NOTEBOOK_WIDGETS
 
 CONFIG_KIND = "tabledossier.config"
 CONFIG_VERSION = "1.0"
-ANALYSIS_LEVELS = ("metadata", "standard")
+ANALYSIS_LEVELS = ("metadata", "standard", "deep")
+ROW_READING_LEVELS = ("standard", "deep")
+DEEP_ALL_TARGETS = "all_within_budget"
 WIDGET_NAMES = tuple(name for name, _ in NOTEBOOK_WIDGETS)
 DEDICATED_WIDGET_KEYS = {
     "tables": "tables_json",
@@ -98,6 +100,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "aggregate_extremes": "include",
         "json_key_names": "include",
         "redact_columns": [],
+    },
+    "deep": {
+        "targets": DEEP_ALL_TARGETS,
+        "collections": True,
+        "json_paths": True,
+        "element_distinct": "sample",
+        "json_full_scope_validation": True,
+        "max_extra_passes": 2,
+        "max_explode_rows": 1000,
+        "max_elements": 100000,
+        "max_json_paths": 50,
+        "max_json_depth": 3,
+        "max_json_object_keys": 50,
     },
     "table_options": {},
     "relationships": [],
@@ -288,6 +303,16 @@ def config_errors(config: Mapping[str, Any], schema: Mapping[str, Any]) -> list[
             if item["id"] in check_ids:
                 errors.append(f"{where}.checks[{index}]: duplicate check id {item['id']!r}")
             check_ids.add(item["id"])
+
+    targets = config.get("deep", {}).get("targets", DEEP_ALL_TARGETS)
+    if isinstance(targets, list):
+        for index, item in enumerate(targets):
+            where = f"$.deep.targets[{index}]"
+            _cfg_check_table(item["table"], where, errors)
+            try:
+                parse_display_path(item["column"])
+            except IdentifierError as exc:
+                errors.append(f"{where}.column: {exc}")
 
     policy = config.get("value_policy", {})
     for list_name in ("example_columns", "redact_columns"):
