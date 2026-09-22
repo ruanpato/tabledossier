@@ -3,7 +3,11 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] - 2026-09-22
+
+"Ready for Databricks": integration with Jobs, Unity Catalog constraints assembled and tested end to end with a
+simulated `information_schema`, and release automation. No Databricks evidence was provided for this release: every
+Databricks item stays pending (see "Not yet validated").
 
 ### Added
 
@@ -14,11 +18,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `dbutils.notebook.exit`. Decision record 0006.
 - `docs/databricks-jobs.md`: passing `tables_json`, `analysis_level`, `output_dir` and `config_json` as Job
   parameters, reading the summary, and an example job definition (not validated).
-- Release workflow (`.github/workflows/release.yml`): a tag `v*` checks the tag against `__version__`, the CHANGELOG
-  section and the branch, builds the wheel and the sdist, runs the unit tests against the wheel, writes `SHA256SUMS`
-  and creates a **draft** GitHub release with the notes of the CHANGELOG section; only that job can write, with the
-  `GITHUB_TOKEN`, and nothing is published to PyPI. Pull requests that change the release inputs run it as a dry run.
-  The checks and notes come from `scripts/release.py` (unit-tested). Decision record 0007.
+- Release workflow (`.github/workflows/release.yml`): a tag `v*` checks the tag against `__version__`, the dated
+  CHANGELOG section and the branch, builds the wheel and the sdist, runs the unit tests against the wheel, writes
+  `SHA256SUMS` and creates a **draft** GitHub release with the notes of the CHANGELOG section; only that job can
+  write, with the `GITHUB_TOKEN`, and nothing is published to PyPI. Pull requests that change the release inputs run
+  it as a dry run. The checks and notes come from `scripts/release.py` (unit-tested). Decision record 0007.
+- Smoke test: a Job step, the expectations of the job summary and of unresolved foreign keys, and a table of what only
+  a Databricks workspace can show (deep cost on large tables, Volumes from serverless, restricted `spark.conf.get`,
+  `catalog.functionExists` and `toLocalIterator`, Unity Catalog `information_schema`, Jobs).
 
 ### Changed
 
@@ -49,6 +56,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   with a `?` column: it keeps `referenced: null`, is not documented as a relationship, and a table note says why.
 - A catalog whose `information_schema` cannot be read for a referenced constraint no longer hides the other key
   constraints of the table.
+
+### Not yet validated
+
+- Execution on Databricks workspaces (15.4, 16.4 and 17.3 LTS; single user, shared access mode and serverless),
+  including Jobs parameters, the job summary, Unity Catalog volumes and the `information_schema` constraints used by
+  `declared_keys` and `referential.declared` (tested locally with a simulated `information_schema`).
+- The release workflow's publish job: the dry run proves the build, checks, notes and checksums; the draft release is
+  created only by a real tag.
 
 ## [0.3.0] - 2026-09-22
 
@@ -162,7 +177,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Execution on Databricks workspaces (see `docs/compatibility.md`).
 
-[Unreleased]: https://github.com/ruanpato/tabledossier/compare/v0.3.0...develop
+[0.4.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.4.0
 [0.3.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ruanpato/tabledossier/releases/tag/v0.1.0

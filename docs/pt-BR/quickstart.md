@@ -2,13 +2,14 @@
 
 ## 1. Instalar a CLI (no seu computador)
 
-O pacote ainda não está publicado no PyPI. Instale a tag da versão no GitHub, ou a partir do repositório clonado
-com `python -m pip install .`; para máquinas sem internet, veja [instalação offline](../offline-install.md):
+O pacote ainda não está publicado no PyPI. Instale a tag da versão no GitHub (`@v0.4.0` quando a 0.4.0 for
+publicada; `@v0.3.0` instala a versão anterior), ou a partir do repositório clonado com `python -m pip install .`;
+para máquinas sem internet, veja [instalação offline](../offline-install.md):
 
 ```bash
 python -m venv .venv
 # Ative o ambiente conforme o sistema operacional (ex.: source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.3.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.4.0"
 ```
 
 Requisitos locais: Python 3.10 ou superior. Não é preciso Spark, Java, Docker, drivers de banco, credenciais nem

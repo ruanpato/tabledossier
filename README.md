@@ -8,7 +8,7 @@ You generate a profiling notebook **on your own computer, without any connection
 run it **inside Databricks** with the permissions you already have there, and reuse the exported
 profile **offline** as the single source for a data dictionary, a data quality report (DQR) and an ER diagram.
 
-> Status: early release (0.3.0). The notebook runtime has been executed against local Spark 3.5 and
+> Status: early release (0.4.0). The notebook runtime has been executed against local Spark 3.5 and
 > 4.0, in classic mode and through a local Spark Connect server, with synthetic data; **it has not yet been
 > validated on a Databricks workspace** — see [Compatibility](#11-compatibility-and-troubleshooting).
 > Português: [visão geral](docs/pt-BR/overview.md) e [quickstart](docs/pt-BR/quickstart.md).
@@ -186,7 +186,8 @@ The generated notebook itself is committed at
 | Profile JSON Schema 1.2 (additive; the CLI still reads 1.0 and 1.1), stdlib + formal validation | Implemented |
 | Data dictionary, DQR, relationships, Mermaid ERD, suggested rules | Implemented |
 | Human annotations file | Implemented |
-| Unity Catalog PK/FK from `information_schema` | Implemented; **not testable locally, validation pending** |
+| Unity Catalog PK/FK/UNIQUE from `information_schema` | Implemented; assembly tested with synthetic rows and end to end with a simulated `information_schema`; **Unity Catalog validation pending** |
+| Databricks Jobs: parameters as widgets, JSON job summary returned with `dbutils.notebook.exit` ([guide](docs/databricks-jobs.md)) | Implemented (0.4.0); tested with the local harness (widgets and a recording `dbutils.notebook.exit`); **Databricks validation pending** |
 | PostgreSQL connector, remote Databricks execution, `.ipynb`, profile diff | [Roadmap](docs/roadmap.md) — not available |
 
 ## 5. Requirements
@@ -202,13 +203,14 @@ actually tested.
 
 ## 6. Quickstart
 
-The package is not published on PyPI. Install the tagged release from GitHub, or from a checkout with
-`python -m pip install .` (air-gapped machines: see [offline installation](docs/offline-install.md)).
+The package is not published on PyPI. Install the tagged release from GitHub (the `v0.4.0` tag exists once 0.4.0
+is released; `@v0.3.0` installs the previous release), or from a checkout with `python -m pip install .`
+(air-gapped machines: see [offline installation](docs/offline-install.md)).
 
 ```bash
 python -m venv .venv
 # Activate the environment for your OS (e.g. source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.3.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.4.0"
 
 tabledossier init --output profile.config.json
 tabledossier validate --config profile.config.json
@@ -359,8 +361,8 @@ anonymized**. Nothing is sent anywhere. Details: [privacy](docs/privacy.md).
 
 | Component | Tested | Pending |
 | --- | --- | --- |
-| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 252 unit tests against the built wheel | Other OS/Python combinations |
-| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (74/70 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, shared/serverless compute, Unity Catalog constraints (declared keys and foreign keys) |
+| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 295 unit tests against the built wheel | Other OS/Python combinations |
+| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (78/74 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Jobs and the job summary, Volumes, shared/serverless compute, Unity Catalog constraints (declared keys and foreign keys) |
 
 A reproducible remote check is described in [Databricks smoke test](docs/databricks-smoke-test.md).
 
