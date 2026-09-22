@@ -2,8 +2,9 @@
 
 ## 1. Instalar a CLI (no seu computador)
 
-O pacote ainda não está publicado no PyPI. Instale a partir do repositório clonado (para máquinas sem internet,
-veja [instalação offline](../offline-install.md)):
+O pacote ainda não está publicado no PyPI. Instale a partir do repositório clonado ou da tag da versão no GitHub
+(`@v0.2.0` quando a 0.2.0 for publicada); para máquinas sem internet, veja
+[instalação offline](../offline-install.md):
 
 ```bash
 python -m venv .venv
@@ -35,7 +36,7 @@ segredos na configuração.
 4. **Preencha os widgets** no topo:
    - `tables_json`: por exemplo `["demo.analytics.orders"]`;
    - `output_dir`: um diretório em que você pode gravar, por exemplo `/Volumes/<catalogo>/<schema>/<volume>/tabledossier`;
-   - `analysis_level`: `standard` (padrão) ou `metadata`;
+   - `analysis_level`: `standard` (padrão), `metadata` ou `deep` (veja abaixo);
    - `config_json`: ajustes opcionais em JSON (filtros, limites, checks), sem segredos.
 
    Precedência: padrões internos < configuração gerada < `config_json` < widgets dedicados.
@@ -45,6 +46,26 @@ segredos na configuração.
 
 Uma tabela com erro (por exemplo, inexistente) recebe status `failed` com mensagem sanitizada; as demais continuam e
 a execução fica `partial`.
+
+### Nível `deep` (opcional)
+
+Com `analysis_level` = `deep`, o notebook também perfila elementos de arrays e entradas de maps e cataloga caminhos
+JSON de colunas texto. Tudo tem orçamento na seção `deep` da configuração (ou em `config_json`), por exemplo:
+
+```json
+{"deep": {"targets": [{"table": "demo.analytics.orders", "column": "items"}], "max_extra_passes": 1}}
+```
+
+- `targets`: `"all_within_budget"` (padrão: todos os arrays, maps e colunas com JSON provável) ou uma lista
+  explícita de tabela e coluna;
+- `max_extra_passes` (2): ações Spark extras permitidas por tabela;
+- `element_distinct` (`sample`): contagens distintas de elementos sobre uma amostra de até `max_explode_rows` (1000)
+  linhas e `max_elements` (100000) elementos, `full_scope` ou `off`;
+- `max_json_paths` (50) e `max_json_depth` (3): limites do catálogo de caminhos JSON.
+
+Os denominadores das métricas de elementos são elementos ou entradas, nunca linhas. O catálogo de caminhos JSON vem
+da amostra e não é um schema completo. O relatório de qualidade mostra o que o nível deep cobriu e o que ficou
+limitado pelo orçamento. Detalhes em [configuração](../configuration.md#deep) (em inglês).
 
 ## 4. Validar e regenerar a documentação (sem conexão)
 
@@ -71,7 +92,7 @@ tabledossier render --input examples/demo/output/run/profile.json \
 | Arquivo | Conteúdo |
 | --- | --- |
 | `manifest.json` | status da execução, hashes dos arquivos, resultado da validação |
-| `profile.json` | perfil canônico — fonte de todos os documentos |
+| `profile.json` | perfil canônico (contrato 1.1) — fonte de todos os documentos |
 | `overview.md` | execução, ambiente, tabelas, amostragem, erros |
 | `data_dictionary.md` | dicionário de dados com origem de cada descrição |
 | `quality_report.md` | DQR: checks executados, completude, alertas, propostas e limitações |

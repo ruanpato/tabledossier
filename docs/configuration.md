@@ -24,7 +24,7 @@ built-in defaults < generated configuration < config_json widget < tables_json /
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `tables` | `[]` | Default table identifiers. May be empty when generating; running requires at least one. |
-| `analysis_level` | `"standard"` | `metadata` (no row reads) or `standard`. |
+| `analysis_level` | `"standard"` | `metadata` (no row reads), `standard`, or `deep` (standard + the budgeted operations of the [`deep`](#deep) section). |
 | `output_dir` | `""` | Directory in the execution environment, e.g. `/Volumes/<catalog>/<schema>/<volume>/tabledossier`. Must be an absolute POSIX path (not a `dbfs:` URI). |
 | `purpose` | `null` | Why the run exists; shown in the overview. |
 
@@ -98,6 +98,60 @@ Only string fields are sampled. Numbers, dates and collections are measured by a
 | `aggregate_extremes` | `"include"` | `redact` omits min/max/mean/stddev/quantiles for every field (status `redacted`). |
 | `json_key_names` | `"include"` | `redact` omits top-level JSON key names from JSON shape summaries. |
 | `redact_columns` | `[]` | `{"table", "column"}` entries whose extremes, examples and JSON keys are always redacted. |
+
+## `deep`
+
+Used only when `analysis_level = "deep"`. The deep level is the standard level **plus** opt-in operations; each
+one is bounded by the budgets below and declared in `operations.planned` of the profile. Whatever a budget
+prevents is recorded as an omission and summarized in the table's `deep.limited` list (and in the DQR). Increasing
+the number of metrics or fields never adds one Spark action per column.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `targets` | `"all_within_budget"` | `"all_within_budget"`: every profiled array and map, and every string field the sample shows to be probable JSON (`thresholds.json_min_ratio`), within the budgets. Or an explicit list of `{"table", "column"}` entries (column = display path of an array, map or string field); tables without entries get no deep operation. Targets that are not eligible are listed with a reason. |
+| `collections` | `true` | Profile elements of arrays (`items[]`, `items[].sku`) and entries of maps (`attrs{key}`, `attrs{value}`). |
+| `json_paths` | `true` | Catalogue JSON paths of string fields from the transient sample. |
+| `element_distinct` | `"sample"` | Distinct counts of element values need one row per element, so they run in **one** `element_explode_pass` per table for all collections. `sample`: explode a bounded sample (`sampling.method` prefix or random) of at most `max_explode_rows` rows, stopped at `max_elements` elements; metrics have `scope: sample`. `full_scope`: explode the whole scope, only when the measured element count of those collections is at most `max_elements` (otherwise `not_computed`). `off`: no explode pass. |
+| `json_full_scope_validation` | `true` | Validate the presence (and, with variant functions, the type) of listed JSON paths over the full scope, when the runtime supports it. |
+| `max_extra_passes` | 2 | Spark actions the deep level may add per table beyond the standard sample and passes: aggregation passes for deep expressions that do not fit the room left in the standard passes, then the element explode pass. `0` keeps deep expressions inside the standard passes only. |
+| `max_explode_rows` | 1000 | Rows read by the element explode pass in `sample` mode. |
+| `max_elements` | 100000 | Maximum exploded elements aggregated by the element explode pass (both modes); in `full_scope` mode, also the maximum measured element count in scope. |
+| `max_json_paths` | 50 | JSON paths listed (and validated) per string field; further paths are counted, not listed. |
+| `max_json_depth` | 3 | Maximum nesting depth of catalogued JSON paths (`$.a` is depth 1). |
+| `max_json_object_keys` | 50 | Objects with more distinct keys than this in the sample are treated as maps: their keys are collapsed into `*` and never listed. |
+
+How the budget is applied, in order:
+
+1. Standard metrics are planned exactly as at the standard level (`limits`). Deep expressions (element metrics, JSON
+   path validation) are always dropped before any standard metric.
+2. Deep expressions first fill the room left in the last standard pass, then up to `max_extra_passes` extra
+   aggregation passes (`deep_aggregate_pass`). What still does not fit is dropped from the lowest priority up —
+   first whitespace counts, after-reference counts and JSON path validation, then extremes, lengths and value
+   counts, and last element null counts — and reported as `deep_budget` omissions with `not_computed` metrics.
+3. The element explode pass runs only if an extra pass is still available.
+
+Element metrics are exact over the analysed scope: they are computed per row with higher-order functions
+(`filter`, `transform`, `array_min`/`array_max`, `map_keys`/`map_values`) and summed inside the aggregation passes,
+without explode. Their denominators are the elements or entries of the collection, never rows. Elements of
+collections nested inside collections (`matrix[][]`) are not profiled in this release (`nested_collection`).
+
+JSON path names are listed only when `value_policy.json_key_names = "include"` and the column is not in
+`redact_columns`. Keys of map-like objects (too many distinct keys, or keys that do not look like field names) and
+keys that occur in fewer than two sampled documents or in less than 10% of the documents containing their object
+are collapsed into `*`. See [privacy](privacy.md).
+
+```json
+"analysis_level": "deep",
+"deep": {
+  "targets": [
+    {"table": "demo.analytics.orders", "column": "items"},
+    {"table": "demo.analytics.order_events", "column": "payload"}
+  ],
+  "max_extra_passes": 1,
+  "element_distinct": "sample",
+  "max_explode_rows": 500
+}
+```
 
 ## `table_options`
 

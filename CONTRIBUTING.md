@@ -26,6 +26,17 @@ uv sync --group dev --group spark
 JAVA_HOME=/path/to/jdk-17 uv run pytest tests/integration
 ```
 
+Databricks shared access mode and serverless compute use Spark Connect. Run the same suite through a local Spark
+Connect server (the fixture never falls back to classic mode):
+
+```bash
+uv sync --group dev --group spark --group connect
+TD_TEST_SPARK_MODE=connect JAVA_HOME=/path/to/jdk-17 uv run pytest tests/integration
+```
+
+For Spark 4.0 use a separate environment, e.g. `python -m venv .venv-spark4` and
+`pip install -e . pytest "pyspark[connect]>=4.0,<4.1"`. `TD_TEST_DELTA=0` starts the session without Delta.
+
 ## Rules for the embedded runtime
 
 Modules listed in `tabledossier/notebook.py` (`PARAMETER_MODULES`, `RUNTIME_MODULES`) are copied into generated

@@ -8,10 +8,10 @@ You generate a profiling notebook **on your own computer, without any connection
 run it **inside Databricks** with the permissions you already have there, and reuse the exported
 profile **offline** as the single source for a data dictionary, a data quality report (DQR) and an ER diagram.
 
-> Status: early release (0.1.0). The notebook runtime has been executed against local Spark 3.5 and
-> 4.0 with synthetic data; **it has not yet been validated on a Databricks workspace** — see
-> [Compatibility](#11-compatibility-and-troubleshooting). Português: [visão geral](docs/pt-BR/overview.md)
-> e [quickstart](docs/pt-BR/quickstart.md).
+> Status: early release (0.2.0). The notebook runtime has been executed against local Spark 3.5 and
+> 4.0, in classic mode and through a local Spark Connect server, with synthetic data; **it has not yet been
+> validated on a Databricks workspace** — see [Compatibility](#11-compatibility-and-troubleshooting).
+> Português: [visão geral](docs/pt-BR/overview.md) e [quickstart](docs/pt-BR/quickstart.md).
 
 ## 1. The problem
 
@@ -98,6 +98,20 @@ accuracy and denominator:
 }
 ```
 
+**Deep level** ([`examples/demo/output/deep`](examples/demo/output/deep), same notebook with
+`analysis_level = deep`): array elements and map entries are measured per element, never per row, and JSON paths are
+catalogued from the sample and validated over the full scope when the runtime can:
+
+| Field | Type | Declared nullable | Description | Nulls | Distinct | Observed format | Candidate roles | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `items[].qty` | `int` | yes | _Unknown — no description in the source or in annotations._ | 500 (16.67% of 3,000 elements) | 5 (sample) | — | — | per element of items |
+| `attributes{value}` | `string` | yes | _Unknown — no description in the source or in annotations._ | 700 (40.00% of 1,750 entries) | 177 (sample) | — | — | per entry of attributes |
+
+| Path | Present in (sample) | Types (sample) | Heterogeneous | Full scope (documents) |
+| --- | --- | --- | --- | --- |
+| `$.amount` | 1,853 (98.09%) | number 1853 | no | non-null 1,853 (97.84%) |
+| `$[*]` | 36 (1.91%) | number 108 | no | _not computed_: wildcard or unquotable path; not validated |
+
 The generated notebook itself is committed at
 [`examples/demo/output/notebook/profile_databricks.py`](examples/demo/output/notebook/profile_databricks.py).
 
@@ -106,14 +120,15 @@ The generated notebook itself is committed at
 | Capability | Status |
 | --- | --- |
 | `init`, `validate`, `generate`, `render`, `schema` CLI (offline) | Implemented and tested (Python 3.10–3.14) |
-| Self-contained Databricks source notebook (`.py`) with widgets | Implemented; executed locally with Spark 3.5/4.0; **Databricks validation pending** |
+| Self-contained Databricks source notebook (`.py`) with widgets | Implemented; executed locally with Spark 3.5/4.0, classic and Spark Connect; **Databricks validation pending** |
 | Levels `metadata` and `standard` | Implemented |
+| Level `deep`, part I: array/map element metrics, element distinct counts, JSON path catalogue and full-scope validation, with budgets | Implemented (0.2.0); tested locally with Spark 3.5/4.0, classic and Spark Connect |
 | Delta snapshot pinning (`VERSION AS OF`) for every row read | Implemented; tested with local delta-spark 3.3 |
-| Profile JSON Schema 1.0, stdlib + formal validation | Implemented |
+| Profile JSON Schema 1.1 (additive; the CLI still reads 1.0), stdlib + formal validation | Implemented |
 | Data dictionary, DQR, relationships, Mermaid ERD, suggested rules | Implemented |
 | Human annotations file | Implemented |
 | Unity Catalog PK/FK from `information_schema` | Implemented; **not testable locally, validation pending** |
-| PostgreSQL connector, remote Databricks execution, `deep` level, `.ipynb`, profile diff | [Roadmap](docs/roadmap.md) — not available |
+| Exact uniqueness and referential validation (deep part II), PostgreSQL connector, remote Databricks execution, `.ipynb`, profile diff | [Roadmap](docs/roadmap.md) — not available |
 
 ## 5. Requirements
 
@@ -128,13 +143,14 @@ actually tested.
 
 ## 6. Quickstart
 
-The package is not published on PyPI. Install the tagged release from GitHub, or from a checkout with
-`python -m pip install .` (air-gapped machines: see [offline installation](docs/offline-install.md)).
+The package is not published on PyPI. Install the tagged release from GitHub (the `v0.2.0` tag exists once 0.2.0
+is released; `@v0.1.0` installs the previous release), or from a checkout with `python -m pip install .`
+(air-gapped machines: see [offline installation](docs/offline-install.md)).
 
 ```bash
 python -m venv .venv
 # Activate the environment for your OS (e.g. source .venv/bin/activate).
-python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.1.0"
+python -m pip install "tabledossier @ git+https://github.com/ruanpato/tabledossier@v0.2.0"
 
 tabledossier init --output profile.config.json
 tabledossier validate --config profile.config.json
@@ -180,7 +196,7 @@ tabledossier render --input examples/demo/output/run/profile.json \
 | Widget | Meaning |
 | --- | --- |
 | `tables_json` | JSON list of `catalog.schema.table` identifiers; quote unusual names with backticks, e.g. ``demo.analytics.`order events` `` |
-| `analysis_level` | `metadata` (no row reads) or `standard` (bounded sample + shared aggregations) |
+| `analysis_level` | `metadata` (no row reads), `standard` (bounded sample + shared aggregations) or `deep` (standard + budgeted element and JSON path operations) |
 | `output_dir` | POSIX directory in the execution environment; a new `<run_id>/` folder is created in it |
 | `config_json` | JSON object merged over the generated configuration (limits, sampling, filters, checks…) — never secrets |
 
@@ -211,7 +227,7 @@ that row counts are rows in scope, not business entities. Full reference: [confi
 ```text
 results/<run_id>/
   manifest.json          run manifest: status, file hashes, profile validation result
-  profile.json           canonical profile (schema 1.0) — the source of everything below
+  profile.json           canonical profile (schema 1.1) — the source of everything below
   overview.md            run, environment, tables, sampling, capabilities, errors
   data_dictionary.md     fields, types, descriptions (with their origin), measurements
   quality_report.md      DQR: executed checks, completeness, alerts, proposals, limits
@@ -240,7 +256,19 @@ available with `tabledossier schema profile`; field-by-field documentation is in
   fields are recorded with a reason.
 - **Sampling**: `prefix` (default, potentially biased), `random` (may read the whole source; the fraction does
   not reduce I/O proportionally) or `none`. Sample-based results never extrapolate to the population.
-- `deep` (element-level arrays, JSON paths, exact uniqueness, referential validation) is **not** available.
+- **`deep`** (opt-in, budgeted; [`deep` configuration](docs/configuration.md#deep)): everything of `standard`, plus
+  - **element metrics** of arrays and maps (`items[]`, `items[].sku`, `attrs{key}`, `attrs{value}`): nulls, extremes,
+    lengths and value counts computed per row with higher-order functions inside the shared passes — exact, no
+    explode, denominators in elements or entries, and always dropped before any standard metric when the budget is
+    tight;
+  - **element distinct counts** in one explode pass per table, over a bounded sample (default: 1,000 rows, 100,000
+    elements) or the full scope when it fits the element budget, labelled accordingly;
+  - **JSON paths** of string fields catalogued from the sample (presence, types, heterogeneity; map-like and rare
+    keys collapsed into `*`), validated over the full scope with variant functions (presence, JSON null, type) or
+    `get_json_object` (presence only; it cannot tell a JSON null from an absent path);
+  - at most `deep.max_extra_passes` (default 2) extra Spark actions per table, whatever the number of columns; the
+    DQR lists what the deep level covered and what its budgets limited.
+- Exact uniqueness and referential validation are **not** available yet (planned for 0.3.0).
 
 More in [limitations](docs/limitations.md) and [architecture](docs/architecture.md).
 
@@ -257,8 +285,8 @@ anonymized**. Nothing is sent anywhere. Details: [privacy](docs/privacy.md).
 
 | Component | Tested | Pending |
 | --- | --- | --- |
-| CLI | Python 3.10–3.14 on Linux (CI) and macOS; Python 3.12 on Windows (CI); 159 unit tests against the built wheel | Other OS/Python combinations |
-| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI (25 and 22 integration tests) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, Spark Connect (shared/serverless), Unity Catalog constraints |
+| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 199 unit tests against the built wheel | Other OS/Python combinations |
+| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (49/46 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, shared/serverless compute, Unity Catalog constraints |
 
 A reproducible remote check is described in [Databricks smoke test](docs/databricks-smoke-test.md).
 
@@ -268,6 +296,8 @@ A reproducible remote check is described in [Databricks smoke test](docs/databri
 | `cannot write to output_dir` | Use a volume path with WRITE VOLUME permission, or a workspace folder |
 | `TABLE_OR_VIEW_NOT_FOUND` for one table | That table is marked `failed`; the others continue (run status `partial`) |
 | `json_invalid_count` is `unsupported` | The runtime lacks `try_parse_json`; JSON validity is sample-based |
+| Deep metrics are `not_computed` with `deep_budget` | Raise `deep.max_extra_passes` or `limits.max_expressions_per_pass`, or list fewer `deep.targets` |
+| JSON paths shown as `*` | The keys look like data (map-like or rare keys); see [privacy](docs/privacy.md) |
 | A column has `not_computed` metrics | The expression budget was reached; raise `limits` or select fewer columns |
 | Consistency is `unpinned` | The source is a view, not Delta, or history was not accessible |
 
@@ -283,6 +313,9 @@ uv run pytest tests/unit
 uv run ruff check . && uv run mypy
 # Spark integration tests need Java 17 and PySpark (optionally delta-spark):
 uv sync --group dev --group spark && JAVA_HOME=/path/to/jdk17 uv run pytest tests/integration
+# The same suite through a local Spark Connect server (as Databricks shared/serverless compute):
+uv sync --group dev --group spark --group connect
+TD_TEST_SPARK_MODE=connect JAVA_HOME=/path/to/jdk17 uv run pytest tests/integration
 ```
 
 Read [CONTRIBUTING](CONTRIBUTING.md), [architecture](docs/architecture.md) and the

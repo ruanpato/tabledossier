@@ -24,7 +24,8 @@ Um notebook gerado **não contém resultados**; métricas existem apenas depois 
 
 ## Princípios
 
-- **Contrato canônico** versionado (JSON Schema 1.0) independente de Spark, Databricks ou PostgreSQL. Cada métrica
+- **Contrato canônico** versionado (JSON Schema 1.1, que só acrescenta ao 1.0; a CLI lê os dois) independente de
+  Spark, Databricks ou PostgreSQL. Cada métrica
   informa `status`, `scope` (escopo), `accuracy` (exatidão) e `source` (origem). "Não calculado" nunca vira zero.
 - **Código único**: as células do runtime são os próprios módulos do pacote, copiados de forma legível e
   verificável (com SHA-256), sem payloads codificados.
@@ -40,12 +41,21 @@ Um notebook gerado **não contém resultados**; métricas existem apenas depois 
 
 - `metadata`: somente metadados de catálogo; nenhuma consulta sobre registros.
 - `standard`: uma amostra limitada (apenas colunas texto, para formatos e JSON) e poucas agregações compartilhadas.
-- `deep` (aprofundado): planejado, não disponível.
+- `deep` (aprofundado, parte I): tudo do `standard` mais operações opcionais com orçamento próprio:
+  - métricas de **elementos de arrays e entradas de maps** (`items[]`, `items[].sku`, `attrs{key}`,
+    `attrs{value}`) calculadas por linha com funções de ordem superior dentro dos passes compartilhados — exatas,
+    sem explode, com denominadores em elementos ou entradas (nunca em linhas);
+  - **contagens distintas de elementos** em um único passe com explode por tabela, sobre uma amostra limitada ou
+    sobre o escopo completo quando ele cabe no orçamento de elementos;
+  - **caminhos JSON** de colunas texto a partir da amostra (presença, tipos, heterogeneidade), com validação no
+    escopo completo quando o runtime oferece as funções (variant ou `get_json_object`);
+  - no máximo `deep.max_extra_passes` ações Spark extras por tabela, independentemente do número de colunas.
+- Unicidade exata e validação referencial ainda não existem (planejadas para a 0.3.0).
 
 ## Estado atual
 
-Versão 0.1.0. O runtime foi executado com Spark local 3.5 e 4.0 e dados sintéticos; **ainda não foi validado em
-um workspace Databricks**. Veja [compatibilidade](../compatibility.md) (em inglês) e o
+Versão 0.2.0. O runtime foi executado com Spark local 3.5 e 4.0, em modo clássico e por um servidor Spark
+Connect local, com dados sintéticos; **ainda não foi validado em um workspace Databricks**. Veja [compatibilidade](../compatibility.md) (em inglês) e o
 [roteiro de smoke test](../databricks-smoke-test.md).
 
 Comece pelo [quickstart em português](quickstart.md). A documentação completa está em inglês no

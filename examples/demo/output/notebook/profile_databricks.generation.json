@@ -2,12 +2,12 @@
   "kind": "tabledossier.generation_manifest",
   "manifest_version": "1.0",
   "tool_version": "0.2.0",
-  "generation_id": "sha256:c0a50292266a917385df611ee02edd029f666d9cb78d9ff899503c38334f3390",
+  "generation_id": "sha256:c9cca9ac463f74eb1fc32674e1da24f836eed7b4d1729332295f1ea523faa9d5",
   "contains_results": false,
   "notebook": {
     "file_name": "profile_databricks.py",
     "format": "databricks_source_python",
-    "sha256": "sha256:bb1226a4f170e4aef8c9ce397f9b7375f5f5c5613607a7322a04953112d85e87",
+    "sha256": "sha256:d51edca453026b7b6fbb85f43897be9df17568634994fdb9ea51596094f7f13e",
     "cells": 39
   },
   "config_fingerprint": "sha256:0d69e4fb4eff485d5b8fd0542d4384cac86b8f1b424fc4d6c362e51af239b2a5",
@@ -65,7 +65,7 @@
     {
       "module": "tabledossier.deep",
       "source_path": "src/tabledossier/deep.py",
-      "sha256": "sha256:e99d75a2a63a80342932bdc308fd8be54572b6985305520a666b709fbd6fe886"
+      "sha256": "sha256:504fb2edd4b5d0ed40a6dbe06f0a7967a523c5c6f5e82767bb51c866cdcdcdbb"
     },
     {
       "module": "tabledossier.findings",

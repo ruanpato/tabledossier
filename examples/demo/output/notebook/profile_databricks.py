@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:c0a50292266a917385df611ee02edd029f666d9cb78d9ff899503c38334f3390`).
+# MAGIC Generated offline by TableDossier 0.2.0 (generation id `sha256:c9cca9ac463f74eb1fc32674e1da24f836eed7b4d1729332295f1ea523faa9d5`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -190,7 +190,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.2.0',
- 'generation_id': 'sha256:c0a50292266a917385df611ee02edd029f666d9cb78d9ff899503c38334f3390'}
+ 'generation_id': 'sha256:c9cca9ac463f74eb1fc32674e1da24f836eed7b4d1729332295f1ea523faa9d5'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -3734,7 +3734,7 @@ def candidate_roles(
 
 # DBTITLE 1,Runtime: tabledossier.deep
 # TableDossier 0.2.0 embedded runtime: module tabledossier.deep
-# Source: src/tabledossier/deep.py (sha256:e99d75a2a63a80342932bdc308fd8be54572b6985305520a666b709fbd6fe886)
+# Source: src/tabledossier/deep.py (sha256:504fb2edd4b5d0ed40a6dbe06f0a7967a523c5c6f5e82767bb51c866cdcdcdbb)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -4521,10 +4521,16 @@ def attach_json_validation(
             "reason": None,
             "metrics": metrics,
         }
+    measured_documents = documents_metric is not None and documents_metric["status"] == "measured"
+    summary_reason: str | None = None
+    if documents_metric is None:
+        summary_reason = "omitted to respect the deep expression and pass budgets"
+    elif not measured_documents:
+        summary_reason = documents_metric.get("reason") or "the document count was not measured"
     catalog["full_scope"] = {
         "method": method,
-        "status": "measured" if documents_metric else "not_computed",
-        "reason": None if documents_metric else "omitted to respect the deep budgets",
+        "status": "measured" if measured_documents else "not_computed",
+        "reason": summary_reason,
         "documents": documents_metric,
         "method_description": description,
         "limitations": list(limitations),

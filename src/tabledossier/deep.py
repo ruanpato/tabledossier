@@ -790,10 +790,16 @@ def attach_json_validation(
             "reason": None,
             "metrics": metrics,
         }
+    measured_documents = documents_metric is not None and documents_metric["status"] == "measured"
+    summary_reason: str | None = None
+    if documents_metric is None:
+        summary_reason = "omitted to respect the deep expression and pass budgets"
+    elif not measured_documents:
+        summary_reason = documents_metric.get("reason") or "the document count was not measured"
     catalog["full_scope"] = {
         "method": method,
-        "status": "measured" if documents_metric else "not_computed",
-        "reason": None if documents_metric else "omitted to respect the deep budgets",
+        "status": "measured" if measured_documents else "not_computed",
+        "reason": summary_reason,
         "documents": documents_metric,
         "method_description": description,
         "limitations": list(limitations),

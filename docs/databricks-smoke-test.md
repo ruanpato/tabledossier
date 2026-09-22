@@ -1,7 +1,7 @@
 # Databricks smoke test (manual, reproducible)
 
-This procedure validates a release on a real workspace. It has **not** been executed for 0.1.0; record your
-results in the table at the end (or in an issue) before claiming support for a runtime.
+This procedure validates a release on a real workspace. It has **not** been executed for 0.1.0 or 0.2.0; record
+your results in the table at the end (or in an issue) before claiming support for a runtime.
 
 ## Prerequisites
 
@@ -46,9 +46,20 @@ results in the table at the end (or in an issue) before claiming support for a r
    - `run.capabilities.try_parse_json.available` and, for `order_events.payload`, `json_invalid_count` is
      `measured` (40) when available, otherwise `unsupported`;
    - no `SECRET`/sample values appear anywhere; errors are sanitized.
-9. **Metadata level**: set `analysis_level` to `metadata`, run again. *Expected*: no sample or aggregation
+9. **Deep level** (0.2.0): set `analysis_level` to `deep` (keep `config_json` = `{}`), run again. *Expected*:
+   - `run.analysis_level` is `deep`, `schema_version` is `1.1`, and `tabledossier validate` passes locally;
+   - `run.environment.spark_connect` is `true` on shared access mode and serverless, `false` on single-user compute;
+   - `orders` has profiled element fields (`items[]`, `items[].sku`, `items[].qty`, `items[].price`,
+     `attributes{key}`, `attributes{value}`, `tags[]`) whose denominators are `elements` or `entries`; for
+     example `items[].qty` has `null_count` 500 of `element_count` 3000;
+   - `orders.deep.extra_passes.planned` ≤ 2 and `operations.planned` contains one `element_explode_pass`;
+   - `order_events` field `payload` has `json_paths` with `$.status`, `$.amount`, `$.channel` and `$[*]`;
+     `json_paths.full_scope.method` is `variant` when `run.capabilities.variant_functions.available` is true, else
+     `get_json_object`;
+   - the quality report has the section "Deep analysis: coverage and budget"; no sampled value appears anywhere.
+10. **Metadata level**: set `analysis_level` to `metadata`, run again. *Expected*: no sample or aggregation
    operations; row counts `unavailable` unless statistics exist.
-10. **Destination error**: set `output_dir` to a path without write permission. *Expected*: the validation cell
+11. **Destination error**: set `output_dir` to a path without write permission. *Expected*: the validation cell
     fails with a message about the output directory before any table is read.
 
 ## Record

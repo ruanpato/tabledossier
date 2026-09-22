@@ -400,3 +400,54 @@ def test_json_validation_plan_by_method():
         spec["params"]["expected_type"] for spec in variant if spec["op"] == "json_path_type_match"
     )
     assert plan_json_validation({"f_1": catalog}, None) == []
+
+
+def test_json_validation_results_are_attached_with_their_status():
+    from tabledossier.deep import attach_json_validation
+
+    catalog = _catalog(DOCS)
+    specs = plan_json_validation({"f_1": catalog}, "variant")
+    for index, spec in enumerate(specs):
+        spec["alias"] = f"a{index:04d}"
+    results = {spec["alias"]: 3 for spec in specs}
+    documents = next(spec for spec in specs if spec["op"] == "json_count_documents")
+    measured_catalog = json.loads(json.dumps(catalog))
+    attach_json_validation(
+        measured_catalog,
+        specs,
+        results,
+        {},
+        [],
+        method="variant",
+        unsupported_reason=None,
+        scope="full_table",
+    )
+    assert measured_catalog["full_scope"]["status"] == "measured"
+    status = {item["path"]: item["full_scope"]["status"] for item in measured_catalog["paths"]}
+    assert status["$.status"] == "measured" and status["$[*]"] == "not_computed"
+    failed_catalog = json.loads(json.dumps(catalog))
+    attach_json_validation(
+        failed_catalog,
+        specs,
+        results,
+        {documents["alias"]: "aggregation pass failed: X"},
+        [],
+        method="variant",
+        unsupported_reason=None,
+        scope="full_table",
+    )
+    assert failed_catalog["full_scope"]["status"] == "not_computed"
+    assert "aggregation pass failed" in failed_catalog["full_scope"]["reason"]
+    unsupported = json.loads(json.dumps(catalog))
+    attach_json_validation(
+        unsupported,
+        [],
+        {},
+        {},
+        [],
+        method=None,
+        unsupported_reason="no functions",
+        scope="full_table",
+    )
+    assert unsupported["full_scope"]["status"] == "unsupported"
+    assert all(item["full_scope"]["status"] == "not_computed" for item in unsupported["paths"])
