@@ -10,7 +10,7 @@ All commands run offline. `python -m tabledossier …` is equivalent to `tabledo
 | `tabledossier validate --annotations FILE` | Validate a human annotations file. |
 | `tabledossier generate --config FILE --output NOTEBOOK.py [--manifest FILE] [--overwrite]` | Generate the Databricks notebook and its generation manifest (default `<output>.generation.json`). |
 | `tabledossier render --input profile.json --output DIR [--annotations FILE] [--overwrite]` | Render the documents from a profile. Never recomputes metrics; refuses invalid profiles and existing files unless `--overwrite`. |
-| `tabledossier schema NAME [--output FILE]` | Print a packaged JSON Schema (`config`, `profile` (1.2), `profile-1.0`, `profile-1.1`, `annotations`, `suggested_rules`, `manifest`). |
+| `tabledossier schema NAME [--output FILE]` | Print a packaged JSON Schema (`config`, `profile` (1.2), `profile-1.0`, `profile-1.1`, `annotations`, `suggested_rules`, `manifest`, `job_summary`). |
 | `tabledossier --version` | Print the version. |
 
 ## Exit codes

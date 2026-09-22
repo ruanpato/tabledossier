@@ -8,7 +8,7 @@ from run_notebook_locally import run_notebook
 
 from tabledossier.cli import main
 from tabledossier.config import ConfigError
-from tabledossier.package import PACKAGE_FILES, build_documents
+from tabledossier.package import PACKAGE_FILES, build_documents, job_summary
 from tabledossier.validation import check_document, check_profile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -82,6 +82,42 @@ def test_notebook_run_exports_a_valid_consistent_package(
 
     widgets = namespace["dbutils"].widgets
     assert widgets.created == [], "widgets passed in (as by a Job) must not be recreated"
+
+    # The last cell returned the job summary with dbutils.notebook.exit, once.
+    [value] = namespace["dbutils"].notebook.exits
+    summary = json.loads(value)
+    assert check_document(summary, "job_summary") == []
+    assert summary == job_summary(profile, export["run_dir"], [])
+    assert summary["status"] == "partial" and summary["run_dir"] == str(run_dir)
+    assert summary["tables"] == {"total": 5, "succeeded": 4, "partial": 0, "failed": 1}
+    assert namespace["td_exit_value"] == value
+    assert "Returning the job summary" in namespace["td_exit_message"]
+
+
+def test_job_summary_can_be_disabled_and_needs_dbutils_notebook(
+    spark, demo_tables, notebook, tmp_path
+):
+    off = run_notebook(
+        notebook,
+        spark,
+        _widgets(
+            demo_tables[:1],
+            tmp_path / "off",
+            config_json=json.dumps({"jobs": {"exit_summary": False}}),
+        ),
+    )
+    assert off["dbutils"].notebook.exits == []
+    assert off["td_exit_value"] is None
+    assert "jobs.exit_summary = false" in off["td_exit_message"]
+    assert off["td_profile"]["run"]["effective_config"]["jobs"] == {"exit_summary": False}
+
+    absent = run_notebook(
+        notebook, spark, _widgets(demo_tables[:1], tmp_path / "absent"), notebook_utils=False
+    )
+    assert not hasattr(absent["dbutils"], "notebook")
+    assert absent["td_exit_value"] is None
+    assert "not available" in absent["td_exit_message"]
+    assert absent["td_export"]["validation_errors"] == [], "the run itself is unaffected"
 
 
 def test_render_cli_on_exported_profile(spark, demo_tables, notebook, tmp_path):

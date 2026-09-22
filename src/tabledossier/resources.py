@@ -17,6 +17,7 @@ SCHEMA_FILES = {
     "annotations": "annotations.schema.json",
     "suggested_rules": "suggested_rules.schema.json",
     "manifest": "manifest.schema.json",
+    "job_summary": "job_summary.schema.json",
 }
 
 

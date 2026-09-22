@@ -2,15 +2,16 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:48428b856f112aa66e10e863a38d1e5aeb975ab18caea9999bd9e525e1353017`).
+# MAGIC Generated offline by TableDossier 0.3.0 (generation id `sha256:22b4918fe230d30f0c49c4894f0da03eb4624e4eeb6576ffd82d6f21a80e1e7a`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
 # MAGIC **What it does**
 # MAGIC 1. Reads the parameters (widgets) at the top of the notebook.
 # MAGIC 2. Validates them and creates a new results directory under `output_dir` before reading any table.
-# MAGIC 3. Profiles each table sequentially: catalog metadata and, at the `standard` level, one bounded sample and a bounded number of shared aggregation passes. The `deep` level adds array/map element metrics and JSON paths within explicit budgets.
+# MAGIC 3. Profiles each table sequentially: catalog metadata and, at the `standard` level, one bounded sample and a bounded number of shared aggregation passes. The `deep` level adds array/map element metrics and JSON paths within explicit budgets and, when the configuration requests them, exact uniqueness of keys, referential validation and relationship hypotheses (counts only).
 # MAGIC 4. Writes `profile.json`, `manifest.json` and the derived documentation to the results directory.
+# MAGIC 5. Returns a small JSON job summary with `dbutils.notebook.exit` in its last cell (`jobs.exit_summary`, on by default), for a Job or a notebook that runs this one.
 # MAGIC
 # MAGIC **Safety.** Sources are only read. The notebook never alters schemas or constraints, never runs OPTIMIZE or ANALYZE TABLE and never modifies data. It writes only to its own results directory and never overwrites existing files. It installs nothing and downloads nothing.
 # MAGIC
@@ -28,11 +29,11 @@
 # MAGIC | Widget | Meaning |
 # MAGIC | --- | --- |
 # MAGIC | `tables_json` | JSON list of `catalog.schema.table` identifiers (quote unusual names with backticks). |
-# MAGIC | `analysis_level` | `metadata` (no row reads), `standard` (sample + aggregations) or `deep` (standard + elements and JSON paths, budgeted). |
+# MAGIC | `analysis_level` | `metadata` (no row reads), `standard` (sample + aggregations) or `deep` (standard + budgeted element, JSON path, key and relationship checks). |
 # MAGIC | `output_dir` | Directory where a new `<run_id>/` folder is created. |
 # MAGIC | `config_json` | Optional JSON object merged over the generated configuration (no secrets). |
 # MAGIC
-# MAGIC Precedence: built-in defaults < generated configuration < `config_json` < the three dedicated widgets. Existing widget values (typed by you or passed by a Job) are never reset.
+# MAGIC Precedence: built-in defaults < generated configuration < `config_json` < the three dedicated widgets. Existing widget values (typed by you or passed by a Job) are never reset: a Job passes these four names as notebook task parameters.
 
 # COMMAND ----------
 
@@ -175,6 +176,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                       'max_sample_rows': 10000,
                                       'inclusion_scope': 'sample',
                                       'min_inclusion_ratio': 0.95}},
+ 'jobs': {'exit_summary': True},
  'table_options': {'analytics.customers': {'checks': [{'id': 'customers_email_nulls',
                                                        'type': 'max_null_ratio',
                                                        'column': 'email',
@@ -216,7 +218,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.3.0',
- 'generation_id': 'sha256:48428b856f112aa66e10e863a38d1e5aeb975ab18caea9999bd9e525e1353017'}
+ 'generation_id': 'sha256:22b4918fe230d30f0c49c4894f0da03eb4624e4eeb6576ffd82d6f21a80e1e7a'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -243,7 +245,7 @@ ensure_widgets(dbutils, TD_WIDGET_DEFAULTS)
 import json
 
 TD_SCHEMAS = {}
-# config.schema.json: sha256:d90470488296d9767f7540c63dcda0749af4307e69153d744e66bc7e31bc545f
+# config.schema.json: sha256:9978436575fe2068f793654eb735f9daf94683fa45c928a45e20a055bdc23543
 TD_SCHEMAS['config'] = json.loads(r'''{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:tabledossier:schema:config:1.0",
@@ -412,6 +414,14 @@ TD_SCHEMAS['config'] = json.loads(r'''{
             "min_inclusion_ratio": {"type": "number", "minimum": 0, "maximum": 1}
           }
         }
+      }
+    },
+    "jobs": {
+      "description": "Integration with Databricks Jobs and notebook workflows. See docs/databricks-jobs.md.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exit_summary": {"type": "boolean", "description": "At the end of the run, return a small JSON job summary with dbutils.notebook.exit when it exists (tabledossier schema job_summary)."}
       }
     },
     "table_options": {
@@ -2216,7 +2226,7 @@ def field_id(segments: list[dict[str, Any]]) -> str:
 
 # DBTITLE 1,Runtime: tabledossier.config
 # TableDossier 0.3.0 embedded runtime: module tabledossier.config
-# Source: src/tabledossier/config.py (sha256:75448e0ce0a5f3d51b79efeb7ebeed694da6b5aa63485b975fd074edfb5a55ef)
+# Source: src/tabledossier/config.py (sha256:02d8b7272b59bdbc1972806d5fe135a8a7bfba368a82d23764eb6a05df78dd2f)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -2350,6 +2360,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "min_inclusion_ratio": 0.95,
         },
     },
+    "jobs": {"exit_summary": True},
     "table_options": {},
     "relationships": [],
 }
@@ -2683,14 +2694,15 @@ def execution_errors(config: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     if not config.get("tables"):
         errors.append(
-            "no tables to profile: set the 'tables_json' widget to a JSON list such as "
-            '["demo.analytics.orders"] (catalog.schema.table) and run the notebook again'
+            "no tables to profile: set the 'tables_json' widget (or the Job parameter of the same "
+            'name) to a JSON list such as ["demo.analytics.orders"] (catalog.schema.table) and run '
+            "the notebook again"
         )
     output_dir = str(config.get("output_dir", ""))
     if not output_dir:
         errors.append(
-            "no output directory: set the 'output_dir' widget, for example "
-            "/Volumes/<catalog>/<schema>/<volume>/tabledossier"
+            "no output directory: set the 'output_dir' widget (or the Job parameter of the same "
+            "name), for example /Volumes/<catalog>/<schema>/<volume>/tabledossier"
         )
     elif re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", output_dir):
         errors.append(
@@ -9009,7 +9021,7 @@ def render_all(
 
 # DBTITLE 1,Runtime: tabledossier.package
 # TableDossier 0.3.0 embedded runtime: module tabledossier.package
-# Source: src/tabledossier/package.py (sha256:b06849312bb7b1d7176c4399eac9cc30c035afaee111c9cf488434e85391e4df)
+# Source: src/tabledossier/package.py (sha256:e48bdbffc517ac1f7b374a0764c04b7ff4cb784948a745b7c3b32732a05ffa03)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -9037,6 +9049,8 @@ DOCUMENT_FILES = (
     "suggested_rules.json",
 )
 PACKAGE_FILES = ("manifest.json", "profile.json", *DOCUMENT_FILES)
+JOB_SUMMARY_KIND = "tabledossier.job_summary"
+JOB_SUMMARY_VERSION = "1.0"
 
 
 class OutputExistsError(FileExistsError):
@@ -9093,6 +9107,44 @@ def run_manifest(
             "Documents can be regenerated offline with: tabledossier render --input profile.json "
             "--output <dir>",
         ],
+    }
+
+
+def job_summary(
+    profile: Mapping[str, Any], run_dir: str, validation_errors: list[str] | None
+) -> dict[str, Any]:
+    """Return the job summary of a run (``tabledossier schema job_summary``).
+
+    Counts only, with a size that does not grow with the number of tables: the
+    notebook returns it with ``dbutils.notebook.exit`` (``jobs.exit_summary``)
+    to the Job or notebook that ran it. ``run_dir`` holds the full result.
+    """
+    run = profile["run"]
+    summary = profile["summary"]
+    relationships = summary.get("relationships") or {}
+    return {
+        "kind": JOB_SUMMARY_KIND,
+        "summary_version": JOB_SUMMARY_VERSION,
+        "tool_version": __version__,
+        "run_id": run["run_id"],
+        "status": run["status"],
+        "analysis_level": run["analysis_level"],
+        "run_dir": run_dir,
+        "profile_valid": not validation_errors,
+        "tables": {
+            "total": summary["tables_total"],
+            "succeeded": summary["tables_succeeded"],
+            "partial": summary["tables_partial"],
+            "failed": summary["tables_failed"],
+        },
+        "checks": {
+            name: summary["checks"][name] for name in ("pass", "fail", "not_evaluated", "error")
+        },
+        "relationships": {
+            name: int(relationships.get(name, 0))
+            for name in ("validated", "violated", "not_validated")
+        },
+        "relationship_hypotheses": int(summary.get("relationship_hypotheses") or 0),
     }
 
 
@@ -12678,7 +12730,7 @@ def evaluate_hypotheses(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
 # TableDossier 0.3.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:75794e21f2aaec6b18e41e019b5ca03e7eeb8bd7beae90bf8ad3633f242b5c97)
+# Source: src/tabledossier/runtime/databricks.py (sha256:a0f95d5cc14ea7013a3456be8d2145ce5c3c3ca27c0228f66df5240e7d9d5a85)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -13040,6 +13092,28 @@ def export_run(
     }
 
 
+def job_exit_value(
+    ctx: Mapping[str, Any], profile: Mapping[str, Any], export: Mapping[str, Any], dbutils: Any
+) -> tuple[str | None, str]:
+    """Return ``(value, message)`` for the last cell of the notebook.
+
+    ``value`` is the compact JSON job summary to pass to
+    ``dbutils.notebook.exit``, or ``None`` when ``jobs.exit_summary`` is off or
+    ``dbutils.notebook.exit`` does not exist; ``message`` says which. The
+    notebook calls ``exit`` itself, outside any ``try`` block, because it may be
+    implemented by raising an exception.
+    """
+    if not ctx["config"]["jobs"]["exit_summary"]:
+        return None, "Job summary not returned (jobs.exit_summary = false)."
+    if not callable(getattr(getattr(dbutils, "notebook", None), "exit", None)):
+        return None, "Job summary not returned: dbutils.notebook.exit is not available here."
+    value = canonical_json(job_summary(profile, export["run_dir"], export["validation_errors"]))
+    return value, (
+        "Returning the job summary with dbutils.notebook.exit; the notebook ends here and every "
+        "result was written above:\n" + value
+    )
+
+
 def transfer_instructions(run_dir: str, run_id: str) -> str:
     """Return concrete instructions to copy the results to a local machine."""
     lines = [f"Results written to: {run_dir}", "", "Copy them to your computer with one of:"]
@@ -13167,3 +13241,18 @@ if td_export["validation_errors"]:
     for td_error in td_export["validation_errors"][:20]:
         print("  -", td_error)
 print(transfer_instructions(td_export["run_dir"], td_ctx["run_id"]))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 10. Job summary
+# MAGIC
+# MAGIC Returns a small JSON summary (run id, status, results directory and counts) to the Job or notebook that ran this one, with `dbutils.notebook.exit`. It ends the notebook, so it is the last cell; everything above was already written. Set `config_json` to `{"jobs": {"exit_summary": false}}` to skip it.
+
+# COMMAND ----------
+
+# DBTITLE 1,Job summary
+td_exit_value, td_exit_message = job_exit_value(td_ctx, td_profile, td_export, dbutils)
+print(td_exit_message)
+if td_exit_value is not None:
+    dbutils.notebook.exit(td_exit_value)

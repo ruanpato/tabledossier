@@ -168,6 +168,14 @@
         }
       }
     },
+    "jobs": {
+      "description": "Integration with Databricks Jobs and notebook workflows. See docs/databricks-jobs.md.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exit_summary": {"type": "boolean", "description": "At the end of the run, return a small JSON job summary with dbutils.notebook.exit when it exists (tabledossier schema job_summary)."}
+      }
+    },
     "table_options": {
       "description": "Per-table options keyed by table identifier.",
       "type": "object",

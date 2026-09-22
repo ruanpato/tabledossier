@@ -5,7 +5,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Job summary: the last cell of the notebook returns a small JSON document (run id, status, analysis level, results
+  directory, profile validity and counts of tables by status, configured checks, relationships by validation status
+  and hypotheses) with `dbutils.notebook.exit`, only when it exists. Configurable with the new `jobs.exit_summary`
+  option (on by default); format `tabledossier schema job_summary` (`summary_version` 1.0). The local harness records
+  `dbutils.notebook.exit`. Decision record 0006.
+- `docs/databricks-jobs.md`: passing `tables_json`, `analysis_level`, `output_dir` and `config_json` as Job
+  parameters, reading the summary, and an example job definition (not validated).
+
 ### Changed
+
+- Messages about missing `tables_json` or `output_dir` mention Job parameters; the notebook texts mention the deep
+  part II checks and the job summary.
 
 - Declared key constraints are assembled from `information_schema` rows by a pure function of the embedded runtime
   (`relationships.key_constraints_from_rows`); the Spark adapter only runs the parameterized queries. Constraints are

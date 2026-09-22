@@ -2,15 +2,15 @@
   "kind": "tabledossier.generation_manifest",
   "manifest_version": "1.0",
   "tool_version": "0.3.0",
-  "generation_id": "sha256:48428b856f112aa66e10e863a38d1e5aeb975ab18caea9999bd9e525e1353017",
+  "generation_id": "sha256:22b4918fe230d30f0c49c4894f0da03eb4624e4eeb6576ffd82d6f21a80e1e7a",
   "contains_results": false,
   "notebook": {
     "file_name": "profile_databricks.py",
     "format": "databricks_source_python",
-    "sha256": "sha256:73deaa9e63210dcef1d2d39087abfc4a994334d4f839d833de3f6450e5a17806",
-    "cells": 41
+    "sha256": "sha256:95684a463d37045d71d70e41f8dab8fea5b859582fe05dd7479acdd10fa6681e",
+    "cells": 43
   },
-  "config_fingerprint": "sha256:f332a1308309115a9db23b30a578d0c2fbd8581cc38d91aefa6d79ea3f19f9fe",
+  "config_fingerprint": "sha256:d06c5bef0b6b1a77dbc2966006c5bd58b3bf48ba48c8688db7e64e1a38cd40b9",
   "embedded_modules": [
     {
       "module": "tabledossier.widgets",
@@ -45,7 +45,7 @@
     {
       "module": "tabledossier.config",
       "source_path": "src/tabledossier/config.py",
-      "sha256": "sha256:75448e0ce0a5f3d51b79efeb7ebeed694da6b5aa63485b975fd074edfb5a55ef"
+      "sha256": "sha256:02d8b7272b59bdbc1972806d5fe135a8a7bfba368a82d23764eb6a05df78dd2f"
     },
     {
       "module": "tabledossier.metrics",
@@ -105,7 +105,7 @@
     {
       "module": "tabledossier.package",
       "source_path": "src/tabledossier/package.py",
-      "sha256": "sha256:b06849312bb7b1d7176c4399eac9cc30c035afaee111c9cf488434e85391e4df"
+      "sha256": "sha256:e48bdbffc517ac1f7b374a0764c04b7ff4cb784948a745b7c3b32732a05ffa03"
     },
     {
       "module": "tabledossier.assemble",
@@ -120,13 +120,13 @@
     {
       "module": "tabledossier.runtime.databricks",
       "source_path": "src/tabledossier/runtime/databricks.py",
-      "sha256": "sha256:75794e21f2aaec6b18e41e019b5ca03e7eeb8bd7beae90bf8ad3633f242b5c97"
+      "sha256": "sha256:a0f95d5cc14ea7013a3456be8d2145ce5c3c3ca27c0228f66df5240e7d9d5a85"
     }
   ],
   "embedded_schemas": [
     {
       "name": "config",
-      "sha256": "sha256:d90470488296d9767f7540c63dcda0749af4307e69153d744e66bc7e31bc545f"
+      "sha256": "sha256:9978436575fe2068f793654eb735f9daf94683fa45c928a45e20a055bdc23543"
     },
     {
       "name": "profile",

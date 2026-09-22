@@ -32,10 +32,10 @@
 | `integrity` | Deep level, part II: type compatibility, referential validation records, relationship hypothesis planning and records | yes | stdlib |
 | `contract` | Version checks and profile invariants | yes | stdlib |
 | `render` | Markdown and Mermaid documents | yes | stdlib |
-| `package` | Result package, manifests, no-overwrite writing | yes | stdlib |
+| `package` | Result package, manifests, job summary, no-overwrite writing | yes | stdlib |
 | `assemble` | Engine-neutral assembly of metrics, tables and the profile | yes | stdlib |
 | `runtime.spark` | Spark adapter: metadata, snapshot, sample, aggregate passes, deep expressions, the element explode pass and the uniqueness passes | yes | stdlib + PySpark |
-| `runtime.databricks` | Run orchestration: parameters, destination probe, batch, export | yes | stdlib + PySpark (via `runtime.spark`) |
+| `runtime.databricks` | Run orchestration: parameters, destination probe, batch, export, job summary | yes | stdlib + PySpark (via `runtime.spark`) |
 | `resources`, `validation`, `notebook`, `cli` | Packaged schemas, formal validation (`jsonschema`), notebook composition, CLI | no | stdlib + jsonschema |
 
 Importing `tabledossier`, validating, generating and rendering never import PySpark (a test runs this in a
@@ -56,6 +56,7 @@ adapter next to `runtime/spark.py` that compiles the same planned specs.
 [md] 5. Execution             [code] execute_run(...)        (tables sequentially, failures isolated)
 [md] 6. Summary  7. Data dictionary  8. Quality and limitations
 [md] 9. Export                [code] export_run(...) + transfer instructions
+[md] 10. Job summary          [code] job_exit_value(...) + dbutils.notebook.exit(...)   (last cell; jobs.exit_summary)
 ```
 
 Each runtime cell is the module source copied verbatim, headed by its source path, SHA-256 and license, with
@@ -73,8 +74,8 @@ hostile value cannot create cells or code (tested). Generation is deterministic:
 identical bytes across Python 3.10–3.14 (verified).
 
 Because the notebook is a valid Python module, integration tests execute the generated file itself with a local
-SparkSession and a minimal `dbutils.widgets` stand-in (`examples/demo/run_notebook_locally.py`). Only widgets are
-simulated; every Spark call is real. This is not a substitute for validation on Databricks.
+SparkSession and a minimal `dbutils` stand-in (`examples/demo/run_notebook_locally.py`) that implements
+`dbutils.widgets` and records `dbutils.notebook.exit`. Only these utilities are simulated; every Spark call is real. This is not a substitute for validation on Databricks.
 
 ## Execution per table (standard level)
 
@@ -147,3 +148,4 @@ test process (`SparkSession.builder.remote("local[2]")`); CI runs it for Spark 3
 - [0003 — Limits of inference](decisions/0003-inference-limits.md)
 - [0004 — Deep level: budgeted operations over the shared passes](decisions/0004-deep-level.md)
 - [0005 — Deep level, part II: exact uniqueness, referential validation and hypotheses](decisions/0005-deep-level-part-ii.md)
+- [0006 — A small job summary returned with `dbutils.notebook.exit`](decisions/0006-job-summary.md)
