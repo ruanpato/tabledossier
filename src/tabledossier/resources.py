@@ -10,6 +10,8 @@ from typing import Any
 SCHEMA_FILES = {
     "config": "config.schema.json",
     "profile": "profile.schema.json",
+    # Frozen schema of profile contract 1.0 (TableDossier 0.1.x), still accepted by readers.
+    "profile-1.0": "profile-1.0.schema.json",
     "annotations": "annotations.schema.json",
     "suggested_rules": "suggested_rules.schema.json",
     "manifest": "manifest.schema.json",

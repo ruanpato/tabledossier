@@ -7,7 +7,8 @@ profile production data. It needs PySpark and a Java runtime.
 The generated ``.py`` notebook is valid Python as a whole (markdown cells are
 comments), so it is executed as one module with two injected globals:
 
-* ``spark``   - a local SparkSession;
+* ``spark``   - a local SparkSession (classic, or a Spark Connect client of a
+  local Connect server started in the same process);
 * ``dbutils`` - a minimal stand-in that implements only ``dbutils.widgets``.
 
 Only widget handling is simulated: every Spark call in the notebook is real.
@@ -80,17 +81,45 @@ def delta_available() -> bool:
     return True
 
 
+def connect_available() -> bool:
+    """Return True when the Spark Connect client dependencies are importable."""
+    try:
+        from pyspark.sql.connect.utils import check_dependencies
+
+        check_dependencies("pyspark.sql.connect.session")
+    except Exception:  # noqa: BLE001 - any missing dependency means "not available"
+        return False
+    return True
+
+
+def _connect_packages() -> list[str]:
+    """Maven coordinates of the Spark Connect server when PySpark does not bundle it (3.x)."""
+    import pyspark
+
+    jars = Path(pyspark.__file__).resolve().parent / "jars"
+    if any(jar.name.startswith("spark-connect_") for jar in jars.glob("*.jar")):
+        return []
+    return [f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}"]
+
+
 def local_spark(
     warehouse: str,
     app_name: str = "tabledossier-local",
     delta: bool = False,
     delta_by_default: bool = False,
+    connect: bool = False,
 ) -> Any:
     """Start a small local SparkSession with deterministic settings (UTC).
 
     With ``delta=True`` the session is configured with ``delta-spark`` (its JARs
     are resolved from Maven Central on first use). ``delta_by_default`` makes
     ``CREATE TABLE`` without ``USING`` create Delta tables, as on Databricks.
+
+    With ``connect=True`` a local Spark Connect server is started in this
+    process (``SparkSession.builder.remote("local[2]")``) and the returned
+    session is a Spark Connect client, as in Databricks shared and serverless
+    compute. PySpark 3.5 does not bundle the server, so its JAR is resolved
+    from Maven Central on first use.
     """
     import sys
 
@@ -98,9 +127,12 @@ def local_spark(
 
     os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
     os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
+    base = SparkSession.builder.remote("local[2]") if connect else SparkSession.builder
+    if not connect:
+        base = base.master("local[2]")
+    packages = _connect_packages() if connect else []
     builder = (
-        SparkSession.builder.master("local[2]")
-        .appName(app_name)
+        base.appName(app_name)
         .config("spark.ui.enabled", "false")
         .config("spark.sql.shuffle.partitions", "2")
         .config("spark.sql.session.timeZone", "UTC")
@@ -119,8 +151,26 @@ def local_spark(
         )
         if delta_by_default:
             builder = builder.config("spark.sql.sources.default", "delta")
-        builder = configure_spark_with_delta_pip(builder)
-    return builder.getOrCreate()
+        builder = configure_spark_with_delta_pip(builder, extra_packages=packages)
+    elif packages:
+        builder = builder.config("spark.jars.packages", ",".join(packages))
+    session = builder.getOrCreate()
+    quiet_logs(session)
+    return session
+
+
+def quiet_logs(session: Any) -> None:
+    """Reduce JVM logging to errors (also for a local Spark Connect server)."""
+    from pyspark import SparkContext
+
+    context = SparkContext._active_spark_context  # the local JVM, classic or Connect server
+    if context is not None:
+        context.setLogLevel("ERROR")
+
+
+def is_connect_session(session: Any) -> bool:
+    """Return True for a Spark Connect client session."""
+    return type(session).__module__.startswith("pyspark.sql.connect")
 
 
 def run_notebook(path: str | Path, spark: Any, widget_values: dict[str, str]) -> dict[str, Any]:

@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tabledossier:schema:profile:1.0",
+  "$id": "urn:tabledossier:schema:profile:1.1",
   "title": "TableDossier profile",
-  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. See docs/contract.md.",
+  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.1 only adds to 1.0 (deep level). See docs/contract.md.",
   "type": "object",
   "required": ["kind", "schema_version", "tool", "run", "value_exposure", "tables", "relationships", "summary"],
   "additionalProperties": false,
   "properties": {
     "kind": {"const": "tabledossier.profile"},
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "1.1"},
     "tool": {
       "type": "object",
       "required": ["name", "version"],
@@ -40,7 +40,7 @@
       "properties": {
         "run_id": {"type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"},
         "status": {"enum": ["succeeded", "partial", "failed"]},
-        "analysis_level": {"enum": ["metadata", "standard"]},
+        "analysis_level": {"enum": ["metadata", "standard", "deep"]},
         "started_at": {"$ref": "#/$defs/utcTimestamp"},
         "finished_at": {"$ref": "#/$defs/utcTimestamp"},
         "duration_ms": {"type": "integer", "minimum": 0},
@@ -164,7 +164,8 @@
         },
         "operations": {"$ref": "#/$defs/operations"},
         "timings_ms": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
-        "notes": {"$ref": "#/$defs/stringList"}
+        "notes": {"$ref": "#/$defs/stringList"},
+        "deep": {"description": "1.1: what the deep level covered and what its budgets limited (null at other levels).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/deepCoverage"}]}
       }
     },
     "source": {
@@ -377,7 +378,9 @@
         },
         "json_profile": {"type": ["object", "null"]},
         "concentration": {"type": ["object", "null"]},
-        "examples": {"type": ["object", "null"]}
+        "examples": {"type": ["object", "null"]},
+        "element_context": {"description": "1.1: set for profiled array elements and map entries; their denominators are elements or entries.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/elementContext"}]},
+        "json_paths": {"description": "1.1: JSON path catalogue of a string field (deep level).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/jsonPaths"}]}
       }
     },
     "constraint": {
@@ -484,7 +487,7 @@
             "additionalProperties": false,
             "properties": {
               "operation_id": {"type": "string"},
-              "kind": {"enum": ["catalog_metadata", "table_detail", "table_history", "information_schema", "sample_collect", "aggregate_pass"]},
+              "kind": {"enum": ["catalog_metadata", "table_detail", "table_history", "information_schema", "sample_collect", "aggregate_pass", "deep_aggregate_pass", "element_explode_pass"]},
               "description": {"type": "string"},
               "reads_user_data": {"type": "boolean"},
               "details": {"type": "object"}
@@ -509,6 +512,225 @@
         "physical_scans": {"oneOf": [{"const": "unknown"}, {"type": "integer", "minimum": 0}]},
         "bytes_read": {"oneOf": [{"const": "unknown"}, {"type": "integer", "minimum": 0}]},
         "monetary_cost": {"const": "unknown"}
+      }
+    },
+    "elementContext": {
+      "type": "object",
+      "required": ["collection_field_id", "collection_display_path", "collection_kind", "segment", "inner", "unit"],
+      "additionalProperties": false,
+      "properties": {
+        "collection_field_id": {"type": "string", "pattern": "^f_[0-9a-f]{12}$"},
+        "collection_display_path": {"type": "string"},
+        "collection_kind": {"enum": ["array", "map"]},
+        "segment": {"enum": ["array_element", "map_key", "map_value"]},
+        "inner": {"$ref": "#/$defs/stringList"},
+        "unit": {"enum": ["elements", "entries"]}
+      }
+    },
+    "jsonSegment": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["key", "items", "any_key"]},
+        "name": {"type": "string"}
+      },
+      "if": {"properties": {"kind": {"const": "key"}}},
+      "then": {"required": ["name"]},
+      "else": {"not": {"required": ["name"]}}
+    },
+    "jsonPath": {
+      "type": "object",
+      "required": ["path", "segments", "depth", "present_in", "presence_ratio", "occurrences", "types", "heterogeneous", "dominant_type", "map_like", "full_scope"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/jsonSegment"}, "minItems": 1},
+        "depth": {"type": "integer", "minimum": 1},
+        "present_in": {"type": "integer", "minimum": 0},
+        "presence_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "occurrences": {"type": "integer", "minimum": 0},
+        "types": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "heterogeneous": {"type": "boolean"},
+        "dominant_type": {"enum": ["object", "array", "string", "number", "boolean", null]},
+        "map_like": {"type": "boolean"},
+        "full_scope": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["status", "reason", "metrics"],
+              "additionalProperties": false,
+              "properties": {
+                "status": {"enum": ["measured", "incomplete", "not_computed"]},
+                "reason": {"$ref": "#/$defs/nullableString"},
+                "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "jsonPaths": {
+      "type": "object",
+      "required": ["scope", "source", "eligible_observations", "excluded", "counts", "documents", "max_depth", "depth_truncated", "paths_observed", "paths_listed", "paths_omitted", "tracking_truncated", "map_like_paths", "heterogeneous_paths", "paths", "paths_omitted_reason", "full_scope", "method", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "scope": {"const": "sample"},
+        "source": {"const": "sample"},
+        "eligible_observations": {"type": "integer", "minimum": 0},
+        "excluded": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "documents": {"type": "integer", "minimum": 0},
+        "max_depth": {"type": "integer", "minimum": 1},
+        "depth_truncated": {"type": "boolean"},
+        "paths_observed": {"type": "integer", "minimum": 0},
+        "paths_listed": {"type": "integer", "minimum": 0},
+        "paths_omitted": {"type": "integer", "minimum": 0},
+        "tracking_truncated": {"type": "boolean"},
+        "map_like_paths": {"type": "integer", "minimum": 0},
+        "heterogeneous_paths": {"type": "integer", "minimum": 0},
+        "paths": {"oneOf": [{"type": "null"}, {"type": "array", "items": {"$ref": "#/$defs/jsonPath"}}]},
+        "paths_omitted_reason": {"$ref": "#/$defs/nullableString"},
+        "full_scope": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["method", "status", "reason", "documents", "limitations"],
+              "additionalProperties": false,
+              "properties": {
+                "method": {"enum": ["variant", "get_json_object", null]},
+                "status": {"enum": ["measured", "not_computed", "unsupported"]},
+                "reason": {"$ref": "#/$defs/nullableString"},
+                "documents": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/metric"}]},
+                "method_description": {"type": "string"},
+                "limitations": {"$ref": "#/$defs/stringList"}
+              }
+            }
+          ]
+        },
+        "method": {"type": "string"},
+        "limitations": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "deepCoverage": {
+      "type": "object",
+      "required": ["targets", "requested_targets", "not_eligible", "collections", "json_fields", "budget", "extra_passes", "expressions", "element_distinct", "limited", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "targets": {"enum": ["all_within_budget", "explicit"]},
+        "requested_targets": {"type": ["array", "null"], "items": {"type": "string"}},
+        "not_eligible": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["display_path", "reason"],
+            "additionalProperties": false,
+            "properties": {"display_path": {"type": "string"}, "reason": {"type": "string"}}
+          }
+        },
+        "collections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["field_id", "display_path", "kind", "element_fields_profiled", "element_fields_omitted"],
+            "additionalProperties": false,
+            "properties": {
+              "field_id": {"type": "string", "pattern": "^f_[0-9a-f]{12}$"},
+              "display_path": {"type": "string"},
+              "kind": {"enum": ["array", "map"]},
+              "element_fields_profiled": {"type": "integer", "minimum": 0},
+              "element_fields_omitted": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "json_fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["field_id", "display_path", "status", "reason", "paths_listed", "paths_validated", "full_scope_method"],
+            "additionalProperties": false,
+            "properties": {
+              "field_id": {"type": "string", "pattern": "^f_[0-9a-f]{12}$"},
+              "display_path": {"type": "string"},
+              "status": {"enum": ["catalogued", "not_catalogued"]},
+              "reason": {"$ref": "#/$defs/nullableString"},
+              "paths_listed": {"type": "integer", "minimum": 0},
+              "paths_validated": {"type": "integer", "minimum": 0},
+              "full_scope_method": {"enum": ["variant", "get_json_object", null]}
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "required": ["max_extra_passes", "max_explode_rows", "max_elements", "max_json_paths", "max_json_depth", "max_json_object_keys"],
+          "additionalProperties": false,
+          "properties": {
+            "max_extra_passes": {"type": "integer", "minimum": 0},
+            "max_explode_rows": {"type": "integer", "minimum": 1},
+            "max_elements": {"type": "integer", "minimum": 1},
+            "max_json_paths": {"type": "integer", "minimum": 1},
+            "max_json_depth": {"type": "integer", "minimum": 1},
+            "max_json_object_keys": {"type": "integer", "minimum": 1}
+          }
+        },
+        "extra_passes": {
+          "type": "object",
+          "required": ["budget", "planned", "aggregate", "element_explode"],
+          "additionalProperties": false,
+          "properties": {
+            "budget": {"type": "integer", "minimum": 0},
+            "planned": {"type": "integer", "minimum": 0},
+            "aggregate": {"type": "integer", "minimum": 0},
+            "element_explode": {"type": "integer", "minimum": 0}
+          }
+        },
+        "expressions": {
+          "type": "object",
+          "required": ["planned", "omitted"],
+          "additionalProperties": false,
+          "properties": {
+            "planned": {"type": "integer", "minimum": 0},
+            "omitted": {"type": "integer", "minimum": 0}
+          }
+        },
+        "element_distinct": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["mode", "status", "reason", "fields", "max_rows", "max_elements", "rows_with_elements", "elements_examined", "stopped_reason"],
+              "additionalProperties": false,
+              "properties": {
+                "mode": {"enum": ["sample", "full_scope", "off"]},
+                "status": {"enum": ["measured", "not_computed", "error"]},
+                "reason": {"$ref": "#/$defs/nullableString"},
+                "fields": {"type": "integer", "minimum": 0},
+                "method": {"enum": ["prefix", "random", "none"]},
+                "max_rows": {"type": ["integer", "null"], "minimum": 1},
+                "max_elements": {"type": "integer", "minimum": 1},
+                "rows_with_elements": {"type": ["integer", "null"], "minimum": 0},
+                "elements_examined": {"type": ["integer", "null"], "minimum": 0},
+                "stopped_reason": {"enum": ["element_limit", "exhausted", "not_applicable", "error"]}
+              }
+            }
+          ]
+        },
+        "limited": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["item", "reason", "detail"],
+            "additionalProperties": false,
+            "properties": {
+              "item": {"type": "string"},
+              "reason": {"type": "string"},
+              "detail": {"type": "string"}
+            }
+          }
+        },
+        "notes": {"$ref": "#/$defs/stringList"}
       }
     },
     "relationshipEnd": {

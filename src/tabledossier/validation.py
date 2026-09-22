@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator
 from tabledossier.config import config_errors, normalize_config
 from tabledossier.contract import (
     PROFILE_KIND,
+    PROFILE_SCHEMA_VERSION,
     SUPPORTED_PROFILE_VERSIONS,
     validate_annotations,
     validate_profile,
@@ -48,15 +49,25 @@ def check_config(document: Any) -> tuple[dict[str, Any] | None, list[str]]:
     return (None, errors) if errors else (normalized, [])
 
 
+def profile_schema_name(version: str) -> str:
+    """Name of the packaged schema that defines profile contract ``version``."""
+    return "profile" if version == PROFILE_SCHEMA_VERSION else f"profile-{version}"
+
+
 def check_profile(document: Any) -> list[str]:
-    """Validate a profile: version, formal schema, stdlib schema subset and invariants."""
+    """Validate a profile: version, formal schema, stdlib schema subset and invariants.
+
+    Every supported contract version is validated against its own schema (1.0
+    profiles against the frozen 1.0 schema), then against the invariants.
+    """
     problem = version_error(document, PROFILE_KIND, "schema_version", SUPPORTED_PROFILE_VERSIONS)
     if problem:
         return [problem]
-    errors = formal_errors(document, "profile")
+    name = profile_schema_name(document["schema_version"])
+    errors = formal_errors(document, name)
     if errors:
         return errors
-    return validate_profile(document, load_schema("profile"))
+    return validate_profile(document, load_schema(name))
 
 
 def check_annotations(document: Any) -> list[str]:

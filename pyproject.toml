@@ -53,6 +53,9 @@ dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "types-jsonschema", "build>=1.2"]
 # Only needed to run the Spark integration tests (requires a local Java 17 runtime).
 # delta-spark resolves its JARs from Maven Central the first time a session starts.
 spark = ["pyspark>=3.5.2,<3.6", "delta-spark>=3.2,<3.4"]
+# Client libraries for the Spark Connect test mode (TD_TEST_SPARK_MODE=connect). PySpark 3.5's
+# Connect client still imports distutils, which Python 3.12 only provides through setuptools.
+connect = ["pyspark[connect]>=3.5.2,<3.6", "setuptools"]
 
 [tool.hatch.version]
 path = "src/tabledossier/_version.py"

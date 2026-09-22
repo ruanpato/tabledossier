@@ -10,7 +10,9 @@ Steps (all local, synthetic data only):
 2. create the synthetic demo tables in a local Spark session;
 3. execute the generated notebook file (only ``dbutils.widgets`` is simulated);
 4. copy the result package written by the notebook to ``output/run``;
-5. re-render the documents offline with ``annotations.json`` into ``output/annotated``.
+5. re-render the documents offline with ``annotations.json`` into ``output/annotated``;
+6. execute the same notebook again with ``analysis_level = deep`` (default deep
+   budgets) and copy that package to ``output/deep``.
 
 The resulting profile honestly records ``execution_context: spark`` (local
 Spark), not Databricks. When ``delta-spark`` is installed the demo tables are
@@ -60,23 +62,27 @@ def build() -> None:
             delta=use_delta,
             delta_by_default=use_delta,
         )
-        spark.sparkContext.setLogLevel("ERROR")
         try:
             load_demo_tables(spark)
-            namespace = run_notebook(
-                notebook,
-                spark,
-                {
-                    "tables_json": json.dumps(config["tables"]),
-                    "analysis_level": "standard",
-                    "output_dir": str(RESULTS_DIR),
-                    "config_json": "{}",
-                },
-            )
+            runs = {}
+            for level, target in (("standard", "run"), ("deep", "deep")):
+                namespace = run_notebook(
+                    notebook,
+                    spark,
+                    {
+                        "tables_json": json.dumps(config["tables"]),
+                        "analysis_level": level,
+                        "output_dir": str(RESULTS_DIR),
+                        "config_json": "{}",
+                    },
+                )
+                if namespace["td_export"]["validation_errors"]:
+                    raise SystemExit(f"{level} profile is invalid")
+                runs[target] = Path(namespace["td_export"]["run_dir"])
         finally:
             spark.stop()
-        run_dir = Path(namespace["td_export"]["run_dir"])
-        shutil.copytree(run_dir, OUTPUT / "run")
+        for target, run_dir in runs.items():
+            shutil.copytree(run_dir, OUTPUT / target)
     shutil.rmtree(RESULTS_DIR.parent, ignore_errors=True)
     code = cli(
         [

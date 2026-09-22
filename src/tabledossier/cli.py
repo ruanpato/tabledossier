@@ -22,7 +22,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from tabledossier._version import __version__
-from tabledossier.config import default_config
+from tabledossier.config import ANALYSIS_LEVELS, default_config
 from tabledossier.jsonutil import pretty_json
 from tabledossier.notebook import generate_notebook
 from tabledossier.package import DOCUMENT_FILES, OutputExistsError, build_documents, write_files
@@ -277,7 +277,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--output-dir", help="default output directory in the execution environment")
     init.add_argument(
         "--level",
-        choices=("metadata", "standard"),
+        choices=ANALYSIS_LEVELS,
         default="standard",
         help="default analysis level",
     )

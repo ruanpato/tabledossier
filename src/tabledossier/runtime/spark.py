@@ -23,13 +23,23 @@ from typing import Any
 from pyspark.sql import functions as F
 
 from tabledossier.assemble import (
+    element_field_metrics,
     field_metrics,
     field_profile,
     finalize_table,
     new_table,
     policy_field_ids,
 )
-from tabledossier.config import table_options_for
+from tabledossier.config import ROW_READING_LEVELS, table_options_for
+from tabledossier.deep import (
+    JSON_TYPE_PATTERNS,
+    attach_json_validation,
+    json_path_catalog,
+    plan_deep_elements,
+    plan_element_distinct,
+    plan_element_specs,
+    plan_json_validation,
+)
 from tabledossier.errors import error_record, sanitize_message
 from tabledossier.metrics import measured, not_measured
 from tabledossier.paths import (
@@ -63,6 +73,13 @@ TIMESTAMP_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX"
 TIMESTAMP_NTZ_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
 _SP_STATS = re.compile(r"(\d+)\s+bytes(?:,\s*(\d+)\s+rows)?")
 _SP_UNITY_EXCLUDED = ("spark_catalog", "hive_metastore")
+_SP_VARIANT_FUNCTIONS = (
+    "try_parse_json",
+    "try_variant_get",
+    "is_variant_null",
+    "schema_of_variant",
+)
+_SP_INF = float("inf")
 _SP_CAST_TYPES = {
     "string": "string",
     "integer": "bigint",
@@ -151,7 +168,30 @@ def detect_capabilities(spark: Any) -> dict[str, dict[str, Any]]:
         "available": hasattr(F, "filter"),
         "detail": "pyspark.sql.functions.filter used for null elements inside arrays and maps",
     }
+    found: dict[str, bool | None] = {}
+    for name in (*_SP_VARIANT_FUNCTIONS, "get_json_object"):
+        try:
+            found[name] = bool(spark.catalog.functionExists(name))
+        except Exception:  # noqa: BLE001
+            found[name] = None
+    capabilities["variant_functions"] = {
+        "available": has_call and all(found[name] for name in _SP_VARIANT_FUNCTIONS),
+        "detail": "; ".join(
+            f"functionExists('{name}') = {_sp_flag(found[name])}" for name in _SP_VARIANT_FUNCTIONS
+        )
+        + "; used by the deep level for full-scope JSON path presence and type checks",
+    }
+    capabilities["get_json_object"] = {
+        "available": bool(found["get_json_object"]) and hasattr(F, "get_json_object"),
+        "detail": f"functionExists('get_json_object') = {_sp_flag(found['get_json_object'])}; "
+        "deep-level fallback for full-scope JSON path presence (cannot tell a JSON null from an "
+        "absent path, nor types)",
+    }
     return capabilities
+
+
+def _sp_flag(value: bool | None) -> str:
+    return "unknown" if value is None else str(value).lower()
 
 
 # --------------------------------------------------------------------------- types
@@ -318,6 +358,10 @@ def compile_spec(
     if op == "count_all":
         return F.count(F.lit(1))
     assert node is not None
+    if op.startswith("el_"):
+        return compile_element_spec(spec, node, ctx)
+    if op.startswith("json_"):
+        return compile_json_spec(spec, node)
     column = column_for(node["path"])
     kind = node["type"]["kind"]
     present = _sp_finite(column) if kind == "float" else column.isNotNull()
@@ -407,6 +451,216 @@ def compile_spec(
     raise ValueError(f"unknown aggregate op: {op}")
 
 
+# --------------------------------------------------------------------------- deep expressions
+
+
+def _sp_inner(value: Any, names: Sequence[str]) -> Any:
+    for name in names:
+        value = value.getField(name)
+    return value
+
+
+def _sp_elements(params: Mapping[str, Any], nodes_by_id: Mapping[str, Any]) -> tuple[Any, Any]:
+    """Return ``(collection column, per-row array of its elements, keys or values)``."""
+    collection = column_for(nodes_by_id[params["collection_field_id"]]["path"])
+    if params["segment"] == "map_key":
+        return collection, F.map_keys(collection)
+    if params["segment"] == "map_value":
+        return collection, F.map_values(collection)
+    return collection, collection
+
+
+def _sp_leaf_values(elements: Any, inner: Sequence[str]) -> Any:
+    names = list(inner)
+    return F.transform(elements, lambda item: _sp_inner(item, names)) if names else elements
+
+
+def _sp_finite_value(value: Any) -> Any:
+    return (
+        value.isNotNull() & ~F.isnan(value) & (value != F.lit(_SP_INF)) & (value != F.lit(-_SP_INF))
+    )
+
+
+def compile_element_spec(
+    spec: Mapping[str, Any], node: Mapping[str, Any], ctx: Mapping[str, Any]
+) -> Any:
+    """Compile an element metric: per-row higher-order functions aggregated over rows.
+
+    No ``explode``: every expression reads each row's collection once, inside
+    the shared aggregation pass, and is exact over the analysed scope.
+    """
+    op = spec["op"]
+    params = spec["params"]
+    kind = node["type"]["kind"]
+    collection, elements = _sp_elements(params, ctx["nodes_by_id"])
+    inner = list(params["inner"])
+    values = _sp_leaf_values(elements, inner)
+
+    def present(value: Any) -> Any:
+        return _sp_finite_value(value) if kind == "float" else value.isNotNull()
+
+    def count(predicate: Callable[[Any], Any]) -> Any:
+        return F.sum(F.when(collection.isNotNull(), F.size(F.filter(values, predicate))))
+
+    if op == "el_count_null":
+        return count(lambda value: value.isNull())
+    if op == "el_count_null_parent_present":
+        parent = list(params["parent_inner"])
+        return F.sum(
+            F.when(
+                collection.isNotNull(),
+                F.size(
+                    F.filter(
+                        elements,
+                        lambda item: (
+                            _sp_inner(item, parent).isNotNull() & _sp_inner(item, inner).isNull()
+                        ),
+                    )
+                ),
+            )
+        )
+    if op in ("el_min", "el_max"):
+        kept = F.filter(values, present) if kind == "float" else values
+        agg = F.min(F.array_min(kept)) if op == "el_min" else F.max(F.array_max(kept))
+        if kind == "timestamp":
+            return F.date_format(agg, TIMESTAMP_PATTERN)
+        if kind == "timestamp_ntz":
+            return F.date_format(agg, TIMESTAMP_NTZ_PATTERN)
+        return agg
+    if op == "el_count_zero":
+        return count(lambda value: present(value) & (value == F.lit(0)))
+    if op == "el_count_negative":
+        return count(lambda value: present(value) & (value < F.lit(0)))
+    if op == "el_count_positive":
+        return count(lambda value: present(value) & (value > F.lit(0)))
+    if op == "el_count_nan":
+        return count(lambda value: F.isnan(value))
+    if op == "el_count_pos_inf":
+        return count(lambda value: value == F.lit(_SP_INF))
+    if op == "el_count_neg_inf":
+        return count(lambda value: value == F.lit(-_SP_INF))
+    if op == "el_count_finite":
+        return count(_sp_finite_value)
+    if op == "el_count_empty":
+        return count(lambda value: value == F.lit(""))
+    if op == "el_count_whitespace_only":
+        return count(lambda value: (value != F.lit("")) & value.rlike("^\\s+$"))
+    if op in ("el_min_length", "el_max_length"):
+        lengths = F.transform(values, lambda value: F.length(value))
+        if op == "el_min_length":
+            return F.min(F.array_min(lengths))
+        return F.max(F.array_max(lengths))
+    if op == "el_count_true":
+        return count(lambda value: value == F.lit(True))
+    if op == "el_count_false":
+        return count(lambda value: value == F.lit(False))
+    if op == "el_count_after_reference":
+        reference = ctx["reference_date"] if kind == "date" else ctx["reference_timestamp"]
+        return count(lambda value: value > reference)
+    raise ValueError(f"unknown element op: {op}")
+
+
+def compile_json_spec(spec: Mapping[str, Any], node: Mapping[str, Any]) -> Any:
+    """Compile a full-scope JSON path check (the path is a literal argument, never SQL)."""
+    op = spec["op"]
+    params = spec["params"]
+    column = column_for(node["path"])
+    if params["method"] == "variant":
+        parsed = F.call_function("try_parse_json", column)
+        if op == "json_count_documents":
+            root = F.call_function("schema_of_variant", parsed)
+            return F.count(F.when(root.rlike("^(OBJECT|ARRAY)"), 1))
+        value = F.call_function("try_variant_get", parsed, F.lit(params["path"]), F.lit("variant"))
+        if op == "json_path_present":
+            return F.count(F.when(value.isNotNull(), 1))
+        if op == "json_path_null":
+            return F.count(F.when(F.call_function("is_variant_null", value), 1))
+        if op == "json_path_type_match":
+            pattern = JSON_TYPE_PATTERNS[params["expected_type"]]
+            return F.count(F.when(F.call_function("schema_of_variant", value).rlike(pattern), 1))
+    elif params["method"] == "get_json_object":
+        if op == "json_count_documents":
+            root = F.ltrim(F.get_json_object(column, "$"))
+            return F.count(F.when(F.substring(root, 1, 1).isin("{", "["), 1))
+        if op == "json_path_non_null":
+            return F.count(F.when(F.get_json_object(column, params["path"]).isNotNull(), 1))
+    raise ValueError(f"unknown JSON op or method: {op} ({params.get('method')})")
+
+
+def _sp_data_type(schema: Any, path: Sequence[Mapping[str, Any]]) -> Any:
+    """Return the Spark DataType at a typed path of a DataFrame schema."""
+    data_type = schema
+    for segment in path:
+        kind = segment["kind"]
+        if kind == "field":
+            data_type = data_type[segment["name"]].dataType
+        elif kind == "array_element":
+            data_type = data_type.elementType
+        elif kind == "map_key":
+            data_type = data_type.keyType
+        else:
+            data_type = data_type.valueType
+    return data_type
+
+
+def _sp_slot_builder(index: int, types: Sequence[Any]) -> Callable[[Any], Any]:
+    """Wrap one element value in a struct with one typed slot per leaf (only its own is set)."""
+
+    def build(value: Any) -> Any:
+        slots = [
+            (value if slot == index else F.lit(None).cast(types[slot])).alias(f"s{slot}")
+            for slot in range(len(types))
+        ]
+        return F.struct(F.lit(index).alias("l"), *slots)
+
+    return build
+
+
+def run_element_distinct(
+    frame: Any, plan: Mapping[str, Any], nodes_by_id: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Run the single explode pass of the deep level and return raw counts.
+
+    All element fields are exploded together in one action: each row's
+    elements become structs tagged with their leaf, concatenated and exploded
+    once. In ``sample`` mode only a bounded prefix (or random) sample of rows is
+    read; in every mode at most ``max_elements`` exploded elements are
+    aggregated. Only counts come back to the driver, never values.
+    """
+    leaves = plan["leaves"]
+    schema = frame.schema
+    types = [_sp_data_type(schema, nodes_by_id[leaf["field_id"]]["path"]) for leaf in leaves]
+    arrays = []
+    for index, leaf in enumerate(leaves):
+        _, elements = _sp_elements(leaf, nodes_by_id)
+        values = _sp_leaf_values(elements, leaf["inner"])
+        empty = F.array_repeat(F.lit(None).cast(types[index]), 0)
+        arrays.append(F.transform(F.coalesce(values, empty), _sp_slot_builder(index, types)))
+    combined = arrays[0] if len(arrays) == 1 else F.concat(*arrays)
+    source = frame
+    if plan["mode"] == "sample":
+        if plan["sampling_method"] == "random":
+            source = source.sample(
+                withReplacement=False, fraction=float(plan["random_fraction"]), seed=plan["seed"]
+            )
+        source = source.limit(plan["max_rows"])
+    exploded = source.select(F.posexplode(combined).alias("pos", "e")).limit(plan["max_elements"])
+    element = F.col("e")
+    aggregates = [
+        F.count(F.lit(1)).alias("n"),
+        F.count(F.when(F.col("pos") == F.lit(0), 1)).alias("rows"),
+    ]
+    for index in range(len(leaves)):
+        slot = element.getField(f"s{index}")
+        aggregates += [
+            F.count(F.when(element.getField("l") == F.lit(index), 1)).alias(f"n{index}"),
+            F.count(slot).alias(f"nn{index}"),
+            F.countDistinct(slot).alias(f"d{index}"),
+        ]
+    row = exploded.agg(*aggregates).collect()[0]
+    return {key: (0 if value is None else int(value)) for key, value in row.asDict().items()}
+
+
 # --------------------------------------------------------------------------- metadata
 
 
@@ -494,7 +748,28 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
     if full is None or full[0].casefold() in _SP_UNITY_EXCLUDED:
         return [], "declared key constraints are read from Unity Catalog information_schema only"
     catalog, schema, table = full
-    info = quote_name(catalog) + ".information_schema"
+    return (
+        query_key_constraints(
+            spark, catalog, schema, table, lambda name: quote_name(name) + ".information_schema"
+        ),
+        None,
+    )
+
+
+def query_key_constraints(
+    spark: Any,
+    catalog: str,
+    schema: str,
+    table: str,
+    information_schema: Callable[[str], str],
+) -> list[dict[str, Any]]:
+    """Query key constraints of one table from ``information_schema``-shaped views.
+
+    ``information_schema`` maps a catalog name to the quoted prefix of its
+    ``information_schema`` (Unity Catalog: ``<catalog>.information_schema``).
+    Table and schema names are bound parameters, never interpolated.
+    """
+    info = information_schema(catalog)
     query = (
         "SELECT tc.constraint_name, tc.constraint_type, kcu.column_name, kcu.ordinal_position, "
         "kcu.position_in_unique_constraint, rc.unique_constraint_catalog, "
@@ -546,7 +821,7 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
             ref_catalog, ref_schema, ref_name = entry["ref"]
             ref_rows = spark.sql(
                 "SELECT table_catalog, table_schema, table_name, column_name, ordinal_position "
-                f"FROM {quote_name(ref_catalog)}.information_schema.key_column_usage "
+                f"FROM {information_schema(ref_catalog)}.key_column_usage "
                 "WHERE lower(constraint_schema) = lower(:schema_name) AND constraint_name = "
                 ":constraint_name "
                 "ORDER BY ordinal_position",
@@ -576,7 +851,7 @@ def read_unity_constraints(spark: Any, parts: list[str]) -> tuple[list[dict[str,
                 "source": "information_schema",
             }
         )
-    return constraints, None
+    return constraints
 
 
 # --------------------------------------------------------------------------- sample
@@ -907,18 +1182,29 @@ def profile_table(
             observed.append(_sp_observed("op_detail", "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
-            observed.append(
-                _sp_observed(
-                    "op_detail",
-                    "failed",
-                    start,
-                    detail=record["condition"] or record["error_class"],
+            cause = record["condition"] or record["error_class"]
+            provider = (extended.get("Provider") or "").strip().lower()
+            if provider and provider != "delta":
+                # Expected: engines without Delta (or Delta itself) may reject DESCRIBE DETAIL
+                # for other formats. Size and file count are then simply unavailable.
+                observed.append(
+                    _sp_observed(
+                        "op_detail",
+                        "skipped",
+                        start,
+                        detail=f"not available for this non-Delta source (provider {provider}; "
+                        f"{cause})",
+                    )
                 )
-            )
-            table["notes"].append(
-                "DESCRIBE DETAIL is not available for this source (not a Delta table or not "
-                "permitted)."
-            )
+                table["notes"].append(
+                    f"DESCRIBE DETAIL is not available for this non-Delta source (provider "
+                    f"{provider}); size and file count are unavailable."
+                )
+            else:
+                observed.append(_sp_observed("op_detail", "failed", start, detail=cause))
+                table["notes"].append(
+                    "DESCRIBE DETAIL failed for this source (not permitted or not supported)."
+                )
     table["source"] = _sp_source(extended, detail, now())
     is_delta = (detail or {}).get("format") == "delta" or (
         extended.get("Provider") or ""
@@ -926,7 +1212,7 @@ def profile_table(
 
     version = None
     version_timestamp = None
-    if level == "standard" and is_delta and config["consistency"]["pin_delta_version"]:
+    if level in ROW_READING_LEVELS and is_delta and config["consistency"]["pin_delta_version"]:
         planned.append(
             operation(
                 "op_history",
@@ -1091,6 +1377,17 @@ def profile_table(
             )
 
     profiled, omissions = select_profile_fields(tree, selected)
+    deep_plan = None
+    if level == "deep":
+        deep_plan = plan_deep_elements(tree, profiled, config, table_lookup_key(parts))
+        replaced = set(deep_plan["contexts"]) | {o["field_id"] for o in deep_plan["omissions"]}
+        omissions = [
+            item
+            for item in omissions
+            if not (item["reason"] == "inside_collection" and item["field_id"] in replaced)
+        ]
+        omissions.extend(deep_plan["omissions"])
+    element_contexts: dict[str, dict[str, Any]] = deep_plan["contexts"] if deep_plan else {}
     table["omissions"].extend(omissions)
     profiled_ids = {node["field_id"] for node in profiled}
     reasons = {item["field_id"]: item["reason"] for item in omissions if item["field_id"]}
@@ -1101,14 +1398,15 @@ def profile_table(
     nodes_by_id = {node["field_id"]: node for node in iter_nodes(tree["fields"])}
     wanted = set(selected) if selected is not None else None
     for node in iter_nodes(tree["fields"]):
+        fid = node["field_id"]
         reason: str | None = None
-        if node["field_id"] not in profiled_ids:
-            reason = _sp_omission_reason(
-                node["field_id"], node["path"][0]["name"], reasons, parents, wanted
-            )
-        table["field_profiles"].append(
-            field_profile(node, profiled=node["field_id"] in profiled_ids, omission_reason=reason)
-        )
+        is_profiled = fid in profiled_ids or fid in element_contexts
+        if not is_profiled:
+            reason = _sp_omission_reason(fid, node["path"][0]["name"], reasons, parents, wanted)
+        record = field_profile(node, profiled=is_profiled, omission_reason=reason)
+        if fid in element_contexts:
+            record["element_context"] = dict(element_contexts[fid])
+        table["field_profiles"].append(record)
     if level == "metadata":
         for field in table["field_profiles"]:
             field["profiled"] = False
@@ -1161,6 +1459,8 @@ def profile_table(
     table["sample"] = sample_record
     json_ids: set[str] = set()
     semantic_by_id: dict[str, dict[str, Any]] = {}
+    json_catalogs: dict[str, dict[str, Any]] = {}
+    redacted_ids = policy_field_ids(config, table_lookup_key(parts), "redact_columns")
     sample_start = time.perf_counter()
     if sample_plan["enabled"]:
         sample_record["notes"] = [
@@ -1206,7 +1506,6 @@ def profile_table(
                 else set()
             )
             json_keys = config["value_policy"]["json_key_names"] == "include"
-            redacted_ids = policy_field_ids(config, table_lookup_key(parts), "redact_columns")
             for node in sample_nodes:
                 data = sample["fields"][node["field_id"]]
                 fmt = infer_format(
@@ -1246,6 +1545,10 @@ def profile_table(
                         max_chars=config["value_policy"]["max_example_chars"],
                     )
                 semantic_by_id[node["field_id"]] = entry
+            if deep_plan is not None:
+                json_catalogs = _sp_json_catalogs(
+                    deep_plan, sample, json_ids, config, redacted_ids, sample_plan["method"]
+                )
             del sample
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "sample")
@@ -1261,11 +1564,19 @@ def profile_table(
             )
     timings["sample"] = _sp_ms(sample_start)
 
-    # 3. shared aggregation passes -----------------------------------------------
-    redacted = policy_field_ids(config, table_lookup_key(parts), "redact_columns")
+    # 3. shared aggregation passes (+ deep expressions) --------------------------
+    redacted = set(redacted_ids)
     if config["value_policy"]["aggregate_extremes"] == "redact":
-        redacted = set(profiled_ids)
+        redacted = set(profiled_ids) | set(element_contexts)
     caps = {name: bool(item.get("available")) for name, item in capabilities.items()}
+    deep_candidates: list[dict[str, Any]] = []
+    deep_static: list[dict[str, Any]] = []
+    json_method, json_unsupported = _sp_json_method(config, caps) if deep_plan else (None, None)
+    if deep_plan is not None:
+        deep_candidates, deep_static = plan_element_specs(
+            deep_plan["element_nodes"], element_contexts, scope=scope, redacted_field_ids=redacted
+        )
+        deep_candidates.extend(plan_json_validation(json_catalogs, json_method))
     agg_plan = plan_aggregates(
         profiled,
         config=config,
@@ -1273,25 +1584,74 @@ def profile_table(
         scope=scope,
         json_field_ids=json_ids,
         redacted_field_ids=redacted,
+        deep_candidates=deep_candidates,
+        max_extra_passes=config["deep"]["max_extra_passes"] if deep_plan else 0,
     )
     for omission in agg_plan["omissions"]:
         table["omissions"].append(omission)
     for index, aliases in enumerate(agg_plan["passes"]):
         specs = [spec for spec in agg_plan["specs"] if spec["alias"] in set(aliases)]
+        extra_pass = index >= agg_plan["standard_passes"]
+        details: dict[str, Any] = {
+            "expressions": sum(spec["cost"] for spec in specs),
+            "fields": len({spec["field_id"] for spec in specs if spec["field_id"]}),
+        }
+        if deep_plan is not None:
+            details["deep_expressions"] = sum(spec["cost"] for spec in specs if spec.get("group"))
         planned.append(
             operation(
                 f"op_aggregate_{index + 1}",
-                "aggregate_pass",
-                "one shared aggregation over the analysed scope (single agg call; not a guarantee "
-                "of a single physical scan)",
+                "deep_aggregate_pass" if extra_pass else "aggregate_pass",
+                (
+                    "extra aggregation for deep expressions that did not fit the standard passes "
+                    "(counts against deep.max_extra_passes; single agg call)"
+                    if extra_pass
+                    else "one shared aggregation over the analysed scope (single agg call; not a "
+                    "guarantee of a single physical scan)"
+                ),
                 reads_user_data=True,
-                expressions=sum(spec["cost"] for spec in specs),
-                fields=len({spec["field_id"] for spec in specs if spec["field_id"]}),
+                **details,
             )
         )
+    distinct_plan = None
+    if deep_plan is not None:
+        distinct_plan = plan_element_distinct(deep_plan["element_nodes"], element_contexts, config)
+        left = config["deep"]["max_extra_passes"] - agg_plan["extra_passes"]
+        if distinct_plan["enabled"] and left < 1:
+            distinct_plan["enabled"] = False
+            distinct_plan["reason"] = (
+                "no extra pass left: deep.max_extra_passes = "
+                f"{config['deep']['max_extra_passes']} used by {agg_plan['extra_passes']} "
+                "aggregation overflow pass(es)"
+            )
+            distinct_plan["budget_limited"] = True
+        if distinct_plan["enabled"]:
+            planned.append(
+                operation(
+                    "op_deep_elements",
+                    "element_explode_pass",
+                    (
+                        f"one explode of the element fields over a {config['sampling']['method']} "
+                        f"sample of at most {distinct_plan['max_rows']} rows, stopped at "
+                        f"{distinct_plan['max_elements']} elements (distinct counts only)"
+                        if distinct_plan["mode"] == "sample"
+                        else "one explode of the element fields over the full scope when its "
+                        f"measured size is at most {distinct_plan['max_elements']} elements "
+                        "(distinct counts only)"
+                    ),
+                    reads_user_data=True,
+                    mode=distinct_plan["mode"],
+                    max_rows=distinct_plan["max_rows"]
+                    if distinct_plan["mode"] == "sample"
+                    else None,
+                    max_elements=distinct_plan["max_elements"],
+                    fields=len(distinct_plan["leaves"]),
+                )
+            )
     ctx = {
         "reference_timestamp": F.lit(reference_time).cast("timestamp"),
         "reference_date": F.lit(reference_time[:10]).cast("date"),
+        "nodes_by_id": nodes_by_id,
     }
     aggregate_start = time.perf_counter()
     results, failed, agg_errors = run_aggregates(frame, agg_plan, nodes_by_id, ctx, observed)
@@ -1300,9 +1660,10 @@ def profile_table(
 
     specs_by_field: dict[str | None, list[dict[str, Any]]] = {}
     for spec in agg_plan["specs"]:
-        specs_by_field.setdefault(spec["field_id"], []).append(spec)
+        if spec.get("group") != "json_path":
+            specs_by_field.setdefault(spec["field_id"], []).append(spec)
     static_by_field: dict[str, list[dict[str, Any]]] = {}
-    for item in agg_plan["static_metrics"]:
+    for item in [*agg_plan["static_metrics"], *deep_static]:
         static_by_field.setdefault(item["field_id"], []).append(item)
     row_spec = specs_by_field[None][0]
     if row_spec["alias"] in failed or results.get(row_spec["alias"]) is None:
@@ -1334,11 +1695,42 @@ def profile_table(
         if spec["metric"] == "null_count" and spec["alias"] not in failed:
             value = results.get(spec["alias"])
             null_counts[spec["field_id"]] = int(value) if value is not None else None
+    distinct_metrics: dict[str, list[dict[str, Any]]] = {}
+    if distinct_plan is not None:
+        distinct_metrics = _sp_run_element_distinct(
+            frame,
+            distinct_plan,
+            nodes_by_id,
+            _sp_collection_totals(element_contexts, specs_by_field, results, failed),
+            scope=scope,
+            table=table,
+            timings=timings,
+        )
     for field in table["field_profiles"]:
         if not field["profiled"]:
             continue
         node = nodes_by_id[field["field_id"]]
         parent_id = node.get("parent_field_id")
+        context = element_contexts.get(field["field_id"])
+        if context is not None:
+            totals = _sp_collection_totals(
+                {field["field_id"]: context}, specs_by_field, results, failed
+            )
+            field["metrics"] = element_field_metrics(
+                node,
+                context,
+                specs_by_field.get(field["field_id"], []),
+                results,
+                failed,
+                scope=scope,
+                element_total=totals.get(context["collection_field_id"]),
+                parent_null_count=null_counts.get(parent_id)
+                if parent_id and parent_id in element_contexts
+                else None,
+                static=static_by_field.get(field["field_id"], []),
+                extra=distinct_metrics.get(field["field_id"], []),
+            )
+            continue
         field["metrics"] = field_metrics(
             node,
             specs_by_field.get(field["field_id"], []),
@@ -1368,10 +1760,414 @@ def profile_table(
                 ),
             }
         )
+    if deep_plan is not None:
+        _sp_finish_deep(
+            table,
+            deep_plan,
+            json_catalogs,
+            agg_plan,
+            distinct_plan,
+            results,
+            failed,
+            config=config,
+            json_method=json_method,
+            json_unsupported=json_unsupported,
+            scope=scope,
+        )
     timings["total"] = _sp_ms(total_start)
     finalize_table(table, config)
+    extra = (
+        f" (+{(table['deep'] or {}).get('extra_passes', {}).get('planned', 0)} deep extra pass(es))"
+        if deep_plan is not None
+        else ""
+    )
     log(
-        f"[tabledossier] {key}: {table['status']} — {len(profiled)} field(s) profiled in "
-        f"{len(agg_plan['passes'])} aggregation pass(es)"
+        f"[tabledossier] {key}: {table['status']} — {len(profiled) + len(element_contexts)} "
+        f"field(s) profiled in {len(agg_plan['passes'])} aggregation pass(es){extra}"
     )
     return table
+
+
+# --------------------------------------------------------------------------- deep helpers
+
+
+def _sp_json_method(
+    config: Mapping[str, Any], caps: Mapping[str, bool]
+) -> tuple[str | None, str | None]:
+    """Choose the full-scope JSON path method: ``(method, unsupported reason)``."""
+    if not config["deep"]["json_full_scope_validation"]:
+        return None, None
+    if caps.get("variant_functions"):
+        return "variant", None
+    if caps.get("get_json_object"):
+        return "get_json_object", None
+    return None, "neither variant functions nor get_json_object are available in this runtime"
+
+
+def _sp_json_catalogs(
+    deep_plan: Mapping[str, Any],
+    sample: Mapping[str, Any],
+    json_ids: set[str],
+    config: Mapping[str, Any],
+    redacted_ids: set[str],
+    sample_method: str,
+) -> dict[str, dict[str, Any]]:
+    """Build JSON path catalogues from the transient sample (values are not kept)."""
+    deep = config["deep"]
+    if deep_plan["json_nodes"] is None:
+        targets = [fid for fid in sample["fields"] if fid in json_ids] if deep["json_paths"] else []
+    else:
+        targets = [node["field_id"] for node in deep_plan["json_nodes"]]
+    catalogs = {}
+    policy_names = config["value_policy"]["json_key_names"] == "include"
+    for fid in targets:
+        data = sample["fields"].get(fid)
+        if data is None:
+            continue
+        include = policy_names and fid not in redacted_ids
+        catalogs[fid] = json_path_catalog(
+            data["values"],
+            sql_nulls=data["nulls"],
+            truncated=data["truncated"],
+            include_names=include,
+            names_omitted_reason=None
+            if include
+            else (
+                "value policy (json_key_names = redact)"
+                if not policy_names
+                else "value policy (redact_columns)"
+            ),
+            max_depth=deep["max_json_depth"],
+            max_paths=deep["max_json_paths"],
+            max_object_keys=deep["max_json_object_keys"],
+            sample_method=sample_method,
+        )
+    return catalogs
+
+
+def _sp_collection_totals(
+    contexts: Mapping[str, Mapping[str, Any]],
+    specs_by_field: Mapping[str | None, Sequence[Mapping[str, Any]]],
+    results: Mapping[str, Any],
+    failed: Mapping[str, str],
+) -> dict[str, int | None]:
+    """Measured element/entry totals of the collections behind element fields."""
+    totals: dict[str, int | None] = {}
+    for context in contexts.values():
+        fid = context["collection_field_id"]
+        if fid in totals:
+            continue
+        totals[fid] = None
+        for spec in specs_by_field.get(fid, []):
+            if (
+                spec["metric"] in ("total_element_count", "total_entry_count")
+                and spec["alias"] not in failed
+            ):
+                value = results.get(spec["alias"])
+                totals[fid] = 0 if value is None else int(value)
+    return totals
+
+
+def _sp_run_element_distinct(
+    frame: Any,
+    plan: dict[str, Any],
+    nodes_by_id: Mapping[str, Any],
+    totals: Mapping[str, int | None],
+    *,
+    scope: str,
+    table: dict[str, Any],
+    timings: dict[str, int],
+) -> dict[str, list[dict[str, Any]]]:
+    """Run (or explain) the element explode pass and return ``distinct_count`` metrics."""
+    observed = table["operations"]["observed"]
+    sample_mode = plan["mode"] == "sample"
+    metric_scope = "sample" if sample_mode else scope
+    source = "sample" if sample_mode else "aggregate"
+    out: dict[str, list[dict[str, Any]]] = {}
+    plan["result"] = None
+
+    def unmeasured(status: str, reason: str) -> None:
+        for leaf in plan["leaves"]:
+            out[leaf["field_id"]] = [
+                {
+                    "field_id": leaf["field_id"],
+                    "metric": not_measured(
+                        "distinct_count", status, reason, scope=metric_scope, source=source
+                    ),
+                }
+            ]
+
+    if not plan["enabled"]:
+        if plan["mode"] != "off" and plan["leaves"]:
+            unmeasured("not_computed", plan["reason"] or "not planned")
+        return {fid: [item["metric"] for item in items] for fid, items in out.items()}
+    start = time.perf_counter()
+    if not sample_mode:
+        wanted = {leaf["collection_field_id"] for leaf in plan["leaves"]}
+        sizes = [totals.get(fid) for fid in wanted]
+        if any(size is None for size in sizes) or sum(s or 0 for s in sizes) > plan["max_elements"]:
+            reason = (
+                "the measured elements in scope exceed deep.max_elements = "
+                f"{plan['max_elements']} (or were not measured)"
+            )
+            plan["skip_reason"] = reason
+            plan["budget_limited"] = True
+            observed.append(_sp_observed("op_deep_elements", "skipped", start, detail=reason))
+            unmeasured("not_computed", reason)
+            return {fid: [item["metric"] for item in items] for fid, items in out.items()}
+    try:
+        raw = run_element_distinct(frame, plan, nodes_by_id)
+    except Exception as exc:  # noqa: BLE001
+        record = error_record(exc, "aggregate")
+        table["errors"].append(record)
+        cause = record["condition"] or record["error_class"]
+        plan["error"] = cause
+        observed.append(_sp_observed("op_deep_elements", "failed", start, detail=cause))
+        unmeasured("error", "element distinct pass failed: " + cause)
+        timings["deep_elements"] = _sp_ms(start)
+        return {fid: [item["metric"] for item in items] for fid, items in out.items()}
+    observed.append(_sp_observed("op_deep_elements", "succeeded", start, rows=1))
+    timings["deep_elements"] = _sp_ms(start)
+    plan["result"] = raw
+    stopped = raw["n"] >= plan["max_elements"]
+    method = (
+        "count(DISTINCT) over the elements of one explode of a bounded "
+        f"{plan['sampling_method']} sample (at most {plan['max_rows']} rows, stopped at "
+        f"{plan['max_elements']} elements); exact for the elements examined only"
+        if sample_mode
+        else "count(DISTINCT) over every element in scope (one explode; measured size within "
+        "deep.max_elements)"
+    )
+    for index, leaf in enumerate(plan["leaves"]):
+        examined, non_null, distinct = raw[f"n{index}"], raw[f"nn{index}"], raw[f"d{index}"]
+        details = {
+            "elements_examined": examined,
+            "rows_with_elements": raw["rows"],
+            "max_rows": plan["max_rows"] if sample_mode else None,
+            "max_elements": plan["max_elements"],
+            "stopped_by_element_limit": stopped,
+        }
+        if non_null == 0:
+            metric = not_measured(
+                "distinct_count",
+                "insufficient_data",
+                f"no non-null {leaf['unit']} among the elements examined",
+                scope=metric_scope,
+                source=source,
+            )
+        else:
+            metric = measured(
+                "distinct_count",
+                distinct,
+                unit="values",
+                scope=metric_scope,
+                accuracy="exact",
+                source=source,
+                method=method,
+                denominator=non_null,
+                denominator_unit=leaf["unit"],
+                details=details,
+            )
+        out[leaf["field_id"]] = [{"field_id": leaf["field_id"], "metric": metric}]
+    return {fid: [item["metric"] for item in items] for fid, items in out.items()}
+
+
+def _sp_finish_deep(
+    table: dict[str, Any],
+    deep_plan: Mapping[str, Any],
+    catalogs: Mapping[str, dict[str, Any]],
+    agg_plan: Mapping[str, Any],
+    distinct_plan: Mapping[str, Any] | None,
+    results: Mapping[str, Any],
+    failed: Mapping[str, str],
+    *,
+    config: Mapping[str, Any],
+    json_method: str | None,
+    json_unsupported: str | None,
+    scope: str,
+) -> None:
+    """Attach JSON path catalogues and the deep coverage record to a table."""
+    deep = config["deep"]
+    fields = {field["field_id"]: field for field in table["field_profiles"]}
+    json_specs = [spec for spec in agg_plan["specs"] if spec.get("group") == "json_path"]
+    dropped = list(agg_plan["deep_dropped"])
+    limited: list[dict[str, str]] = []
+    json_fields = []
+    for fid, catalog in catalogs.items():
+        attach_json_validation(
+            catalog,
+            [spec for spec in json_specs if spec["field_id"] == fid],
+            results,
+            failed,
+            [spec for spec in dropped if spec["field_id"] == fid],
+            method=json_method,
+            unsupported_reason=json_unsupported,
+            scope=scope,
+        )
+        fields[fid]["json_paths"] = catalog
+        validated = sum(
+            1
+            for item in catalog.get("paths") or []
+            if (item.get("full_scope") or {}).get("status") == "measured"
+        )
+        json_fields.append(
+            {
+                "field_id": fid,
+                "display_path": fields[fid]["display_path"],
+                "status": "catalogued",
+                "reason": catalog["paths_omitted_reason"],
+                "paths_listed": catalog["paths_listed"],
+                "paths_validated": validated,
+                "full_scope_method": json_method if catalog.get("paths") else None,
+            }
+        )
+        if catalog["paths_observed"] > catalog["paths_listed"] and catalog.get("paths") is not None:
+            limited.append(
+                {
+                    "item": fields[fid]["display_path"],
+                    "reason": "json_path_budget",
+                    "detail": f"{catalog['paths_observed'] - catalog['paths_listed']} JSON path(s) "
+                    f"beyond deep.max_json_paths = {deep['max_json_paths']}",
+                }
+            )
+        if catalog["depth_truncated"]:
+            limited.append(
+                {
+                    "item": fields[fid]["display_path"],
+                    "reason": "json_depth_budget",
+                    "detail": f"nesting beyond deep.max_json_depth = {deep['max_json_depth']}",
+                }
+            )
+    if deep_plan["json_nodes"] is not None:
+        for node in deep_plan["json_nodes"]:
+            if node["field_id"] not in catalogs:
+                json_fields.append(
+                    {
+                        "field_id": node["field_id"],
+                        "display_path": node["display_path"],
+                        "status": "not_catalogued",
+                        "reason": "not in the transient sample (sampling disabled or failed, or "
+                        "beyond sampling.max_columns)",
+                        "paths_listed": 0,
+                        "paths_validated": 0,
+                        "full_scope_method": None,
+                    }
+                )
+    if json_unsupported and any(catalog.get("paths") for catalog in catalogs.values()):
+        table["unsupported"].append(
+            {"capability": "json_path_functions", "detail": json_unsupported}
+        )
+    for omission in agg_plan["omissions"]:
+        if omission["reason"] == "deep_budget":
+            limited.append(
+                {
+                    "item": omission["display_path"] or "table",
+                    "reason": "deep_budget",
+                    "detail": f"{', '.join(omission['metrics'])}: {omission['detail']}",
+                }
+            )
+    element_distinct = None
+    explode = 0
+    if distinct_plan is not None and (distinct_plan["leaves"] or distinct_plan["mode"] == "off"):
+        raw = distinct_plan.get("result")
+        explode = 1 if distinct_plan["enabled"] else 0
+        status = "measured" if raw else ("error" if distinct_plan.get("error") else "not_computed")
+        stopped = "not_applicable"
+        if raw:
+            stopped = "element_limit" if raw["n"] >= distinct_plan["max_elements"] else "exhausted"
+        elif distinct_plan.get("error"):
+            stopped = "error"
+        element_distinct = {
+            "mode": distinct_plan["mode"],
+            "status": status,
+            "reason": distinct_plan.get("skip_reason")
+            or distinct_plan.get("reason")
+            or (f"failed: {distinct_plan['error']}" if distinct_plan.get("error") else None),
+            "fields": len(distinct_plan["leaves"]),
+            "method": distinct_plan["sampling_method"]
+            if distinct_plan["mode"] == "sample"
+            else "none",
+            "max_rows": distinct_plan["max_rows"] if distinct_plan["mode"] == "sample" else None,
+            "max_elements": distinct_plan["max_elements"],
+            "rows_with_elements": raw["rows"] if raw else None,
+            "elements_examined": raw["n"] if raw else None,
+            "stopped_reason": stopped,
+        }
+        if distinct_plan.get("budget_limited"):
+            limited.append(
+                {
+                    "item": "element distinct counts",
+                    "reason": "deep_pass_budget"
+                    if distinct_plan["mode"] == "sample"
+                    else "element_budget",
+                    "detail": element_distinct["reason"] or "",
+                }
+            )
+        elif stopped == "element_limit":
+            limited.append(
+                {
+                    "item": "element distinct counts",
+                    "reason": "element_budget",
+                    "detail": f"stopped at deep.max_elements = {distinct_plan['max_elements']} "
+                    "elements; later elements were not examined",
+                }
+            )
+    collections = []
+    for node in deep_plan["collections"]:
+        fid = node["field_id"]
+        profiled = sum(1 for c in deep_plan["contexts"].values() if c["collection_field_id"] == fid)
+        omitted = sum(
+            1
+            for item in deep_plan["omissions"]
+            if item["reason"] == "nested_collection"
+            and (item["display_path"] or "").startswith(node["display_path"])
+        )
+        collections.append(
+            {
+                "field_id": fid,
+                "display_path": node["display_path"],
+                "kind": node["type"]["kind"],
+                "element_fields_profiled": profiled,
+                "element_fields_omitted": omitted,
+            }
+        )
+    notes = [
+        "Element metrics are exact over the analysed scope and computed per row with "
+        "higher-order functions inside the shared aggregation passes (no explode); their "
+        "denominators are elements or entries, never rows.",
+        "JSON path catalogues come from the transient sample; they are not a complete schema.",
+    ]
+    if deep_plan["mode"] == "explicit" and not deep_plan["requested"]:
+        notes.append("deep.targets lists no field of this table; nothing was profiled in depth.")
+    extra_aggregate = agg_plan["extra_passes"]
+    table["deep"] = {
+        "targets": deep_plan["mode"],
+        "requested_targets": deep_plan["requested"],
+        "not_eligible": list(deep_plan["not_eligible"]),
+        "collections": collections,
+        "json_fields": json_fields,
+        "budget": {
+            key: deep[key]
+            for key in (
+                "max_extra_passes",
+                "max_explode_rows",
+                "max_elements",
+                "max_json_paths",
+                "max_json_depth",
+                "max_json_object_keys",
+            )
+        },
+        "extra_passes": {
+            "budget": deep["max_extra_passes"],
+            "planned": extra_aggregate + explode,
+            "aggregate": extra_aggregate,
+            "element_explode": explode,
+        },
+        "expressions": {
+            "planned": agg_plan["deep_expressions"],
+            "omitted": sum(spec["cost"] for spec in dropped),
+        },
+        "element_distinct": element_distinct,
+        "limited": limited,
+        "notes": notes,
+    }

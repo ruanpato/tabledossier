@@ -12,8 +12,10 @@ from tabledossier.paths import IdentifierError, parse_display_path, parse_table_
 from tabledossier.schemacheck import schema_errors
 
 PROFILE_KIND = "tabledossier.profile"
-PROFILE_SCHEMA_VERSION = "1.0"
-SUPPORTED_PROFILE_VERSIONS = ("1.0",)
+# The notebook writes the latest version; readers (CLI, renderer) accept every listed one.
+# 1.1 only adds to 1.0 (deep level, element fields, JSON paths, deep coverage).
+PROFILE_SCHEMA_VERSION = "1.1"
+SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1")
 ANNOTATIONS_KIND = "tabledossier.annotations"
 SUPPORTED_ANNOTATION_VERSIONS = ("1.0",)
 COUNT_METRICS_WITH_ROW_DENOMINATOR = ("null_count", "non_null_count")
@@ -56,11 +58,14 @@ def _ct_metric_errors(metric: Mapping[str, Any], where: str, row_count: int | No
         "rows",
         "values",
         "elements",
+        "entries",
+        "documents",
     )
     if is_count and isinstance(value, int) and value < 0:
         errors.append(f"{where}: counts cannot be negative")
     if (
         metric.get("name") in COUNT_METRICS_WITH_ROW_DENOMINATOR
+        and metric.get("unit") == "rows"
         and metric.get("source") == "aggregate"
         and isinstance(row_count, int)
         and isinstance(value, int)
@@ -136,11 +141,59 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
                 errors.append(f"{f_where}: duplicate metric names")
             for m_index, metric in enumerate(field["metrics"]):
                 errors.extend(_ct_metric_errors(metric, f"{f_where}.metrics[{m_index}]", row_count))
+            if field.get("element_context"):
+                errors.extend(_ct_element_errors(field, f_where))
+            if field.get("json_paths"):
+                errors.extend(_ct_json_path_errors(field["json_paths"], f"{f_where}.json_paths"))
         for d_index, finding in enumerate(table["findings"]):
             if finding["field_id"] not in profile_ids:
                 errors.append(
                     f"{where}.findings[{d_index}]: unknown field_id {finding['field_id']}"
                 )
+    return errors
+
+
+def _ct_element_errors(field: Mapping[str, Any], where: str) -> list[str]:
+    """Element fields count elements or entries of a collection, never rows."""
+    errors: list[str] = []
+    context = field["element_context"]
+    kinds = [segment["kind"] for segment in field["path"]]
+    if kinds.count("field") == len(kinds):
+        errors.append(f"{where}: element_context on a field outside any collection")
+    total = None
+    for metric in field["metrics"]:
+        if metric["name"] == "element_count" and metric["status"] == "measured":
+            total = metric["value"]
+    for m_index, metric in enumerate(field["metrics"]):
+        if "rows" in (metric.get("unit"), metric.get("denominator_unit")):
+            errors.append(f"{where}.metrics[{m_index}]: element metrics never count rows")
+        if metric.get("denominator_unit") in ("elements", "entries") and (
+            metric["denominator_unit"] != context["unit"]
+        ):
+            errors.append(f"{where}.metrics[{m_index}]: denominator unit differs from the element")
+        if (
+            metric["name"] in ("null_count", "non_null_count")
+            and metric["status"] == "measured"
+            and isinstance(total, int)
+            and isinstance(metric["value"], int)
+            and metric["value"] > total
+        ):
+            errors.append(f"{where}.metrics[{m_index}]: exceeds element_count")
+    return errors
+
+
+def _ct_json_path_errors(catalog: Mapping[str, Any], where: str) -> list[str]:
+    errors: list[str] = []
+    documents = catalog["documents"]
+    paths = catalog.get("paths")
+    if paths is not None and len(paths) != catalog["paths_listed"]:
+        errors.append(f"{where}: paths_listed does not match the listed paths")
+    for index, item in enumerate(paths or []):
+        if item["present_in"] > documents:
+            errors.append(f"{where}.paths[{index}]: present in more documents than sampled")
+        ratio = item.get("presence_ratio")
+        if ratio is not None and not 0 <= ratio <= 1:
+            errors.append(f"{where}.paths[{index}]: presence_ratio must be between 0 and 1")
     return errors
 
 

@@ -164,7 +164,7 @@ def test_widget_precedence(schemas):
         ({"config_json": "[]"}, "JSON dict"),
         ({"tables_json": '"demo.analytics.orders"'}, "JSON list"),
         ({"tables_json": "[1]"}, "table identifier string"),
-        ({"analysis_level": "deep"}, "is not one of"),
+        ({"analysis_level": "exhaustive"}, "is not one of"),
     ],
 )
 def test_invalid_widgets(schemas, widgets, message):
@@ -231,3 +231,41 @@ def test_existing_widget_values_are_never_reset():
     values = read_widgets(dbutils)
     assert values["tables_json"] == '["x.y.z"]'
     assert values["analysis_level"] == "metadata"
+
+
+def test_deep_level_and_budgets(schemas):
+    config = default_config()
+    deep = config["deep"]
+    assert deep["targets"] == "all_within_budget"
+    assert deep["max_extra_passes"] == 2 and deep["element_distinct"] == "sample"
+    assert deep["max_explode_rows"] == 1000 and deep["max_elements"] == 100000
+    assert deep["max_json_paths"] == 50 and deep["max_json_depth"] == 3
+    generated = normalize_config(_base())
+    values = widget_defaults(generated) | {
+        "analysis_level": "deep",
+        "config_json": json.dumps(
+            {"deep": {"targets": [{"table": "a.b.c", "column": "items"}], "max_extra_passes": 0}}
+        ),
+    }
+    effective, _ = resolve_parameters(generated, values, schemas["config"])
+    assert effective["analysis_level"] == "deep"
+    assert effective["deep"]["targets"] == [{"table": "a.b.c", "column": "items"}]
+    assert effective["deep"]["max_elements"] == 100000, "unspecified budgets keep their defaults"
+
+
+@pytest.mark.parametrize(
+    ("deep", "message"),
+    [
+        ({"targets": "everything"}, "must match exactly one"),
+        ({"targets": [{"table": "a.b", "column": "items[].x..y"}]}, "deep.targets[0].column"),
+        ({"targets": [{"table": "a b", "column": "items"}]}, "deep.targets[0]"),
+        ({"max_extra_passes": 11}, "above the maximum"),
+        ({"element_distinct": "always"}, "is not one of"),
+        ({"max_json_depth": 0}, "below the minimum"),
+        ({"unknown": 1}, "unexpected property"),
+    ],
+)
+def test_invalid_deep_configurations(schemas, deep, message):
+    with pytest.raises(ConfigError) as excinfo:
+        validate_config(_base(analysis_level="deep", deep=deep), schemas["config"])
+    assert message in str(excinfo.value)

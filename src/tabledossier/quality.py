@@ -244,7 +244,8 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
     rules = []
     min_rows = thresholds["identifier_min_rows"]
     for field in table.get("field_profiles", []):
-        if not field.get("profiled"):
+        if not field.get("profiled") or field.get("element_context"):
+            # Element fields are described, not turned into column rules.
             continue
         metrics = field.get("metrics", [])
         column = field["display_path"]

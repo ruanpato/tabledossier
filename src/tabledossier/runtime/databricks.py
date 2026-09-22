@@ -105,7 +105,7 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
     lines.append(
         "  - catalog metadata: DESCRIBE TABLE EXTENDED / DETAIL, key constraints (no row scan)"
     )
-    if config["analysis_level"] == "standard":
+    if config["analysis_level"] in ("standard", "deep"):
         pinning = (
             "Delta tables are pinned to one version (VERSION AS OF)"
             if config["consistency"]["pin_delta_version"]
@@ -125,6 +125,37 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
             f"{limits['max_expressions_per_pass']} expressions over at most "
             f"{limits['max_fields']} fields"
         )
+        if config["analysis_level"] == "deep":
+            deep = config["deep"]
+            targets = (
+                "every array, map and probable-JSON field within the budgets"
+                if not isinstance(deep["targets"], list)
+                else f"{len(deep['targets'])} explicitly listed field(s)"
+            )
+            lines += [
+                f"  - deep level ({targets}):",
+                "      element metrics of arrays and maps inside the shared passes (higher-order "
+                "functions, no explode; lowest priority)",
+                f"      at most {deep['max_extra_passes']} extra pass(es) per table: aggregation "
+                "overflow and one element explode pass "
+                + (
+                    f"over a sample of up to {deep['max_explode_rows']} rows and "
+                    f"{deep['max_elements']} elements"
+                    if deep["element_distinct"] == "sample"
+                    else (
+                        f"over the full scope when it has at most {deep['max_elements']} elements"
+                        if deep["element_distinct"] == "full_scope"
+                        else "(disabled)"
+                    )
+                ),
+                f"      JSON paths from the sample (up to {deep['max_json_paths']} paths, depth "
+                f"{deep['max_json_depth']})"
+                + (
+                    ", validated over the full scope when the runtime supports it"
+                    if deep["json_full_scope_validation"]
+                    else ""
+                ),
+            ]
     else:
         lines.append("  - no table rows are read at the metadata level")
     capabilities = ctx["capabilities"]

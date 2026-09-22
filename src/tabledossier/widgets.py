@@ -17,7 +17,7 @@ NOTEBOOK_WIDGETS = (
     ("output_dir", "3. Output directory (e.g. /Volumes/<catalog>/<schema>/<volume>/tabledossier)"),
     ("config_json", "4. Extra configuration (JSON object, no secrets)"),
 )
-ANALYSIS_LEVEL_CHOICES = ("metadata", "standard")
+ANALYSIS_LEVEL_CHOICES = ("metadata", "standard", "deep")
 
 
 def ensure_widgets(dbutils: Any, defaults: Mapping[str, str]) -> list[str]:

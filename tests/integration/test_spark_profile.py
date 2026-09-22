@@ -342,3 +342,19 @@ def test_sample_values_never_leak(spark, tmp_path, capabilities):
     )
     assert "SECRET-MARKER" in json.dumps(_field(exposed, "token")["examples"])
     assert "SECRET-MARKER" not in json.dumps(_field(exposed, "doc"))
+
+
+def test_describe_detail_on_non_delta_source_is_skipped_not_failed(customers, delta_enabled):
+    # The demo tables are Parquet in the test session. With Delta, DESCRIBE DETAIL describes them;
+    # without Delta the statement is rejected, which is expected for a non-Delta source.
+    assert customers["source"]["provider"] == "parquet"
+    detail = next(
+        op for op in customers["operations"]["observed"] if op["operation_id"] == "op_detail"
+    )
+    if delta_enabled:
+        assert detail["status"] == "succeeded"
+    else:
+        assert detail["status"] == "skipped"
+        assert "non-Delta source (provider parquet" in detail["detail"]
+        assert customers["source"]["size_in_bytes"]["status"] == "unavailable"
+    assert customers["status"] == "succeeded"

@@ -252,7 +252,7 @@ def select_profile_fields(
                         node,
                         "inside_collection",
                         "array elements and map entries are profiled at collection level only; "
-                        "element-level profiling is planned for the 'deep' level",
+                        "element-level profiling requires analysis_level = deep",
                     )
                 )
             continue
@@ -307,7 +307,7 @@ def plan_sample(profiled: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
         "omitted_field_ids": [],
         "reason": None,
     }
-    if config["analysis_level"] != "standard":
+    if config["analysis_level"] not in ("standard", "deep"):
         plan["reason"] = "the metadata level does not read table rows"
     elif sampling["method"] == "none":
         plan["reason"] = "sampling disabled by configuration (sampling.method = none)"
@@ -352,12 +352,21 @@ def plan_aggregates(
     scope: str,
     json_field_ids: set[str] | frozenset[str] = frozenset(),
     redacted_field_ids: set[str] | frozenset[str] = frozenset(),
+    deep_candidates: Sequence[Mapping[str, Any]] = (),
+    max_extra_passes: int = 0,
 ) -> dict[str, Any]:
-    """Plan shared aggregation passes for the ``standard`` level.
+    """Plan shared aggregation passes (``standard`` metrics plus optional ``deep`` ones).
 
     Returns a dict with ``specs`` (alias, metric, op, field, tier, cost,
     params), ``passes`` (lists of aliases), ``static_metrics`` (metrics that
     are known up front not to be computed, with reasons) and ``omissions``.
+
+    Standard metrics are planned exactly as at the ``standard`` level, within
+    ``max_expressions_per_pass x max_aggregate_passes``. ``deep_candidates``
+    (tiers 5-7, see ``tabledossier.deep``) only use the room left in the last
+    standard pass plus at most ``max_extra_passes`` additional passes; when
+    they do not fit, the highest tiers are dropped first and recorded as
+    ``deep_budget`` omissions. ``extra_passes`` reports the passes added.
     """
     metrics_cfg = config["metrics"]
     limits = config["limits"]
@@ -520,27 +529,91 @@ def plan_aggregates(
                 ),
             }
         )
+    per_pass = limits["max_expressions_per_pass"]
     for index, spec in enumerate(kept):
         spec["alias"] = f"a{index:04d}"
-    passes: list[list[str]] = []
-    current: list[str] = []
-    used = 0
-    for spec in kept:
-        if current and used + spec["cost"] > limits["max_expressions_per_pass"]:
-            passes.append(current)
-            current, used = [], 0
-        current.append(spec["alias"])
-        used += spec["cost"]
-    if current:
-        passes.append(current)
+    costs = {spec["alias"]: spec["cost"] for spec in kept}
+    passes = _pl_pack(kept, per_pass, [], costs)
+    standard_passes = len(passes)
+    kept_deep: list[dict[str, Any]] = []
+    dropped_deep: list[dict[str, Any]] = []
+    if deep_candidates:
+        room = per_pass - sum(costs[alias] for alias in passes[-1]) if passes else per_pass
+        deep_cost = sum(spec["cost"] for spec in deep_candidates)
+        needed = -(-max(0, deep_cost - room) // per_pass)
+        extra = min(needed, max(0, max_extra_passes))
+        kept_deep, dropped_deep = _pl_apply_budget(
+            [dict(spec) for spec in deep_candidates], room + per_pass * extra
+        )
+        for spec in dropped_deep:
+            fid = spec["field_id"]
+            entry = omissions.setdefault(
+                f"deep:{fid}",
+                {
+                    "field_id": fid,
+                    "display_path": by_id[fid]["display_path"]
+                    if fid in by_id
+                    else spec.get("display_path"),
+                    "reason": "deep_budget",
+                    "detail": (
+                        "deep expressions beyond the room left in the standard passes plus "
+                        f"deep.max_extra_passes = {max_extra_passes} extra pass(es) of "
+                        f"{per_pass} expressions"
+                    ),
+                    "metrics": [],
+                },
+            )
+            label = spec["metric"] if spec.get("group") != "json_path" else "json_path_validation"
+            if label not in entry["metrics"]:
+                entry["metrics"].append(label)
+            if spec.get("group") == "element":
+                static.append(
+                    {
+                        "field_id": fid,
+                        "metric": not_measured(
+                            spec["metric"],
+                            "not_computed",
+                            "omitted to respect the deep expression and pass budgets",
+                            scope=scope,
+                            source="aggregate",
+                        ),
+                    }
+                )
+        for index, spec in enumerate(kept_deep, start=len(kept)):
+            spec["alias"] = f"a{index:04d}"
+            costs[spec["alias"]] = spec["cost"]
+        passes = _pl_pack(kept_deep, per_pass, passes, costs)
+    specs = [*kept, *kept_deep]
     return {
-        "specs": kept,
+        "specs": specs,
         "passes": passes,
         "static_metrics": static,
         "omissions": list(omissions.values()),
-        "expression_count": sum(spec["cost"] for spec in kept),
+        "expression_count": sum(spec["cost"] for spec in specs),
         "expression_capacity": capacity,
+        "standard_passes": standard_passes,
+        "extra_passes": len(passes) - standard_passes,
+        "deep_expressions": sum(spec["cost"] for spec in kept_deep),
+        "deep_dropped": dropped_deep,
     }
+
+
+def _pl_pack(
+    specs: Sequence[Mapping[str, Any]],
+    per_pass: int,
+    passes: list[list[str]],
+    costs: Mapping[str, int],
+) -> list[list[str]]:
+    """Append aliases of ``specs`` to ``passes``, filling the last pass before opening one."""
+    out = [list(item) for item in passes]
+    used = sum(costs[alias] for alias in out[-1]) if out else 0
+    for spec in specs:
+        if not out or used + spec["cost"] > per_pass:
+            out.append([])
+            used = 0
+        out[-1].append(spec["alias"])
+        used += spec["cost"]
+    return out
 
 
 def _pl_apply_budget(
@@ -550,7 +623,8 @@ def _pl_apply_budget(
     if total <= capacity:
         return candidates, []
     dropped_ids: set[int] = set()
-    for tier in (4, 3, 2, 1):
+    tiers = sorted({spec["tier"] for spec in candidates if spec["tier"] > 0}, reverse=True)
+    for tier in tiers:
         for index in range(len(candidates) - 1, -1, -1):
             if total <= capacity:
                 break

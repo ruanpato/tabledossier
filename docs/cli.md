@@ -4,13 +4,13 @@ All commands run offline. `python -m tabledossier …` is equivalent to `tabledo
 
 | Command | Purpose |
 | --- | --- |
-| `tabledossier init --output FILE [--tables T …] [--output-dir DIR] [--level metadata\|standard] [--force]` | Write a configuration with every default explicit. Refuses to replace a file without `--force`. |
+| `tabledossier init --output FILE [--tables T …] [--output-dir DIR] [--level metadata\|standard\|deep] [--force]` | Write a configuration with every default explicit. Refuses to replace a file without `--force`. |
 | `tabledossier validate --config FILE` | Validate a configuration (formal schema + semantic checks). |
-| `tabledossier validate --profile FILE [--fail-on-check-failures]` | Validate a profile (version, formal schema, embedded validator, invariants) and report its run status. |
+| `tabledossier validate --profile FILE [--fail-on-check-failures]` | Validate a profile (version, formal schema of that version, embedded validator, invariants) and report its run status. Contract versions 1.0 and 1.1 are accepted. |
 | `tabledossier validate --annotations FILE` | Validate a human annotations file. |
 | `tabledossier generate --config FILE --output NOTEBOOK.py [--manifest FILE] [--overwrite]` | Generate the Databricks notebook and its generation manifest (default `<output>.generation.json`). |
 | `tabledossier render --input profile.json --output DIR [--annotations FILE] [--overwrite]` | Render the documents from a profile. Never recomputes metrics; refuses invalid profiles and existing files unless `--overwrite`. |
-| `tabledossier schema NAME [--output FILE]` | Print a packaged JSON Schema (`config`, `profile`, `annotations`, `suggested_rules`, `manifest`). |
+| `tabledossier schema NAME [--output FILE]` | Print a packaged JSON Schema (`config`, `profile` (1.1), `profile-1.0`, `annotations`, `suggested_rules`, `manifest`). |
 | `tabledossier --version` | Print the version. |
 
 ## Exit codes

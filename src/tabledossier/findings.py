@@ -51,9 +51,17 @@ def _fd_evidence(metrics: list[Mapping[str, Any]], *names: str) -> list[dict[str
 
 
 def field_findings(
-    field: Mapping[str, Any], thresholds: Mapping[str, Any], row_count: int | None
+    field: Mapping[str, Any],
+    thresholds: Mapping[str, Any],
+    row_count: int | None,
+    unit: str = "rows",
 ) -> list[dict[str, Any]]:
-    """Return heuristic findings for one profiled field."""
+    """Return heuristic findings for one profiled field.
+
+    ``row_count`` is the size of the population the field's counts refer to:
+    rows in scope, or the elements/entries of a collection for element fields
+    (``unit``).
+    """
     metrics = field.get("metrics", [])
     kind = field["type_kind"]
     found: list[dict[str, Any]] = []
@@ -68,7 +76,9 @@ def field_findings(
                 "warning",
                 field,
                 "All values are null",
-                f"All {row_count} row(s) in scope are null for this field.",
+                f"All {row_count} row(s) in scope are null for this field."
+                if unit == "rows"
+                else f"All {row_count} {unit} in scope are null for this field.",
                 _fd_evidence(metrics, "null_count", "null_ratio"),
                 None,
                 "warning: a field without any value in scope is often unused or not populated "
@@ -83,7 +93,7 @@ def field_findings(
                 "info",
                 field,
                 "High null ratio",
-                f"{null_ratio:.1%} of rows in scope are null.",
+                f"{null_ratio:.1%} of {unit} in scope are null.",
                 _fd_evidence(metrics, "null_count", "null_ratio"),
                 {"name": "high_null_ratio", "value": thresholds["high_null_ratio"]},
                 "info: sparse fields are frequently legitimate (optional attributes).",

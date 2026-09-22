@@ -10,7 +10,8 @@
 | [`demo/output/notebook/`](demo/output/notebook) | The notebook generated from `demo.config.json` and its generation manifest. |
 | [`demo/output/run/`](demo/output/run) | The complete result package written by that notebook when executed on local Spark with the demo tables. |
 | [`demo/output/annotated/`](demo/output/annotated) | The documents re-rendered offline from `run/profile.json` with `annotations.json`. |
+| [`demo/output/deep/`](demo/output/deep) | The result package of the same notebook run at `analysis_level = deep` with the default deep budgets (contract 1.1): element fields of `orders`, the JSON path catalogue of `order_events.payload`, and the deep coverage section of the quality report. |
 | [`demo/run_notebook_locally.py`](demo/run_notebook_locally.py) | Development harness: executes a generated notebook with a local SparkSession (only `dbutils.widgets` is simulated). Not a supported way to profile production data. |
 | [`demo/build_demo_outputs.py`](demo/build_demo_outputs.py) | Rebuilds everything under `demo/output` (needs PySpark and Java; uses Delta when delta-spark is installed). |
 
-The committed profile records `execution_context: spark` because it was produced by local Spark, not Databricks.
+The committed profiles record `execution_context: spark` because they were produced by local Spark, not Databricks.

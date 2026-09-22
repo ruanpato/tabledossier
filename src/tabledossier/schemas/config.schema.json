@@ -16,7 +16,7 @@
       "items": {"type": "string", "minLength": 1, "maxLength": 800},
       "maxItems": 100
     },
-    "analysis_level": {"enum": ["metadata", "standard"]},
+    "analysis_level": {"enum": ["metadata", "standard", "deep"]},
     "output_dir": {
       "description": "Destination directory in the execution environment, e.g. /Volumes/<catalog>/<schema>/<volume>/tabledossier. May be empty when generating.",
       "type": "string",
@@ -106,6 +106,30 @@
         "aggregate_extremes": {"enum": ["include", "redact"]},
         "json_key_names": {"enum": ["include", "redact"]},
         "redact_columns": {"type": "array", "items": {"$ref": "#/$defs/qualifiedColumn"}, "maxItems": 1000}
+      }
+    },
+    "deep": {
+      "description": "Opt-in operations of the deep level (standard + element and JSON path profiling). Ignored at other levels. See docs/configuration.md.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targets": {
+          "description": "all_within_budget, or an explicit list of collection (array/map) and string fields per table.",
+          "oneOf": [
+            {"const": "all_within_budget"},
+            {"type": "array", "items": {"$ref": "#/$defs/qualifiedColumn"}, "maxItems": 1000}
+          ]
+        },
+        "collections": {"type": "boolean"},
+        "json_paths": {"type": "boolean"},
+        "element_distinct": {"enum": ["sample", "full_scope", "off"]},
+        "json_full_scope_validation": {"type": "boolean"},
+        "max_extra_passes": {"type": "integer", "minimum": 0, "maximum": 10},
+        "max_explode_rows": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "max_elements": {"type": "integer", "minimum": 1, "maximum": 100000000},
+        "max_json_paths": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "max_json_depth": {"type": "integer", "minimum": 1, "maximum": 10},
+        "max_json_object_keys": {"type": "integer", "minimum": 1, "maximum": 1000}
       }
     },
     "table_options": {

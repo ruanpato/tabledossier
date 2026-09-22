@@ -11,14 +11,14 @@ from tabledossier.schemacheck import schema_errors, unsupported_keywords
 
 
 @pytest.mark.parametrize(
-    "name", ["config", "profile", "annotations", "suggested_rules", "manifest"]
+    "name", ["config", "profile", "profile-1.0", "annotations", "suggested_rules", "manifest"]
 )
 def test_schemas_only_use_supported_keywords(schemas, name):
     assert unsupported_keywords(schemas[name]) == []
 
 
 @pytest.mark.parametrize(
-    "name", ["config", "profile", "annotations", "suggested_rules", "manifest"]
+    "name", ["config", "profile", "profile-1.0", "annotations", "suggested_rules", "manifest"]
 )
 def test_schemas_are_valid_draft_2020_12(schemas, name):
     Draft202012Validator.check_schema(schemas[name])
@@ -105,3 +105,43 @@ def test_messages_are_bounded():
     errors = schema_errors({"x": "y" * 1000}, {"properties": {"x": {"maxLength": 3}}})
     assert errors and len(errors[0]) < 200
     assert json.dumps(errors)
+
+
+def test_profile_1_1_additions_agreement(deep_profile, schemas):
+    schema = schemas["profile"]
+    assert _agree(deep_profile, schema)
+    orders = next(t for t in deep_profile["tables"] if t["table_key"] == "analytics.orders")
+    for variant_table in _mutations(orders["deep"]):
+        variant = copy.deepcopy(deep_profile)
+        target = next(t for t in variant["tables"] if t["table_key"] == "analytics.orders")
+        target["deep"] = variant_table
+        _agree(variant, schema)
+    element = next(f for f in orders["field_profiles"] if f.get("element_context"))
+    for context in _mutations(element["element_context"]):
+        variant = copy.deepcopy(deep_profile)
+        target = next(t for t in variant["tables"] if t["table_key"] == "analytics.orders")
+        field = next(f for f in target["field_profiles"] if f["field_id"] == element["field_id"])
+        field["element_context"] = context
+        assert not _agree(variant, schema)
+    events = next(t for t in deep_profile["tables"] if t["table_key"] == "analytics.order_events")
+    payload = next(f for f in events["field_profiles"] if f.get("json_paths"))
+    for catalog in _mutations(payload["json_paths"]):
+        variant = copy.deepcopy(deep_profile)
+        target = next(t for t in variant["tables"] if t["table_key"] == "analytics.order_events")
+        field = next(f for f in target["field_profiles"] if f["field_id"] == payload["field_id"])
+        field["json_paths"] = catalog
+        _agree(variant, schema)
+    for path in _mutations(payload["json_paths"]["paths"][0]):
+        variant = copy.deepcopy(deep_profile)
+        target = next(t for t in variant["tables"] if t["table_key"] == "analytics.order_events")
+        field = next(f for f in target["field_profiles"] if f["field_id"] == payload["field_id"])
+        field["json_paths"]["paths"][0] = path
+        assert not _agree(variant, schema)
+
+
+def test_profile_1_0_agreement(profile_1_0, schemas):
+    schema = schemas["profile-1.0"]
+    assert _agree(profile_1_0, schema)
+    for variant in _mutations(profile_1_0):
+        _agree(variant, schema)
+    assert not _agree({**profile_1_0, "schema_version": "1.1"}, schema)

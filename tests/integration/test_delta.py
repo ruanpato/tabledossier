@@ -17,7 +17,9 @@ pytestmark = pytest.mark.skipif(not delta_available(), reason="delta-spark is no
 
 
 @pytest.fixture(scope="module")
-def delta_table(spark):
+def delta_table(spark, delta_enabled):
+    if not delta_enabled:
+        pytest.skip("the Spark session was started without Delta (TD_TEST_DELTA=0)")
     spark.sql("CREATE DATABASE IF NOT EXISTS lake")
     spark.sql("DROP TABLE IF EXISTS lake.accounts")
     spark.sql(

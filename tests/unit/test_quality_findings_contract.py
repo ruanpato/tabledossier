@@ -158,7 +158,7 @@ def test_invariants_catch_inconsistencies(demo_profile):
 def test_incompatible_versions_are_rejected_clearly(demo_profile, schemas):
     demo_profile["schema_version"] = "2.0"
     errors = check_profile(demo_profile)
-    assert len(errors) == 1 and "not supported" in errors[0] and "1.0" in errors[0]
+    assert len(errors) == 1 and "not supported" in errors[0] and "1.0, 1.1" in errors[0]
     assert (
         "not a tabledossier.profile" in validate_profile({"kind": "other"}, schemas["profile"])[0]
     )
@@ -169,3 +169,52 @@ def test_annotations_validation(demo_annotations, schemas):
     bad = copy.deepcopy(demo_annotations)
     bad["tables"]["analytics.customers"]["columns"]["bad path."] = {"description": "x"}
     assert validate_annotations(bad, schemas["annotations"])
+
+
+def _element_field(profile):
+    for table in profile["tables"]:
+        for field in table["field_profiles"]:
+            if field.get("element_context") and field["metrics"]:
+                return table, field
+    raise AssertionError("no element field in the deep profile")
+
+
+def test_deep_profile_is_valid_1_1(deep_profile, schemas):
+    assert deep_profile["schema_version"] == "1.1"
+    assert validate_profile(deep_profile, schemas["profile"]) == []
+    assert check_profile(deep_profile) == []
+
+
+def test_1_1_invariants_keep_element_metrics_off_rows(deep_profile):
+    broken = copy.deepcopy(deep_profile)
+    _, field = _element_field(broken)
+    metric = next(m for m in field["metrics"] if m["name"] == "null_count")
+    metric["denominator_unit"] = "rows"
+    assert any("never count rows" in e for e in profile_invariant_errors(broken))
+    broken = copy.deepcopy(deep_profile)
+    _, field = _element_field(broken)
+    metric = next(m for m in field["metrics"] if m["name"] == "null_count")
+    metric["value"] = 10**9
+    assert any("exceeds element_count" in e for e in profile_invariant_errors(broken))
+    broken = copy.deepcopy(deep_profile)
+    table = next(t for t in broken["tables"] if t["table_key"] == "analytics.orders")
+    top = next(f for f in table["field_profiles"] if f["display_path"] == "items")
+    top["element_context"] = dict(_element_field(broken)[1]["element_context"])
+    assert any("outside any collection" in e for e in profile_invariant_errors(broken))
+
+
+def test_1_1_invariants_check_json_path_catalogues(deep_profile):
+    broken = copy.deepcopy(deep_profile)
+    events = next(t for t in broken["tables"] if t["table_key"] == "analytics.order_events")
+    payload = next(f for f in events["field_profiles"] if f["display_path"] == "payload")
+    payload["json_paths"]["paths"][0]["present_in"] = payload["json_paths"]["documents"] + 1
+    payload["json_paths"]["paths_listed"] += 1
+    errors = profile_invariant_errors(broken)
+    assert any("more documents than sampled" in e for e in errors)
+    assert any("paths_listed does not match" in e for e in errors)
+
+
+def test_profile_1_0_is_valid_with_its_frozen_schema(profile_1_0, schemas):
+    assert validate_profile(profile_1_0, schemas["profile-1.0"]) == []
+    assert check_profile(profile_1_0) == []
+    assert validate_profile(profile_1_0, schemas["profile"]), "the 1.1 schema requires 1.1"

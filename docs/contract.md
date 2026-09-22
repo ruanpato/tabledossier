@@ -1,4 +1,4 @@
-# Profile contract (schema 1.0)
+# Profile contract (schema 1.1)
 
 `profile.json` is the canonical, engine-independent result of one run. Every document
 (`data_dictionary.md`, `quality_report.md`, `relationships.md`, `erd.mmd`, `suggested_rules.json`) is
@@ -6,7 +6,7 @@ derived from it, in the notebook and by `tabledossier render`. The formal defini
 shipped in the package:
 
 ```bash
-tabledossier schema profile        # also: config, annotations, suggested_rules, manifest
+tabledossier schema profile        # contract 1.1; also: profile-1.0, config, annotations, suggested_rules, manifest
 ```
 
 Validation happens in two layers. In the notebook, a standard-library interpreter of the same schema
@@ -17,8 +17,15 @@ validator enforces.
 
 ## Versioning
 
-- `schema_version` is `"1.0"`. Readers accept only versions they know. `tabledossier validate` rejects
-  other versions with a message naming the supported ones.
+- The notebook of release 0.2 writes `schema_version` `"1.1"`. The CLI (`validate`, `render`) reads `"1.0"`
+  and `"1.1"` and validates each profile against the schema of its own version: 1.0 profiles against the frozen
+  schema of 0.1.x (`tabledossier schema profile-1.0`), 1.1 profiles against the current one. Other versions are
+  rejected with a message naming the supported ones.
+- **1.1 only adds to 1.0**: the `deep` analysis level, `element_context` and `json_paths` on field profiles, the
+  per-table `deep` record and two operation kinds (`deep_aggregate_pass`, `element_explode_pass`). These
+  properties are optional in the 1.1 schema (a 1.0 document relabelled `1.1` is valid); the 0.2 notebook always
+  writes them, as `null` when not applicable. A 1.0 document cannot use them.
+- Map sizes and entry counts are labelled `entries` (0.1 wrote `elements`); both are accepted.
 - Additive or breaking changes produce a new version; the notebook and the CLI of the same release always
   agree because the notebook embeds the schema of the release that generated it.
 
@@ -41,7 +48,7 @@ validator enforces.
 | --- | --- |
 | `run_id` | `YYYYMMDDTHHMMSSZ-<8 hex>`; also the name of the results directory. |
 | `status` | `succeeded` (all tables), `partial` (mixed), `failed` (all tables failed). |
-| `analysis_level` | `metadata` or `standard`. |
+| `analysis_level` | `metadata`, `standard` or `deep` (1.1). |
 | `started_at`, `finished_at` | UTC timestamps `YYYY-MM-DDTHH:MM:SS.mmmZ`. Re-rendering never changes them. |
 | `duration_ms` | Wall-clock duration measured by the notebook. |
 | `reference_time` | Instant used by temporal metrics (`after_reference_count`); dates compare with its UTC date. |
@@ -51,7 +58,7 @@ validator enforces.
 | `parameter_sources` | Precedence applied and which widgets differed from the generated defaults. |
 | `generation` | `generator_version` and `generation_id` of the notebook that produced the run. |
 | `purpose` | Optional run purpose from the configuration. |
-| `capabilities` | Engine features detected at run time (e.g. `try_parse_json`), each with `available` and `detail`. |
+| `capabilities` | Engine features detected at run time (`try_parse_json`, `parameterized_sql`, `higher_order_functions`, `variant_functions`, `get_json_object`), each with `available` and `detail`. |
 
 ## Tables
 
@@ -73,11 +80,12 @@ validator enforces.
 | `field_profiles` | One record per schema node, profiled or not (with `omission_reason`). |
 | `constraints` | Declared constraints: primary/foreign/unique keys from Unity Catalog `information_schema` (`enforcement: not_enforced`), Delta CHECK constraints (`enforced`). |
 | `findings`, `quality_checks`, `suggested_rules` | See below. |
-| `omissions` | What was not documented or measured and why (`not_selected`, `inside_collection`, `max_depth`, `max_fields`, `expression_budget`). |
+| `omissions` | What was not documented or measured and why (`not_selected`, `inside_collection`, `max_depth`, `max_fields`, `expression_budget`; deep level: `deep_budget`, `deep_not_selected`, `nested_collection`). |
 | `unsupported` | Capabilities the runtime lacked. |
-| `operations` | `planned` operations (what was asked of the engine, with `reads_user_data`) and `observed` outcomes with measured durations. `physical_scans`, `bytes_read` and `monetary_cost` are `unknown`: they are never estimated from Python calls. |
-| `timings_ms` | Measured durations per stage (`metadata`, `sample`, `aggregate`, `total`). |
+| `operations` | `planned` operations (what was asked of the engine, with `reads_user_data`; kinds `catalog_metadata`, `table_detail`, `table_history`, `information_schema`, `sample_collect`, `aggregate_pass`, and at the deep level `deep_aggregate_pass`, `element_explode_pass`) and `observed` outcomes with measured durations (`succeeded`, `failed`, or `skipped` with a reason, e.g. `DESCRIBE DETAIL` on a non-Delta source). `physical_scans`, `bytes_read` and `monetary_cost` are `unknown`: they are never estimated from Python calls. |
+| `timings_ms` | Measured durations per stage (`metadata`, `sample`, `aggregate`, `deep_elements`, `total`). |
 | `notes` | Other statements about this table. |
+| `deep` | 1.1, deep level only (else `null`): see [Deep level](#deep-level-11). |
 
 ## Field paths and the schema tree
 
@@ -151,11 +159,86 @@ completeness from a division by zero).
 | Date, timestamp | `min`, `max`, `after_reference_count`; for `timestamp_ntz` the last one is `not_computed` (no unambiguous reference instant) |
 | Binary | `min_length`, `max_length` (bytes) |
 | Array | `empty_count`, `min_size`, `max_size`, `mean_size`, `total_element_count`, `null_element_count` (denominator: elements) |
-| Map | `empty_count`, sizes, `total_entry_count`, `null_value_count` (denominator: entries) |
+| Map | `empty_count`, sizes, `total_entry_count`, `null_value_count` (unit and denominator: entries) |
 | Struct, variant, interval, other | `null_count` family only |
 
 Metadata-level `row_count` comes from catalog statistics when present (`as_recorded`, freshness unknown)
 and is `unavailable` otherwise.
+
+## Deep level (1.1)
+
+### Element fields
+
+At the deep level, the schema nodes inside one array or map (`items[]`, `items[].sku`, `attrs{key}`,
+`attrs{value}`) are profiled. Their field profile has `profiled: true` and an `element_context`:
+
+```json
+{"collection_field_id": "f_…", "collection_display_path": "items", "collection_kind": "array",
+ "segment": "array_element", "inner": ["sku"], "unit": "elements"}
+```
+
+Every count of an element field is a count of **elements** (arrays) or **entries** (maps) of the collection in
+scope, never of rows; ratios use those denominators. Invariants reject element metrics whose unit or denominator is
+`rows`.
+
+| Kind | Metrics (per element or entry) |
+| --- | --- |
+| All element fields | `element_count` (derived from the collection's total), `null_count`, `non_null_count`, `null_ratio`; leaves inside struct elements also `null_count_parent_present`, `null_ratio_given_parent_present` |
+| Integer, decimal, float | `min`, `max` (`array_min`/`array_max` per row, then over rows), `zero_count`, `negative_count`, `positive_count`; floats also `nan_count`, infinity counts, `finite_count` (extremes and sign counts use finite values) |
+| String | `empty_count`, `min_length`, `max_length`, `whitespace_only_count` (no string values or extremes) |
+| Boolean | `true_count`, `false_count` |
+| Date, timestamp | `min`, `max`, `after_reference_count` (`not_computed` for `timestamp_ntz`) |
+| Binary | `min_length`, `max_length` (bytes) |
+| Atomic kinds | `distinct_count` from the element explode pass |
+
+Those metrics are `accuracy: exact`, `source: aggregate` and have the table's scope: they are computed per row with
+higher-order functions inside the aggregation passes, without explode. `distinct_count` comes from the single
+`element_explode_pass`: with `deep.element_distinct = sample` it has `scope: sample`, `source: sample` and is exact
+only for the elements examined (`details` gives `elements_examined`, `rows_with_elements`, the row and element
+limits and whether the element limit stopped the pass); with `full_scope` it has the table's scope and
+`source: aggregate`. Elements of collections nested inside collections are omitted (`nested_collection`).
+Aggregate extremes of element fields follow `value_policy.aggregate_extremes` and `redact_columns` (listing a
+collection redacts its elements).
+
+### JSON paths
+
+A string field targeted by the deep level has `json_paths`, a catalogue built from the transient standard sample:
+
+| Field | Meaning |
+| --- | --- |
+| `scope`, `source` | Always `sample`. |
+| `documents` | Sampled values whose root is a JSON object or array (the denominator of presence ratios); `counts` also gives scalars, JSON `null` literals and invalid values. |
+| `paths` | Up to `deep.max_json_paths` paths (breadth-first, most present first), or `null` when the value policy hides key names (`paths_omitted_reason`). |
+| `paths[].path` / `segments` | Display form (`$.customer.id`, `$["a.b"]`, `$.items[*].sku`, `$.attrs.*`) and typed segments (`key`, `items`, `any_key`). |
+| `paths[].present_in`, `presence_ratio`, `occurrences` | Sampled documents containing the path, its share, and values seen (array items count once each). |
+| `paths[].types`, `dominant_type`, `heterogeneous` | JSON types observed (`object`, `array`, `string`, `number`, `boolean`, `null`); heterogeneous when more than one non-null type occurs. |
+| `paths[].map_like` | Keys below this path were collapsed into `*` (map-like object or rare keys). |
+| `paths[].full_scope` | Full-scope validation of this path (`measured`, `incomplete` or `not_computed` with a reason) and its metrics. |
+| `full_scope` | `method` (`variant`, `get_json_object` or `null`), `status`, the `documents` metric over the full scope, and the method's limitations. |
+| `depth_truncated`, `tracking_truncated`, `paths_observed`, `paths_omitted`, `map_like_paths`, `heterogeneous_paths` | What the limits cut and summary counts. |
+
+Full-scope metrics (`unit: documents`, `accuracy: exact`, denominator: JSON documents in scope):
+
+| Method (detected) | Metrics | Limitation |
+| --- | --- | --- |
+| `variant` (`try_parse_json`, `try_variant_get`, `is_variant_null`, `schema_of_variant`) | `path_present_count` (including JSON `null`), `path_json_null_count`, `path_type_match_count` (documents where the path has the sample's dominant type) | Numbers are integer, decimal or double variants. |
+| `get_json_object` | `path_non_null_count` | Returns NULL both for a JSON `null` and for an absent path; cannot tell types apart; more lenient parser. |
+
+Wildcard paths (`[*]`, `*`) and keys with quotes, brackets or backslashes are not validated over the full scope.
+The sample catalogue is never a complete or guaranteed schema: paths absent from the sample may exist.
+
+### The `deep` record
+
+| Field | Meaning |
+| --- | --- |
+| `targets`, `requested_targets`, `not_eligible` | Selection mode, explicit targets of this table and the ones that were not eligible (with reason). |
+| `collections` | Targeted arrays and maps with the number of element fields profiled and omitted. |
+| `json_fields` | String fields with a catalogue (`catalogued`) or not (`not_catalogued` with reason), paths listed and validated, full-scope method. |
+| `budget` | The deep budgets in effect. |
+| `extra_passes` | `budget`, `planned` = `aggregate` (overflow aggregation passes) + `element_explode` (0 or 1). |
+| `expressions` | Deep expressions planned and omitted by the budget. |
+| `element_distinct` | Mode, status, reason, rows with elements and elements examined, and why the pass stopped. |
+| `limited` | Everything a budget limited: `deep_budget`, `deep_pass_budget`, `element_budget`, `json_path_budget`, `json_depth_budget`. |
 
 ## Semantics (sample-based)
 

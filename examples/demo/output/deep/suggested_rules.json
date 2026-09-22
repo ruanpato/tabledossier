@@ -1,0 +1,902 @@
+{
+  "kind": "tabledossier.suggested_rules",
+  "schema_version": "1.0",
+  "run_id": "20260922T041230Z-145902bd",
+  "profiled_at": "2026-09-22T04:12:30.693Z",
+  "notice": "Proposals derived from observed data. They are not applied and require review by a data owner before being adopted as quality rules.",
+  "rules": [
+    {
+      "rule_id": "sr_d84a4387985b",
+      "table": "analytics.customers",
+      "column": "customer_id",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_ddc3a681f407",
+      "table": "analytics.customers",
+      "column": "customer_id",
+      "rule_type": "unique",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 499
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        },
+        {
+          "metric": "null_ratio",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_70e59ef06ed0",
+      "table": "analytics.customers",
+      "column": "email",
+      "rule_type": "matches_format",
+      "parameters": {
+        "format": "email_candidate"
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Sampled values consistently match this format.",
+      "evidence": [
+        {
+          "observed_format": "email_candidate",
+          "eligible_observations": 453
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_880628acbde4",
+      "table": "analytics.customers",
+      "column": "segment",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_3792c08335a7",
+      "table": "analytics.customers",
+      "column": "segment",
+      "rule_type": "accepted_values",
+      "parameters": {
+        "values": null
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Few distinct values observed; the accepted set must be defined by a data owner (observed values are not exposed by default).",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 3
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_eb72159a97c4",
+      "table": "analytics.customers",
+      "column": "signup_date",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_0801b020c5ae",
+      "table": "analytics.customers",
+      "column": "is_active",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_4e2010c46643",
+      "table": "analytics.customers",
+      "column": "currency",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_b8f3d5cb8290",
+      "table": "analytics.customers",
+      "column": "lifetime_value",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_9b8b0e3e8ba4",
+      "table": "analytics.customers",
+      "column": "`display name`",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_985a4926e89a",
+      "table": "analytics.customers",
+      "column": "`display name`",
+      "rule_type": "unique",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 507
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        },
+        {
+          "metric": "null_ratio",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_7017885a98dc",
+      "table": "analytics.customers",
+      "column": "`a.b`",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_5d03b9a28b35",
+      "table": "analytics.customers",
+      "column": "`a.b`",
+      "rule_type": "accepted_values",
+      "parameters": {
+        "values": null
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Few distinct values observed; the accepted set must be defined by a data owner (observed values are not exposed by default).",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 2
+        },
+        {
+          "metric": "non_null_count",
+          "value": 500
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_dff5463bb123",
+      "table": "analytics.orders",
+      "column": "order_id",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_1c12573d4793",
+      "table": "analytics.orders",
+      "column": "order_id",
+      "rule_type": "unique",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 1011
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        },
+        {
+          "metric": "null_ratio",
+          "value": 0.0
+        },
+        {
+          "observed_format": "uuid"
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_12825296d619",
+      "table": "analytics.orders",
+      "column": "order_id",
+      "rule_type": "matches_format",
+      "parameters": {
+        "format": "uuid"
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Sampled values consistently match this format.",
+      "evidence": [
+        {
+          "observed_format": "uuid",
+          "eligible_observations": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_8887bac17ff0",
+      "table": "analytics.orders",
+      "column": "customer_id",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_68205be84be1",
+      "table": "analytics.orders",
+      "column": "order_ts",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_e7e7b4f556ec",
+      "table": "analytics.orders",
+      "column": "status",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_0b01f73a56f9",
+      "table": "analytics.orders",
+      "column": "status",
+      "rule_type": "accepted_values",
+      "parameters": {
+        "values": null
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Few distinct values observed; the accepted set must be defined by a data owner (observed values are not exposed by default).",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 5
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_4990e182dae7",
+      "table": "analytics.orders",
+      "column": "amount",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_1d2463f89b3e",
+      "table": "analytics.orders",
+      "column": "shipping.address.city",
+      "rule_type": "accepted_values",
+      "parameters": {
+        "values": null
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Few distinct values observed; the accepted set must be defined by a data owner (observed values are not exposed by default).",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 3
+        },
+        {
+          "metric": "non_null_count",
+          "value": 880
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_6b6cbb0727c5",
+      "table": "analytics.orders",
+      "column": "shipping.address.zip",
+      "rule_type": "matches_format",
+      "parameters": {
+        "format": "numeric_string"
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Sampled values consistently match this format.",
+      "evidence": [
+        {
+          "observed_format": "numeric_string",
+          "eligible_observations": 587
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_18a2210285a3",
+      "table": "analytics.orders",
+      "column": "shipping.method",
+      "rule_type": "accepted_values",
+      "parameters": {
+        "values": null
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Few distinct values observed; the accepted set must be defined by a data owner (observed values are not exposed by default).",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 2
+        },
+        {
+          "metric": "non_null_count",
+          "value": 960
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_fe4fae22d857",
+      "table": "analytics.orders",
+      "column": "items",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_b7ebcb5ead5c",
+      "table": "analytics.orders",
+      "column": "tags",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 1000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_741308881d71",
+      "table": "analytics.order_events",
+      "column": "event_id",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_9e70c64e42e9",
+      "table": "analytics.order_events",
+      "column": "event_id",
+      "rule_type": "unique",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 1965
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        },
+        {
+          "metric": "null_ratio",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_d25ab46c31e8",
+      "table": "analytics.order_events",
+      "column": "order_id",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_c73736fa66bc",
+      "table": "analytics.order_events",
+      "column": "order_id",
+      "rule_type": "matches_format",
+      "parameters": {
+        "format": "uuid"
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Sampled values consistently match this format.",
+      "evidence": [
+        {
+          "observed_format": "uuid",
+          "eligible_observations": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_17d32b630775",
+      "table": "analytics.order_events",
+      "column": "event_type",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_b007d0f01eb1",
+      "table": "analytics.order_events",
+      "column": "event_type",
+      "rule_type": "accepted_values",
+      "parameters": {
+        "values": null
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Few distinct values observed; the accepted set must be defined by a data owner (observed values are not exposed by default).",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 4
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_0661d23c512f",
+      "table": "analytics.order_events",
+      "column": "legacy_flag",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_53446451a208",
+      "table": "analytics.order_events",
+      "column": "legacy_flag",
+      "rule_type": "accepted_values",
+      "parameters": {
+        "values": null
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Few distinct values observed; the accepted set must be defined by a data owner (observed values are not exposed by default).",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 2
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_b58bec5a3f07",
+      "table": "analytics.order_events",
+      "column": "amount_text",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_06bef1d73f79",
+      "table": "analytics.order_events",
+      "column": "amount_text",
+      "rule_type": "unique",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 2019
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        },
+        {
+          "metric": "null_ratio",
+          "value": 0.0
+        },
+        {
+          "observed_format": "numeric_string"
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_cb446a61ffec",
+      "table": "analytics.order_events",
+      "column": "amount_text",
+      "rule_type": "matches_format",
+      "parameters": {
+        "format": "numeric_string"
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Sampled values consistently match this format.",
+      "evidence": [
+        {
+          "observed_format": "numeric_string",
+          "eligible_observations": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_bac3f4a61470",
+      "table": "analytics.order_events",
+      "column": "event_date_text",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_5c01a3096a47",
+      "table": "analytics.order_events",
+      "column": "event_date_text",
+      "rule_type": "matches_format",
+      "parameters": {
+        "format": "iso_date"
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Sampled values consistently match this format.",
+      "evidence": [
+        {
+          "observed_format": "iso_date",
+          "eligible_observations": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_6ec28c9b099d",
+      "table": "analytics.order_events",
+      "column": "tracking_url",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_c86b262d2a87",
+      "table": "analytics.order_events",
+      "column": "tracking_url",
+      "rule_type": "unique",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "evidence": [
+        {
+          "metric": "approx_distinct_count",
+          "value": 1980
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        },
+        {
+          "metric": "null_ratio",
+          "value": 0.0
+        },
+        {
+          "observed_format": "url"
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_dc48a49bb319",
+      "table": "analytics.order_events",
+      "column": "tracking_url",
+      "rule_type": "matches_format",
+      "parameters": {
+        "format": "url"
+      },
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "Sampled values consistently match this format.",
+      "evidence": [
+        {
+          "observed_format": "url",
+          "eligible_observations": 2000
+        }
+      ]
+    },
+    {
+      "rule_id": "sr_393fa37085e1",
+      "table": "analytics.order_events",
+      "column": "created_at_local",
+      "rule_type": "not_null",
+      "parameters": {},
+      "status": "proposed",
+      "requires_review": true,
+      "rationale": "No nulls observed in the analysed scope although the column is declared nullable.",
+      "evidence": [
+        {
+          "metric": "null_count",
+          "value": 0
+        },
+        {
+          "metric": "non_null_count",
+          "value": 2000
+        }
+      ]
+    }
+  ]
+}
