@@ -153,6 +153,25 @@ are collapsed into `*`. See [privacy](privacy.md).
 }
 ```
 
+### `deep.uniqueness`
+
+Exact uniqueness of keys over the analysed scope (filters and pinned snapshot of the table). Nothing is checked
+unless a key is listed or a source is enabled.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `keys` | `[]` | Explicit keys: `{"table", "columns", "id"?}` entries; `columns` are column references (a string is a literal top-level name, a list navigates struct fields), several columns make a composite key. |
+| `declared_keys` | `false` | Also check the PRIMARY KEY and UNIQUE constraints read from Unity Catalog `information_schema` (they are informational there, so they are checked, never trusted). |
+| `identifier_candidates` | `false` | Also check single columns that the standard metrics mark as identifier candidates (approximate distinct count close to the non-null count). |
+| `max_keys` | 5 | Keys checked per table, in this order: explicit, declared primary keys, declared unique constraints, candidates. Further keys are recorded as `not_computed` (`uniqueness_budget`). |
+| `max_passes` | 1 | Spark actions the checks may use per table. Keys are split evenly across the passes; each pass explodes every row once per key it checks and runs one grouped aggregation. |
+
+A key with the same columns as another one (for example an explicit key that is also the declared primary key) is
+checked once and keeps both origins. Key columns must be atomic (numbers, strings, booleans, dates, timestamps,
+binary) and outside arrays and maps; other keys are `not_eligible` with the reason. Rows with NULL in any key column
+are counted apart and never treated as duplicates. Only counts are recorded, never key values. See
+[contract](contract.md#uniqueness-12).
+
 ## `table_options`
 
 Keyed by table identifier (matched case-insensitively):

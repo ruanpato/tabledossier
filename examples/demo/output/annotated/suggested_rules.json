@@ -1,8 +1,8 @@
 {
   "kind": "tabledossier.suggested_rules",
   "schema_version": "1.0",
-  "run_id": "20260922T051702Z-efb5ce35",
-  "profiled_at": "2026-09-22T05:17:02.066Z",
+  "run_id": "20260922T052951Z-2dd775d7",
+  "profiled_at": "2026-09-22T05:29:51.543Z",
   "notice": "Proposals derived from observed data. They are not applied and require review by a data owner before being adopted as quality rules.",
   "rules": [
     {
@@ -33,7 +33,7 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
       "evidence": [
         {
           "metric": "approx_distinct_count",
@@ -217,7 +217,7 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
       "evidence": [
         {
           "metric": "approx_distinct_count",
@@ -303,7 +303,7 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
       "evidence": [
         {
           "metric": "approx_distinct_count",
@@ -572,11 +572,11 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
       "evidence": [
         {
           "metric": "approx_distinct_count",
-          "value": 1965
+          "value": 1962
         },
         {
           "metric": "non_null_count",
@@ -738,7 +738,7 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
       "evidence": [
         {
           "metric": "approx_distinct_count",
@@ -841,7 +841,7 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
       "evidence": [
         {
           "metric": "approx_distinct_count",

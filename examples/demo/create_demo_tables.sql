@@ -76,10 +76,12 @@ FROM range(1000);
 
 DROP TABLE IF EXISTS order_events;
 
+-- Planted for the exact uniqueness demo: rows 1997-1999 reuse the event_id of rows 0-2
+-- (three duplicated ids, six rows).
 CREATE TABLE order_events
 COMMENT 'Synthetic order events with a JSON payload stored as STRING'
 AS SELECT
-  concat('evt-', lpad(CAST(id AS STRING), 6, '0')) AS event_id,
+  concat('evt-', lpad(CAST(CASE WHEN id >= 1997 THEN id - 1997 ELSE id END AS STRING), 6, '0')) AS event_id,
   concat_ws('-', substr(md5(CAST(pmod(id, 1000) AS STRING)), 1, 8), substr(md5(CAST(pmod(id, 1000) AS STRING)), 9, 4),
             substr(md5(CAST(pmod(id, 1000) AS STRING)), 13, 4), substr(md5(CAST(pmod(id, 1000) AS STRING)), 17, 4),
             substr(md5(CAST(pmod(id, 1000) AS STRING)), 21, 12)) AS order_id,

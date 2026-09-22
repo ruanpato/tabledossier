@@ -1,48 +1,48 @@
 {
   "kind": "tabledossier.run_manifest",
   "manifest_version": "1.0",
-  "run_id": "20260922T051702Z-efb5ce35",
+  "run_id": "20260922T052951Z-2dd775d7",
   "status": "succeeded",
   "tool_version": "0.2.0",
   "profile_schema_version": "1.2",
-  "started_at": "2026-09-22T05:17:02.066Z",
-  "finished_at": "2026-09-22T05:17:13.009Z",
-  "generation_id": "sha256:fa764e5225fa840d28c42d0452254dac2dba3c503d80e2925860a1bac14db9d9",
+  "started_at": "2026-09-22T05:29:51.543Z",
+  "finished_at": "2026-09-22T05:30:02.708Z",
+  "generation_id": "sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec",
   "files": [
     {
       "path": "data_dictionary.md",
-      "sha256": "sha256:1675d1476eb9820d8c0ab22be3bf82eb5c750c62215d34fcb76485943e5123e4",
+      "sha256": "sha256:60cca36126b1ca768920c51a7a1cee79d6b0bbe2e79507139f1ea9187d7da8cf",
       "bytes": 56885
     },
     {
       "path": "erd.mmd",
-      "sha256": "sha256:ca086602b5221d13facaa694377e6c96fa70b5f34083ef988fb8f33355911c32",
+      "sha256": "sha256:9c0d8ab28e3467c4a4ef1d82d492cfece49ab75f7f71de95d324e8b3e13b57e4",
       "bytes": 2756
     },
     {
       "path": "overview.md",
-      "sha256": "sha256:72582bb53ece6ae21b23f9f2db8f54cc5240e5817bd30487a2621edd11872228",
+      "sha256": "sha256:6eb727cbc728d64537028c680c00ebc3d37e77910e8d1bb573608b6d6ee0f0f2",
       "bytes": 4565
     },
     {
       "path": "profile.json",
-      "sha256": "sha256:6e7b5051fa8af73aa4cd611be7b043c19439faf5d21963f02ba5593c126e4d9c",
-      "bytes": 402545
+      "sha256": "sha256:7dcae4b3756be3307c8c15d5f9276638e6551099185d116187c991f30e374cea",
+      "bytes": 403501
     },
     {
       "path": "quality_report.md",
-      "sha256": "sha256:04cc6a728c8d266cd86d3e80ebcf3a71b95f3de36e06eeec7fac768358e679f3",
-      "bytes": 18592
+      "sha256": "sha256:6b18883a821cd2b2527967ad61c841fa35d3a8192506f70c00b4260ca9503195",
+      "bytes": 18700
     },
     {
       "path": "relationships.md",
-      "sha256": "sha256:39e0d24e3413bcbf7ce5616ee8700369b77a525933a37624ad97b3edad3dfc7d",
+      "sha256": "sha256:dd0b11e9ba24f7a952dbd1ae95ed3d26def723c8b4faea76aff3e59858ec3849",
       "bytes": 1898
     },
     {
       "path": "suggested_rules.json",
-      "sha256": "sha256:54e18ec8cbc898b66575ab8b9d11c55be6e1a69532352d0b50c671d3c4ffde17",
-      "bytes": 23901
+      "sha256": "sha256:35e039963226d86df6dfd3018e8a99308294f7e73ee4e994d1324d15069be8b0",
+      "bytes": 24009
     }
   ],
   "profile_validation": {

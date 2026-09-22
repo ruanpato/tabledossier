@@ -6,13 +6,13 @@
     "version": "0.2.0"
   },
   "run": {
-    "run_id": "20260922T051702Z-efb5ce35",
+    "run_id": "20260922T052951Z-2dd775d7",
     "status": "succeeded",
     "analysis_level": "standard",
-    "started_at": "2026-09-22T05:17:02.066Z",
-    "finished_at": "2026-09-22T05:17:13.009Z",
-    "duration_ms": 10943,
-    "reference_time": "2026-09-22T05:17:02.066Z",
+    "started_at": "2026-09-22T05:29:51.543Z",
+    "finished_at": "2026-09-22T05:30:02.708Z",
+    "duration_ms": 11165,
+    "reference_time": "2026-09-22T05:29:51.543Z",
     "environment": {
       "engine": "spark",
       "execution_context": "spark",
@@ -111,9 +111,39 @@
         "max_json_depth": 3,
         "max_json_object_keys": 50,
         "uniqueness": {
-          "keys": [],
-          "declared_keys": false,
-          "identifier_candidates": false,
+          "keys": [
+            {
+              "table": "analytics.customers",
+              "columns": [
+                "customer_id"
+              ],
+              "id": "customers_key"
+            },
+            {
+              "table": "analytics.orders",
+              "columns": [
+                "order_id"
+              ],
+              "id": "orders_key"
+            },
+            {
+              "table": "analytics.order_events",
+              "columns": [
+                "event_id"
+              ],
+              "id": "events_key"
+            },
+            {
+              "table": "analytics.order_events",
+              "columns": [
+                "order_id",
+                "event_type"
+              ],
+              "id": "events_per_order_and_type"
+            }
+          ],
+          "declared_keys": true,
+          "identifier_candidates": true,
           "max_keys": 5,
           "max_passes": 1
         },
@@ -225,7 +255,7 @@
         }
       ]
     },
-    "config_fingerprint": "sha256:a7d0e49dc4b29a253e7732ab1a610602755e15e15ae7caeca444802a01863f86",
+    "config_fingerprint": "sha256:7f8007dce9a7ada7ca5adc9994f8136432ac700328304edd71a38912d6604577",
     "parameter_sources": {
       "precedence": [
         "built-in defaults",
@@ -251,7 +281,7 @@
     },
     "generation": {
       "generator_version": "0.2.0",
-      "generation_id": "sha256:fa764e5225fa840d28c42d0452254dac2dba3c503d80e2925860a1bac14db9d9"
+      "generation_id": "sha256:0ab1a46536ec21b81b95f892c1b64d9324da7e25bad5aad86976a26c89c532ec"
     },
     "purpose": "Synthetic demo: document the demo analytics tables.",
     "capabilities": {
@@ -315,8 +345,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic customers (simple types, special column names, all-null and constant columns)",
-        "created_at": "2026-09-22T05:16:54.253000Z",
-        "last_modified": "2026-09-22T05:17:01.795000Z",
+        "created_at": "2026-09-22T05:29:43.602000Z",
+        "last_modified": "2026-09-22T05:29:51.264000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -342,7 +372,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:03.156Z",
+        "captured_at": "2026-09-22T05:29:52.644Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -350,7 +380,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:17:01.795000Z",
+        "version_timestamp": "2026-09-22T05:29:51.264000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -894,7 +924,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -2722,7 +2752,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -3001,7 +3031,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_bf578f74a945",
@@ -3102,7 +3132,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_d16707673d3f",
@@ -3181,7 +3211,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -3365,7 +3395,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -3478,21 +3508,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 44,
+            "duration_ms": 43,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 1034,
+            "duration_ms": 1049,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 281,
+            "duration_ms": 280,
             "rows_returned": 1,
             "detail": null
           },
@@ -3506,14 +3536,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 476,
+            "duration_ms": 488,
             "rows_returned": 500,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1883,
+            "duration_ms": 1991,
             "rows_returned": 1,
             "detail": null
           }
@@ -3523,10 +3553,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 1377,
-        "sample": 480,
-        "aggregate": 2044,
-        "total": 3905
+        "metadata": 1389,
+        "sample": 491,
+        "aggregate": 2167,
+        "total": 4052
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -3553,8 +3583,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic orders with nested structs, arrays and maps",
-        "created_at": "2026-09-22T05:16:59.185000Z",
-        "last_modified": "2026-09-22T05:17:01.896000Z",
+        "created_at": "2026-09-22T05:29:48.517000Z",
+        "last_modified": "2026-09-22T05:29:51.370000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -3580,7 +3610,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:06.830Z",
+        "captured_at": "2026-09-22T05:29:56.435Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -3588,7 +3618,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 1,
-        "version_timestamp": "2026-09-22T05:17:01.896000Z",
+        "version_timestamp": "2026-09-22T05:29:51.370000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 1, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -4447,7 +4477,7 @@
                     "observed_format": "uuid"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -7093,7 +7123,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_21934206214c",
@@ -7366,7 +7396,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -7691,21 +7721,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 18,
+            "duration_ms": 16,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 828,
+            "duration_ms": 815,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 116,
+            "duration_ms": 114,
             "rows_returned": 1,
             "detail": null
           },
@@ -7719,14 +7749,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 469,
+            "duration_ms": 478,
             "rows_returned": 1000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1416,
+            "duration_ms": 1400,
             "rows_returned": 1,
             "detail": null
           }
@@ -7736,10 +7766,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 971,
-        "sample": 476,
-        "aggregate": 1605,
-        "total": 3061
+        "metadata": 953,
+        "sample": 486,
+        "aggregate": 1597,
+        "total": 3044
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -7766,14 +7796,14 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic order events with a JSON payload stored as STRING",
-        "created_at": "2026-09-22T05:17:00.431000Z",
-        "last_modified": "2026-09-22T05:17:00.674000Z",
+        "created_at": "2026-09-22T05:29:49.832000Z",
+        "last_modified": "2026-09-22T05:29:50.110000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
           "name": "size_in_bytes",
           "status": "measured",
-          "value": 150898,
+          "value": 150900,
           "value_type": "integer",
           "unit": "bytes",
           "scope": "table_metadata",
@@ -7793,7 +7823,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:09.464Z",
+        "captured_at": "2026-09-22T05:29:59.032Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -7801,7 +7831,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:17:00.674000Z",
+        "version_timestamp": "2026-09-22T05:29:50.110000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -8159,7 +8189,7 @@
             {
               "name": "approx_distinct_count",
               "status": "measured",
-              "value": 1965,
+              "value": 1962,
               "value_type": "integer",
               "unit": "values",
               "scope": "full_snapshot",
@@ -8307,7 +8337,7 @@
                 "evidence": [
                   {
                     "metric": "approx_distinct_count",
-                    "value": 1965
+                    "value": 1962
                   },
                   {
                     "metric": "non_null_count",
@@ -8318,7 +8348,7 @@
                     "value": 0.0
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -8327,9 +8357,9 @@
             "scope": "sample",
             "accuracy": "exact_for_sample",
             "observations": 2000,
-            "sample_distinct_count": 2000,
-            "top_1_share": 0.0005,
-            "top_5_share": 0.0025,
+            "sample_distinct_count": 1997,
+            "top_1_share": 0.001,
+            "top_5_share": 0.004,
             "note": "Exact for the sample only; not extrapolated to the population."
           },
           "examples": null,
@@ -9790,7 +9820,7 @@
                     "observed_format": "numeric_string"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -10268,7 +10298,7 @@
                     "observed_format": "url"
                   }
                 ],
-                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+                "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
               }
             ]
           },
@@ -10423,7 +10453,7 @@
           "evidence": [
             {
               "metric": "approx_distinct_count",
-              "value": 1965
+              "value": 1962
             },
             {
               "metric": "non_null_count",
@@ -10439,7 +10469,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_e7abefd97926",
@@ -10572,7 +10602,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         },
         {
           "finding_id": "fd_49658ba9e3ea",
@@ -10604,7 +10634,7 @@
             "value": 0.95
           },
           "severity_reason": "info: approximate cardinality does not prove uniqueness.",
-          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (planned for a later release)."
+          "limitations": "Approximate distinct counts do not prove uniqueness or a primary key; exact validation requires an additional read (deep.uniqueness at the deep level)."
         }
       ],
       "quality_checks": [],
@@ -10637,11 +10667,11 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
-              "value": 1965
+              "value": 1962
             },
             {
               "metric": "non_null_count",
@@ -10803,7 +10833,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -10906,7 +10936,7 @@
           "parameters": {},
           "status": "proposed",
           "requires_review": true,
-          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+          "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check (deep.uniqueness) before adopting.",
           "evidence": [
             {
               "metric": "approx_distinct_count",
@@ -11023,21 +11053,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 18,
+            "duration_ms": 13,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 399,
+            "duration_ms": 370,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 116,
+            "duration_ms": 117,
             "rows_returned": 1,
             "detail": null
           },
@@ -11051,14 +11081,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 398,
+            "duration_ms": 405,
             "rows_returned": 2000,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 1238,
+            "duration_ms": 1345,
             "rows_returned": 1,
             "detail": null
           }
@@ -11068,10 +11098,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 541,
-        "sample": 442,
-        "aggregate": 1352,
-        "total": 2338
+        "metadata": 510,
+        "sample": 449,
+        "aggregate": 1466,
+        "total": 2429
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."
@@ -11098,8 +11128,8 @@
         "table_type": "MANAGED",
         "provider": "delta",
         "comment": "Synthetic returns: intentionally empty",
-        "created_at": "2026-09-22T05:17:01.488000Z",
-        "last_modified": "2026-09-22T05:17:01.607000Z",
+        "created_at": "2026-09-22T05:29:50.949000Z",
+        "last_modified": "2026-09-22T05:29:51.074000Z",
         "partition_columns": [],
         "clustering_columns": [],
         "size_in_bytes": {
@@ -11125,7 +11155,7 @@
           "method": "DESCRIBE DETAIL numFiles (latest table state)"
         },
         "metadata_state": "current_at_capture",
-        "captured_at": "2026-09-22T05:17:12.130Z",
+        "captured_at": "2026-09-22T05:30:01.896Z",
         "notes": [
           "Catalog metadata reflects the table state when it was captured, not necessarily the pinned snapshot."
         ]
@@ -11133,7 +11163,7 @@
       "consistency": {
         "mode": "pinned_delta_version",
         "delta_version": 0,
-        "version_timestamp": "2026-09-22T05:17:01.607000Z",
+        "version_timestamp": "2026-09-22T05:29:51.074000Z",
         "guarantee": "All row reads (sample and aggregations) used Delta version 0, resolved at the start of this table's profile.",
         "notes": [
           "Catalog metadata (size, files, comments) describes the latest state at capture time."
@@ -12043,21 +12073,21 @@
           {
             "operation_id": "op_describe",
             "status": "succeeded",
-            "duration_ms": 15,
+            "duration_ms": 19,
             "rows_returned": null,
             "detail": null
           },
           {
             "operation_id": "op_detail",
             "status": "succeeded",
-            "duration_ms": 730,
+            "duration_ms": 796,
             "rows_returned": 1,
             "detail": null
           },
           {
             "operation_id": "op_history",
             "status": "succeeded",
-            "duration_ms": 101,
+            "duration_ms": 107,
             "rows_returned": 1,
             "detail": null
           },
@@ -12071,14 +12101,14 @@
           {
             "operation_id": "op_sample",
             "status": "succeeded",
-            "duration_ms": 286,
+            "duration_ms": 290,
             "rows_returned": 0,
             "detail": null
           },
           {
             "operation_id": "op_aggregate_1",
             "status": "succeeded",
-            "duration_ms": 435,
+            "duration_ms": 359,
             "rows_returned": 1,
             "detail": null
           }
@@ -12088,10 +12118,10 @@
         "monetary_cost": "unknown"
       },
       "timings_ms": {
-        "metadata": 852,
-        "sample": 286,
-        "aggregate": 483,
-        "total": 1624
+        "metadata": 929,
+        "sample": 290,
+        "aggregate": 407,
+        "total": 1629
       },
       "notes": [
         "Declared key constraints are read from Unity Catalog information_schema only."

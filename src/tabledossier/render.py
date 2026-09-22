@@ -13,6 +13,7 @@ import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from tabledossier.keys import measured_keys
 from tabledossier.metrics import find_metric
 from tabledossier.paths import parse_table_identifier, table_lookup_key
 from tabledossier.planning import iter_nodes
@@ -1033,8 +1034,7 @@ def render_quality_report(
         "",
         "- **Validity** is only evaluated through configured checks. Formats observed on samples "
         "are hypotheses.",
-        "- **Uniqueness** is only approximated (HyperLogLog-based distinct counts); no exact "
-        "uniqueness check ran.",
+        _r_uniqueness_dimension(profile),
         "- **Referential integrity** is not verified: declared or provided relationships were not "
         "validated.",
         "- **Timeliness** needs a time column and an agreed SLA; `after_reference_count` is "
@@ -1043,14 +1043,11 @@ def render_quality_report(
         "",
     ]
     deep_tables = [table for table in profile["tables"] if table.get("deep")]
-    if profile["run"].get("analysis_level") == "deep":
+    deep_level = profile["run"].get("analysis_level") == "deep"
+    if deep_level:
         out += _r_deep_coverage(deep_tables)
-    out += [
-        "## 7. Limitations"
-        if profile["run"].get("analysis_level") == "deep"
-        else "## 6. Limitations",
-        "",
-    ]
+        out += _r_uniqueness(profile)
+    out += ["## 8. Limitations" if deep_level else "## 6. Limitations", ""]
     for table in profile["tables"]:
         lines = []
         consistency = table.get("consistency") or {}
@@ -1080,6 +1077,124 @@ def render_quality_report(
         out += [f"- {md_text(line)}" for line in lines] or ["- none recorded"]
         out.append("")
     return "\n".join(out)
+
+
+def _r_uniqueness_dimension(profile: Mapping[str, Any]) -> str:
+    if any(measured_keys(table) for table in profile["tables"]):
+        return (
+            "- **Uniqueness** is established only for the keys of section 7, exactly and over "
+            "their analysed scope; other columns only have approximate (HyperLogLog-based) "
+            "distinct counts."
+        )
+    return (
+        "- **Uniqueness** is only approximated (HyperLogLog-based distinct counts); no exact "
+        "uniqueness check ran."
+    )
+
+
+_R_OUTCOMES = {
+    "unique": "unique",
+    "unique_non_null": "unique among complete keys (some keys have NULL)",
+    "duplicates": "**duplicates**",
+    "empty": "no complete key in scope",
+}
+
+
+def _r_uniqueness(profile: Mapping[str, Any]) -> list[str]:
+    """Render section 7 of the DQR: exact uniqueness of keys, with its evidence."""
+    out = ["## 7. Uniqueness (exact)", ""]
+    records = [(table, table.get("uniqueness")) for table in profile["tables"]]
+    keys = [(table, key) for table, record in records if record for key in record["keys"]]
+    if not keys:
+        return [
+            *out,
+            "Not established: no key was checked for exact uniqueness in this run (configure "
+            "`deep.uniqueness`: explicit keys, declared keys or identifier candidates).",
+            "",
+        ]
+    semantics = next(record["null_semantics"] for _, record in records if record)
+    out += [
+        "Each key was checked with an exact grouped aggregation over the analysed scope; several "
+        "keys of a table share one pass. Only counts are recorded: duplicated values are never "
+        "collected. " + semantics,
+        "",
+    ]
+    rows = []
+    for table, key in keys:
+        if key["status"] != "measured":
+            continue
+        values = {m["name"]: m for m in key["metrics"]}
+
+        def cell(name: str, values: Mapping[str, Any] = values) -> str:
+            return format_value(values[name]) if name in values else "—"
+
+        rows.append(
+            [
+                md_text(table["table_key"]),
+                md_code(", ".join(key["columns"])),
+                md_text(", ".join(origin.replace("_", " ") for origin in key["origins"])),
+                _R_OUTCOMES.get(key["outcome"], md_text(key["outcome"])),
+                cell("rows_in_scope"),
+                cell("rows_with_null_key"),
+                cell("distinct_keys"),
+                cell("duplicate_key_groups"),
+                cell("rows_in_duplicate_groups"),
+                cell("max_rows_per_key"),
+                md_text(SCOPE_LABELS.get(key["scope"], key["scope"])),
+            ]
+        )
+    if rows:
+        out += [
+            _r_table(
+                [
+                    "Table",
+                    "Key",
+                    "Origin",
+                    "Outcome",
+                    "Rows in scope",
+                    "Rows with NULL in the key",
+                    "Distinct keys",
+                    "Duplicate groups",
+                    "Rows in duplicate groups",
+                    "Most rows per key",
+                    "Scope",
+                ],
+                rows,
+            ),
+            "",
+        ]
+    skipped = [(table, key) for table, key in keys if key["status"] != "measured"]
+    if skipped:
+        out += ["**Keys not measured**", ""]
+        out.append(
+            _r_table(
+                ["Table", "Key", "Origin", "Status", "Reason"],
+                [
+                    [
+                        md_text(table["table_key"]),
+                        md_code(", ".join(key["columns"])) if key["columns"] else "—",
+                        md_text(", ".join(origin.replace("_", " ") for origin in key["origins"])),
+                        md_code(key["status"]),
+                        md_text(key["reason"] or ""),
+                    ]
+                    for table, key in skipped
+                ],
+            )
+        )
+        out.append("")
+    notes = [
+        md_text(note) for note in sorted({note for _, key in keys for note in key["limitations"]})
+    ]
+    notes += [
+        f"{md_text(table['table_key'])}: {md_text(note)}"
+        for table, record in records
+        if record
+        for note in record["notes"]
+    ]
+    out += [f"- {note}" for note in notes]
+    if notes:
+        out.append("")
+    return out
 
 
 def _r_deep_coverage(tables: list[Mapping[str, Any]]) -> list[str]:

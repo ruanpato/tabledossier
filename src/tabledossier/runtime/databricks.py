@@ -156,6 +156,23 @@ def describe_plan(ctx: Mapping[str, Any]) -> str:
                     else ""
                 ),
             ]
+            uniqueness = deep["uniqueness"]
+            sources = [
+                name
+                for name, enabled in (
+                    (f"{len(uniqueness['keys'])} listed key(s)", bool(uniqueness["keys"])),
+                    ("declared keys", uniqueness["declared_keys"]),
+                    ("identifier candidates", uniqueness["identifier_candidates"]),
+                )
+                if enabled
+            ]
+            lines.append(
+                f"      exact uniqueness ({', '.join(sources)}): up to {uniqueness['max_keys']} "
+                f"key(s) per table in at most {uniqueness['max_passes']} grouped pass(es); counts "
+                "only"
+                if sources
+                else "      exact uniqueness: no key requested (deep.uniqueness)"
+            )
     else:
         lines.append("  - no table rows are read at the metadata level")
     capabilities = ctx["capabilities"]

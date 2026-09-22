@@ -1,8 +1,8 @@
 {
   "kind": "tabledossier.suggested_rules",
   "schema_version": "1.0",
-  "run_id": "20260922T051713Z-7a2ff090",
-  "profiled_at": "2026-09-22T05:17:13.118Z",
+  "run_id": "20260922T053002Z-3bcfafc9",
+  "profiled_at": "2026-09-22T05:30:02.834Z",
   "notice": "Proposals derived from observed data. They are not applied and require review by a data owner before being adopted as quality rules.",
   "rules": [
     {
@@ -33,8 +33,29 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Exact uniqueness check: no duplicate among 500 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
       "evidence": [
+        {
+          "check": "exact_uniqueness",
+          "key_id": "k_3f0c2d221eca",
+          "scope": "full_snapshot"
+        },
+        {
+          "metric": "rows_with_complete_key",
+          "value": 500
+        },
+        {
+          "metric": "distinct_keys",
+          "value": 500
+        },
+        {
+          "metric": "duplicate_key_groups",
+          "value": 0
+        },
+        {
+          "metric": "rows_with_null_key",
+          "value": 0
+        },
         {
           "metric": "approx_distinct_count",
           "value": 499
@@ -217,8 +238,29 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Exact uniqueness check: no duplicate among 500 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
       "evidence": [
+        {
+          "check": "exact_uniqueness",
+          "key_id": "k_77961aaac07d",
+          "scope": "full_snapshot"
+        },
+        {
+          "metric": "rows_with_complete_key",
+          "value": 500
+        },
+        {
+          "metric": "distinct_keys",
+          "value": 500
+        },
+        {
+          "metric": "duplicate_key_groups",
+          "value": 0
+        },
+        {
+          "metric": "rows_with_null_key",
+          "value": 0
+        },
         {
           "metric": "approx_distinct_count",
           "value": 507
@@ -303,8 +345,29 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Exact uniqueness check: no duplicate among 1000 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
       "evidence": [
+        {
+          "check": "exact_uniqueness",
+          "key_id": "k_d571deb1cbbb",
+          "scope": "filtered_snapshot"
+        },
+        {
+          "metric": "rows_with_complete_key",
+          "value": 1000
+        },
+        {
+          "metric": "distinct_keys",
+          "value": 1000
+        },
+        {
+          "metric": "duplicate_key_groups",
+          "value": 0
+        },
+        {
+          "metric": "rows_with_null_key",
+          "value": 0
+        },
         {
           "metric": "approx_distinct_count",
           "value": 1011
@@ -565,30 +628,6 @@
       ]
     },
     {
-      "rule_id": "sr_9e70c64e42e9",
-      "table": "analytics.order_events",
-      "column": "event_id",
-      "rule_type": "unique",
-      "parameters": {},
-      "status": "proposed",
-      "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
-      "evidence": [
-        {
-          "metric": "approx_distinct_count",
-          "value": 1965
-        },
-        {
-          "metric": "non_null_count",
-          "value": 2000
-        },
-        {
-          "metric": "null_ratio",
-          "value": 0.0
-        }
-      ]
-    },
-    {
       "rule_id": "sr_d25ab46c31e8",
       "table": "analytics.order_events",
       "column": "order_id",
@@ -731,33 +770,6 @@
       ]
     },
     {
-      "rule_id": "sr_06bef1d73f79",
-      "table": "analytics.order_events",
-      "column": "amount_text",
-      "rule_type": "unique",
-      "parameters": {},
-      "status": "proposed",
-      "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
-      "evidence": [
-        {
-          "metric": "approx_distinct_count",
-          "value": 2019
-        },
-        {
-          "metric": "non_null_count",
-          "value": 2000
-        },
-        {
-          "metric": "null_ratio",
-          "value": 0.0
-        },
-        {
-          "observed_format": "numeric_string"
-        }
-      ]
-    },
-    {
       "rule_id": "sr_cb446a61ffec",
       "table": "analytics.order_events",
       "column": "amount_text",
@@ -841,8 +853,29 @@
       "parameters": {},
       "status": "proposed",
       "requires_review": true,
-      "rationale": "Approximate distinct count close to non-null count; confirm with an exact uniqueness check before adopting.",
+      "rationale": "Exact uniqueness check: no duplicate among 2000 row(s) with a complete key in the analysed scope. This describes the analysed scope, not future data.",
       "evidence": [
+        {
+          "check": "exact_uniqueness",
+          "key_id": "k_fd0f460276d2",
+          "scope": "full_snapshot"
+        },
+        {
+          "metric": "rows_with_complete_key",
+          "value": 2000
+        },
+        {
+          "metric": "distinct_keys",
+          "value": 2000
+        },
+        {
+          "metric": "duplicate_key_groups",
+          "value": 0
+        },
+        {
+          "metric": "rows_with_null_key",
+          "value": 0
+        },
         {
           "metric": "approx_distinct_count",
           "value": 1980

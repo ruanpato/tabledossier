@@ -153,7 +153,14 @@ def test_deep_notebook_run_exports_a_valid_1_2_package(
         deep = table["deep"]
         assert deep is not None and deep["extra_passes"]["planned"] <= 1
         reads = [op for op in table["operations"]["planned"] if op["reads_user_data"]]
-        assert len(reads) <= 1 + 2 + 1
+        # sample + 2 standard passes + 1 deep extra pass + 1 uniqueness pass (max_passes)
+        assert len(reads) <= 1 + 2 + 1 + 1
+        assert table["uniqueness"]["passes"]["planned"] <= 1
+    events = next(t for t in profile["tables"] if t["table_key"] == "analytics.order_events")
+    event_id = next(k for k in events["uniqueness"]["keys"] if k["columns"] == ["event_id"])
+    assert event_id["outcome"] == "duplicates"
+    groups = next(m for m in event_id["metrics"] if m["name"] == "duplicate_key_groups")
+    assert groups["value"] == 3, "three duplicated event ids are planted in the demo data"
     regenerated = build_documents(profile)
     for name, text in regenerated.items():
         assert (run_dir / name).read_text(encoding="utf-8") == text, name
