@@ -166,9 +166,8 @@ actually tested.
 
 ## 6. Quickstart
 
-The package is not published on PyPI. Install the tagged release from GitHub (the `v0.3.0` tag exists once 0.3.0
-is released; `@v0.2.0` installs the previous release), or from a checkout with `python -m pip install .`
-(air-gapped machines: see [offline installation](docs/offline-install.md)).
+The package is not published on PyPI. Install the tagged release from GitHub, or from a checkout with
+`python -m pip install .` (air-gapped machines: see [offline installation](docs/offline-install.md)).
 
 ```bash
 python -m venv .venv
@@ -319,8 +318,8 @@ anonymized**. Nothing is sent anywhere. Details: [privacy](docs/privacy.md).
 
 | Component | Tested | Pending |
 | --- | --- | --- |
-| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 199 unit tests against the built wheel | Other OS/Python combinations |
-| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (49/46 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, shared/serverless compute, Unity Catalog constraints |
+| CLI | Python 3.10–3.14 on Linux (CI); Python 3.12 on macOS and Windows (CI); 252 unit tests against the built wheel | Other OS/Python combinations |
+| Notebook runtime | Generated notebook executed with local PySpark 3.5.9 (+ delta-spark 3.3.3) and 4.0.4, Python 3.12, locally and in CI, in classic mode and through a local Spark Connect server (74/70 integration tests; see [compatibility](docs/compatibility.md)) | Databricks Runtime 16.4/15.4/17.3 LTS: import, widgets, Volumes, shared/serverless compute, Unity Catalog constraints (declared keys and foreign keys) |
 
 A reproducible remote check is described in [Databricks smoke test](docs/databricks-smoke-test.md).
 
