@@ -72,8 +72,10 @@ The project follows gitflow:
   it through a pull request with green CI.
 - A release is prepared on `release/X.Y.Z`, cut from `develop`, and a fix to a published release on
   `hotfix/X.Y.Z`, cut from `main`. Only these branches are merged into `main`, always through a pull request with a
-  **merge commit** (no squash or rebase). A hotfix is merged back into `develop` as well.
+  **merge commit** (no squash or rebase).
 - Each release merged into `main` gets an annotated tag `vX.Y.Z` on the merge commit, and a GitHub release.
+- After a release or hotfix reaches `main`, `main` is merged back into `develop` through a pull request, so the next
+  release branch is up to date with `main`.
 
 Repository rulesets enforce this:
 
