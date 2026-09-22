@@ -41,6 +41,7 @@ from tabledossier.deep import (
     plan_json_validation,
 )
 from tabledossier.errors import error_record, sanitize_message
+from tabledossier.keys import plan_uniqueness, requested_keys, uniqueness_record
 from tabledossier.metrics import measured, not_measured
 from tabledossier.paths import (
     column_reference_segments,
@@ -62,6 +63,7 @@ from tabledossier.planning import (
     select_profile_fields,
 )
 from tabledossier.semantic import (
+    candidate_roles,
     infer_format,
     is_json_like,
     json_shape,
@@ -659,6 +661,67 @@ def run_element_distinct(
         ]
     row = exploded.agg(*aggregates).collect()[0]
     return {key: (0 if value is None else int(value)) for key, value in row.asDict().items()}
+
+
+def _sp_any_null(columns: Sequence[Any]) -> Any:
+    condition = columns[0].isNull()
+    for column in columns[1:]:
+        condition = condition | column.isNull()
+    return condition
+
+
+def run_uniqueness_pass(
+    frame: Any, keys: Sequence[Mapping[str, Any]], nodes_by_id: Mapping[str, Any]
+) -> dict[int, dict[str, Any]]:
+    """Check several keys exactly in one Spark action and return counts per key position.
+
+    Each row becomes one entry per key: a struct with the key position, a flag
+    for NULL in any key column and one typed slot per key column of every key
+    (only the entry's own slots are set). The entries are exploded once,
+    grouped by position, flag and slots, and the group sizes are aggregated per
+    key. Only counts come back to the driver, never key values.
+    """
+    schema = frame.schema
+    slots: list[tuple[int, Any, Any]] = []
+    for position, key in enumerate(keys):
+        for fid in key["field_ids"]:
+            path = nodes_by_id[fid]["path"]
+            slots.append((position, column_for(path), _sp_data_type(schema, path)))
+    names = [f"s{index}" for index in range(len(slots))]
+
+    def entry(position: int) -> Any:
+        own = [column for owner, column, _ in slots if owner == position]
+        values = [
+            (column if owner == position else F.lit(None).cast(data_type)).alias(names[index])
+            for index, (owner, column, data_type) in enumerate(slots)
+        ]
+        return F.struct(F.lit(position).alias("l"), _sp_any_null(own).alias("z"), *values)
+
+    if len(keys) == 1:
+        exploded = frame.select(entry(0).alias("e"))
+    else:
+        entries = F.array(*[entry(position) for position in range(len(keys))])
+        exploded = frame.select(F.explode(entries).alias("e"))
+    element = F.col("e")
+    flat = exploded.select(*[element.getField(name).alias(name) for name in ("l", "z", *names)])
+    groups = flat.groupBy("l", "z", *names).agg(F.count(F.lit(1)).alias("n"))
+    complete = ~F.col("z")
+    repeated = complete & (F.col("n") > F.lit(1))
+    stats = groups.groupBy("l").agg(
+        F.sum("n").alias("rows"),
+        F.sum(F.when(F.col("z"), F.col("n"))).alias("null_rows"),
+        F.count(F.when(complete, 1)).alias("distinct"),
+        F.count(F.when(repeated, 1)).alias("dup_groups"),
+        F.sum(F.when(repeated, F.col("n"))).alias("dup_rows"),
+        F.max(F.when(complete, F.col("n"))).alias("max_n"),
+    )
+    out: dict[int, dict[str, Any]] = {}
+    for row in stats.collect():
+        values = row.asDict()
+        out[int(values.pop("l"))] = {
+            key: (None if value is None else int(value)) for key, value in values.items()
+        }
+    return out
 
 
 # --------------------------------------------------------------------------- metadata
@@ -1423,9 +1486,8 @@ def profile_table(
 
     scope = scope_label(pinned, bool(filters))
     table["scope"]["scope_label"] = scope
-    frame = base
-    if filters:
-        frame = frame.filter(filter_condition(filters))
+    scoped = base.filter(filter_condition(filters)) if filters else base
+    frame = scoped
     if selected is not None:
         frame = frame.select(*[F.col(quote_name(name)) for name in selected])
 
@@ -1774,6 +1836,7 @@ def profile_table(
             json_unsupported=json_unsupported,
             scope=scope,
         )
+        _sp_uniqueness(table, scoped, tree, nodes_by_id, config, scope=scope, log=log)
     timings["total"] = _sp_ms(total_start)
     finalize_table(table, config)
     extra = (
@@ -1789,6 +1852,87 @@ def profile_table(
 
 
 # --------------------------------------------------------------------------- deep helpers
+
+
+def _sp_identifier_candidates(
+    table: Mapping[str, Any], config: Mapping[str, Any]
+) -> list[list[dict[str, Any]]]:
+    """Paths of the fields the standard metrics mark as identifier candidates (schema order)."""
+    out = []
+    for field in table["field_profiles"]:
+        if not field["profiled"] or field.get("element_context") or not field["metrics"]:
+            continue
+        roles = candidate_roles(
+            field["type_kind"],
+            field["metrics"],
+            (field.get("semantics") or {}).get("observed_format"),
+            config["thresholds"],
+            field["physical_type"],
+        )
+        if any(role["role"] == "identifier_candidate" for role in roles):
+            out.append([dict(segment) for segment in field["path"]])
+    return out
+
+
+def _sp_uniqueness(
+    table: dict[str, Any],
+    frame: Any,
+    tree: Mapping[str, Any],
+    nodes_by_id: Mapping[str, Any],
+    config: Mapping[str, Any],
+    *,
+    scope: str,
+    log: Callable[[str], None],
+) -> None:
+    """Plan, run and record the exact uniqueness checks of one table (deep level)."""
+    lookup = table_lookup_key(table["identifier"]["parts"])
+    requested = requested_keys(
+        config, lookup, table["constraints"], _sp_identifier_candidates(table, config)
+    )
+    plan = plan_uniqueness(tree, requested, config)
+    planned = table["operations"]["planned"]
+    observed = table["operations"]["observed"]
+    for number, members in enumerate(plan["passes"], start=1):
+        planned.append(
+            operation(
+                f"op_uniqueness_{number}",
+                "uniqueness_pass",
+                "exact uniqueness of "
+                f"{len(members)} key(s) in one grouped aggregation over the analysed scope (each "
+                "row is exploded once per key; only counts are collected)",
+                reads_user_data=True,
+                keys=len(members),
+                columns=sum(len(plan["keys"][m]["field_ids"]) for m in members),
+            )
+        )
+    results: dict[int, dict[str, Any]] = {}
+    errors: dict[int, str] = {}
+    start = time.perf_counter()
+    for number, members in enumerate(plan["passes"], start=1):
+        op_id = f"op_uniqueness_{number}"
+        pass_start = time.perf_counter()
+        try:
+            raw = run_uniqueness_pass(frame, [plan["keys"][m] for m in members], nodes_by_id)
+        except Exception as exc:  # noqa: BLE001 - a failed pass leaves its keys unmeasured
+            record = error_record(exc, "aggregate")
+            table["errors"].append(record)
+            cause = record["condition"] or record["error_class"]
+            for member in members:
+                errors[member] = "uniqueness pass failed: " + cause
+            observed.append(_sp_observed(op_id, "failed", pass_start, detail=cause))
+            continue
+        for index, member in enumerate(members):
+            results[member] = raw.get(index, {})
+        observed.append(_sp_observed(op_id, "succeeded", pass_start, rows=len(raw)))
+    if plan["passes"]:
+        table["timings_ms"]["uniqueness"] = _sp_ms(start)
+        log(
+            f"[tabledossier] {table['table_key']}: {sum(len(m) for m in plan['passes'])} key(s) "
+            f"checked for exact uniqueness in {len(plan['passes'])} pass(es)"
+        )
+    table["uniqueness"] = uniqueness_record(
+        plan, results, errors, config=config, scope=scope, requested_any=bool(requested)
+    )
 
 
 def _sp_json_method(
