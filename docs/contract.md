@@ -1,4 +1,4 @@
-# Profile contract (schema 1.1)
+# Profile contract (schema 1.2)
 
 `profile.json` is the canonical, engine-independent result of one run. Every document
 (`data_dictionary.md`, `quality_report.md`, `relationships.md`, `erd.mmd`, `suggested_rules.json`) is
@@ -6,7 +6,7 @@ derived from it, in the notebook and by `tabledossier render`. The formal defini
 shipped in the package:
 
 ```bash
-tabledossier schema profile        # contract 1.1; also: profile-1.0, config, annotations, suggested_rules, manifest
+tabledossier schema profile        # contract 1.2; also: profile-1.0, profile-1.1, config, annotations, suggested_rules, manifest
 ```
 
 Validation happens in two layers. In the notebook, a standard-library interpreter of the same schema
@@ -17,14 +17,20 @@ validator enforces.
 
 ## Versioning
 
-- The notebook of release 0.2 writes `schema_version` `"1.1"`. The CLI (`validate`, `render`) reads `"1.0"`
-  and `"1.1"` and validates each profile against the schema of its own version: 1.0 profiles against the frozen
-  schema of 0.1.x (`tabledossier schema profile-1.0`), 1.1 profiles against the current one. Other versions are
-  rejected with a message naming the supported ones.
+- The notebook of release 0.3 writes `schema_version` `"1.2"`. The CLI (`validate`, `render`) reads `"1.0"`,
+  `"1.1"` and `"1.2"` and validates each profile against the schema of its own version: 1.0 profiles against the
+  frozen schema of 0.1.x (`tabledossier schema profile-1.0`), 1.1 profiles against the frozen schema of 0.2.x
+  (`tabledossier schema profile-1.1`), 1.2 profiles against the current one. Other versions are rejected with a
+  message naming the supported ones.
 - **1.1 only adds to 1.0**: the `deep` analysis level, `element_context` and `json_paths` on field profiles, the
   per-table `deep` record and two operation kinds (`deep_aggregate_pass`, `element_explode_pass`). These
-  properties are optional in the 1.1 schema (a 1.0 document relabelled `1.1` is valid); the 0.2 notebook always
+  properties are optional in the 1.1 schema (a 1.0 document relabelled `1.1` is valid); the notebook always
   writes them, as `null` when not applicable. A 1.0 document cannot use them.
+- **1.2 only adds to 1.1**: the per-table `uniqueness` record, `validation_detail` on relationships, the top-level
+  `referential_validation` and `relationship_hypotheses` records, three summary counters (`uniqueness`,
+  `relationships`, `relationship_hypotheses`) and three operation kinds (`uniqueness_pass`, `referential_check`,
+  `relationship_hypothesis_check`). They are optional in the 1.2 schema (a 1.1 document relabelled `1.2` is
+  valid); the 0.3 notebook always writes them, as `null` when not applicable. A 1.1 document cannot use them.
 - Map sizes and entry counts are labelled `entries` (0.1 wrote `elements`); both are accepted.
 - Additive or breaking changes produce a new version; the notebook and the CLI of the same release always
   agree because the notebook embeds the schema of the release that generated it.
@@ -34,13 +40,15 @@ validator enforces.
 | Field | Meaning |
 | --- | --- |
 | `kind` | Always `tabledossier.profile`. |
-| `schema_version` | Contract version (`1.0`). |
+| `schema_version` | Contract version (`1.2`; readers also accept `1.0` and `1.1`). |
 | `tool` | `{name, version}` of the TableDossier release that produced the profile. |
 | `run` | Run identity, timing, environment, effective configuration (see below). |
 | `value_exposure` | What kinds of values the profile may contain under the configured policy. |
 | `tables` | One record per requested table, in request order. |
-| `relationships` | Declared (constraints) and configuration-provided relationships. |
-| `summary` | Counts by table status, checks, findings and proposals. |
+| `relationships` | Declared (constraints) and configuration-provided relationships, with their validation. |
+| `summary` | Counts by table status, checks, findings and proposals; 1.2 adds measured keys by outcome, relationships by validation status and the number of hypotheses. |
+| `referential_validation` | 1.2, deep level only (else `null`): what referential validation was requested, its budget and results. See [Referential validation](#referential-validation-12). |
+| `relationship_hypotheses` | 1.2, deep level only (else `null`): data-driven hypotheses, kept apart from `relationships`. See [Relationship hypotheses](#relationship-hypotheses-12). |
 
 ### `run`
 
@@ -82,10 +90,11 @@ validator enforces.
 | `findings`, `quality_checks`, `suggested_rules` | See below. |
 | `omissions` | What was not documented or measured and why (`not_selected`, `inside_collection`, `max_depth`, `max_fields`, `expression_budget`; deep level: `deep_budget`, `deep_not_selected`, `nested_collection`). |
 | `unsupported` | Capabilities the runtime lacked. |
-| `operations` | `planned` operations (what was asked of the engine, with `reads_user_data`; kinds `catalog_metadata`, `table_detail`, `table_history`, `information_schema`, `sample_collect`, `aggregate_pass`, and at the deep level `deep_aggregate_pass`, `element_explode_pass`) and `observed` outcomes with measured durations (`succeeded`, `failed`, or `skipped` with a reason, e.g. `DESCRIBE DETAIL` on a non-Delta source). `physical_scans`, `bytes_read` and `monetary_cost` are `unknown`: they are never estimated from Python calls. |
-| `timings_ms` | Measured durations per stage (`metadata`, `sample`, `aggregate`, `deep_elements`, `total`). |
+| `operations` | `planned` operations (what was asked of the engine, with `reads_user_data`; kinds `catalog_metadata`, `table_detail`, `table_history`, `information_schema`, `sample_collect`, `aggregate_pass`, and at the deep level `deep_aggregate_pass`, `element_explode_pass`, `uniqueness_pass`, `referential_check`, `relationship_hypothesis_check`) and `observed` outcomes with measured durations (`succeeded`, `failed`, or `skipped` with a reason, e.g. `DESCRIBE DETAIL` on a non-Delta source). `physical_scans`, `bytes_read` and `monetary_cost` are `unknown`: they are never estimated from Python calls. |
+| `timings_ms` | Measured durations per stage (`metadata`, `sample`, `aggregate`, `deep_elements`, `uniqueness`, `total`). |
 | `notes` | Other statements about this table. |
 | `deep` | 1.1, deep level only (else `null`): see [Deep level](#deep-level-11). |
+| `uniqueness` | 1.2, deep level only (else `null`): exact uniqueness of keys. See [Uniqueness](#uniqueness-12). |
 
 ## Field paths and the schema tree
 
@@ -240,6 +249,80 @@ The sample catalogue is never a complete or guaranteed schema: paths absent from
 | `element_distinct` | Mode, status, reason, rows with elements and elements examined, and why the pass stopped. |
 | `limited` | Everything a budget limited: `deep_budget`, `deep_pass_budget`, `element_budget`, `json_path_budget`, `json_depth_budget`. |
 
+## Deep level, part II (1.2)
+
+Uniqueness, referential validation and hypotheses record **counts only**: duplicated key values, orphan values and
+matching values are never collected by the notebook nor written to the profile. Every check is one Spark action,
+declared in `operations.planned` of the table it reads (the source table for relationships) and bounded by the
+budgets of the `deep` configuration.
+
+### Uniqueness (1.2)
+
+`table.uniqueness` lists the keys requested for the table (explicit keys, declared PRIMARY KEY/UNIQUE constraints,
+identifier candidates) and what was measured:
+
+| Field | Meaning |
+| --- | --- |
+| `keys[].key_id` | `k_` + a hash of the key's field ids (stable across runs). |
+| `keys[].origins`, `names` | `configured`, `declared_primary_key`, `declared_unique`, `identifier_candidate` (a key requested twice keeps both origins), and the configured id or constraint names. |
+| `keys[].columns`, `field_ids` | Display paths and field ids of the key columns, in the requested order. |
+| `keys[].status`, `reason` | `measured`, `not_computed` (budget), `not_eligible` (column missing, inside a collection, or of a type that cannot be compared exactly) or `error`. |
+| `keys[].outcome` | `unique` (no NULL and no duplicate), `unique_non_null` (no duplicate among complete keys, some rows with NULL), `duplicates`, or `empty` (no complete key in scope); `null` unless measured. |
+| `keys[].scope`, `operation_id`, `metrics` | The table's scope label, the `uniqueness_pass` that measured it, and the metrics below (`accuracy: exact`). |
+| `sources`, `budget`, `passes` | Which sources were enabled, `max_keys`/`max_passes`, and the passes planned against the budget. |
+| `limited`, `null_semantics`, `notes` | Keys beyond the budget, the NULL semantics stated below, other statements. |
+
+| Metric | Unit | Meaning |
+| --- | --- | --- |
+| `rows_in_scope` | rows | Rows read by the uniqueness pass (the analysed scope). |
+| `rows_with_null_key` | rows | Rows with NULL in at least one key column (denominator: rows in scope). |
+| `rows_with_complete_key` | rows | Derived: rows in scope minus rows with a NULL key. |
+| `distinct_keys` | keys | Exact number of distinct complete key values. |
+| `duplicate_key_groups` | keys | Key values that occur in more than one row. |
+| `rows_in_duplicate_groups` | rows | Rows whose key value occurs more than once (denominator: rows with a complete key). |
+| `surplus_duplicate_rows` | rows | Derived: rows with a complete key minus distinct keys (rows beyond the first of each value). |
+| `max_rows_per_key` | rows | Largest number of rows sharing one complete key value. |
+
+NULL semantics: a row with NULL in any key column is excluded from distinct and duplicate counts (NULLs are not
+equal, as in a SQL UNIQUE constraint) and counted in `rows_with_null_key`; a PRIMARY KEY also forbids NULLs, so it
+holds only when the outcome is `unique`. Invariants reject counts that contradict each other or the outcome.
+
+### Referential validation (1.2)
+
+Every relationship has `validation` (`validated`, `violated`, `not_validated`) and `validation_detail`:
+
+| Field | Meaning |
+| --- | --- |
+| `status`, `reason` | The same status as `validation`; `not_validated` always has a reason (not requested, not the deep level, budget, table not profiled, incompatible or ineligible columns, read failure, sample without orphans). |
+| `mode` | `full_scope` or `sample` (source rows limited to `max_sample_rows`). |
+| `from`, `to` | Table, scope label, consistency mode and the Delta version read. The source keeps its analysed scope (filters); the target is read in full at its recorded version. |
+| `operation_id` | The `referential_check` operation of the source table. |
+| `type_compatibility` | One record per column pair: physical types, `compatible` and the rule applied. |
+| `target_key_unique` | Whether the target key had no duplicate value (evidence for cardinality; never a cardinality). |
+| `metrics` | `source_rows`, `source_rows_with_null_key`, `source_rows_with_complete_key`, `orphan_rows`, `orphan_ratio` (denominator: source rows with a complete key), `target_rows`, `target_rows_with_null_key`, `target_distinct_keys`, `target_duplicate_key_groups`. |
+| `limitations` | For example unpinned tables or sample semantics. |
+
+`validated` requires a full-scope check with no orphan; `violated` requires at least one orphan (an orphan found in
+a sample is an orphan of the table); a sample without orphans stays `not_validated`. Invariants enforce these rules.
+`referential_validation` summarizes the run: requested sources, mode, budget, checks planned, counts by status and
+what the budget limited.
+
+### Relationship hypotheses (1.2)
+
+`relationship_hypotheses` is separate from `relationships` and never feeds the ER diagram:
+
+| Field | Meaning |
+| --- | --- |
+| `enabled`, `reason`, `budget` | Whether hypotheses were evaluated, why not, and `max_pairs`, `max_sample_rows`, `inclusion_scope`, `min_inclusion_ratio`. |
+| `targets` | Single-column keys measured exactly unique in this run (the only possible targets). |
+| `pairs_considered`, `pairs_evaluated`, `pairs_not_evaluated` | Candidate pairs after the type and range filters, pairs measured, pairs left out by `max_pairs`. |
+| `pairs_known_excluded`, `pairs_disjoint_excluded`, `pairs_rejected` | Pairs skipped because they are known relationships or their ranges are disjoint, and evaluated pairs rejected by reason. |
+| `hypotheses[]` | `hypothesis_id`, `status: hypothesis`, `from`, `to`, `cardinality: null`, `evidence` (inclusion scope, both sides with versions, `included_rows`, `inclusion_ratio` and the target counts, the target key id, `target_key_unique`, type compatibility, `range_relation` and `range_basis`), `operation_id`, `limitations`. |
+| `method`, `limitations` | How candidates were chosen (types and measured ranges, never names) and what a hypothesis does not prove. |
+
+Invariants reject a hypothesis that repeats a known relationship, lacks an unique target or falls below the
+inclusion threshold.
+
 ## Semantics (sample-based)
 
 `field_profiles[].semantics.observed_format` (string fields in the sample) contains `status` (`detected`,
@@ -273,8 +356,9 @@ exists only for allow-listed columns.
 ## Relationships
 
 Each relationship has `origin` (`declared_constraint`, `configuration`, `annotation`), participating columns
-(composite keys preserved), `cardinality` (only when provided by a person), `enforcement`, `validation`
-(`not_validated` in this release) and `scope`. Nothing is inferred from column names.
+(composite keys preserved), `cardinality` (only when provided by a person), `enforcement`, `validation` with its
+`validation_detail` (1.2, see [Referential validation](#referential-validation-12)) and `scope`. Nothing is inferred
+from column names: data-driven candidates are listed only as `relationship_hypotheses`.
 
 ## Other documents
 

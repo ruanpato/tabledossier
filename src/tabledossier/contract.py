@@ -13,9 +13,10 @@ from tabledossier.schemacheck import schema_errors
 
 PROFILE_KIND = "tabledossier.profile"
 # The notebook writes the latest version; readers (CLI, renderer) accept every listed one.
-# 1.1 only adds to 1.0 (deep level, element fields, JSON paths, deep coverage).
-PROFILE_SCHEMA_VERSION = "1.1"
-SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1")
+# 1.1 only adds to 1.0 (deep level, element fields, JSON paths, deep coverage); 1.2 only adds
+# to 1.1 (exact uniqueness, referential validation evidence, relationship hypotheses).
+PROFILE_SCHEMA_VERSION = "1.2"
+SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1", "1.2")
 ANNOTATIONS_KIND = "tabledossier.annotations"
 SUPPORTED_ANNOTATION_VERSIONS = ("1.0",)
 COUNT_METRICS_WITH_ROW_DENOMINATOR = ("null_count", "non_null_count")
@@ -60,6 +61,7 @@ def _ct_metric_errors(metric: Mapping[str, Any], where: str, row_count: int | No
         "elements",
         "entries",
         "documents",
+        "keys",
     )
     if is_count and isinstance(value, int) and value < 0:
         errors.append(f"{where}: counts cannot be negative")
@@ -150,6 +152,136 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
                 errors.append(
                     f"{where}.findings[{d_index}]: unknown field_id {finding['field_id']}"
                 )
+        planned_ids = {op["operation_id"] for op in table["operations"]["planned"]}
+        if table.get("uniqueness"):
+            errors.extend(
+                _ct_uniqueness_errors(table["uniqueness"], f"{where}.uniqueness", planned_ids)
+            )
+    planned_by_table = {
+        table["table_key"]: {op["operation_id"] for op in table["operations"]["planned"]}
+        for table in profile["tables"]
+    }
+    known = set()
+    for r_index, relationship in enumerate(profile["relationships"]):
+        known.add(_ct_relationship_ends(relationship))
+        detail = relationship.get("validation_detail")
+        if detail:
+            errors.extend(
+                _ct_validation_errors(
+                    relationship, detail, f"$.relationships[{r_index}]", planned_by_table
+                )
+            )
+    hypotheses = profile.get("relationship_hypotheses")
+    if hypotheses:
+        errors.extend(_ct_hypothesis_errors(hypotheses, known, planned_by_table))
+    return errors
+
+
+def _ct_values(metrics: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {m["name"]: m["value"] for m in metrics if m.get("status") == "measured"}
+
+
+def _ct_uniqueness_errors(
+    record: Mapping[str, Any], where: str, planned_ids: set[str]
+) -> list[str]:
+    """Check that the counts of each key agree with each other and with its outcome."""
+    errors: list[str] = []
+    for index, key in enumerate(record["keys"]):
+        k_where = f"{where}.keys[{index}]"
+        if key["status"] != "measured":
+            if key["outcome"] is not None or key["metrics"]:
+                errors.append(f"{k_where}: only measured keys have an outcome and metrics")
+            if not key["reason"]:
+                errors.append(f"{k_where}: a key that was not measured needs a reason")
+            continue
+        if key["operation_id"] not in planned_ids:
+            errors.append(f"{k_where}: operation_id is not a planned operation of the table")
+        values = _ct_values(key["metrics"])
+        needed = ("rows_in_scope", "rows_with_null_key", "distinct_keys", "duplicate_key_groups")
+        if any(not isinstance(values.get(name), int) for name in needed) or not isinstance(
+            values.get("rows_in_duplicate_groups"), int
+        ):
+            errors.append(f"{k_where}: a measured key needs its row, key and duplicate counts")
+            continue
+        rows, nulls = values["rows_in_scope"], values["rows_with_null_key"]
+        distinct, groups = values["distinct_keys"], values["duplicate_key_groups"]
+        duplicated = values["rows_in_duplicate_groups"]
+        complete = rows - nulls
+        if nulls > rows or distinct > complete or groups > distinct or duplicated > complete:
+            errors.append(f"{k_where}: inconsistent uniqueness counts")
+        if duplicated < 2 * groups or (groups == 0) != (duplicated == 0):
+            errors.append(f"{k_where}: duplicate groups and duplicated rows disagree")
+        expected = (
+            "empty"
+            if complete == 0
+            else "duplicates"
+            if groups
+            else "unique_non_null"
+            if nulls
+            else "unique"
+        )
+        if key["outcome"] != expected:
+            errors.append(f"{k_where}: outcome {key['outcome']!r} contradicts its counts")
+    return errors
+
+
+def _ct_relationship_ends(relationship: Mapping[str, Any]) -> tuple[str, ...]:
+    return (
+        relationship["from"]["table"],
+        *relationship["from"]["columns"],
+        "->",
+        relationship["to"]["table"],
+        *relationship["to"]["columns"],
+    )
+
+
+def _ct_validation_errors(
+    relationship: Mapping[str, Any],
+    detail: Mapping[str, Any],
+    where: str,
+    planned_by_table: Mapping[str, set[str]],
+) -> list[str]:
+    """Check that ``validated``/``violated`` follow from the orphan count of a real check."""
+    errors: list[str] = []
+    status = relationship["validation"]
+    if detail["status"] != status:
+        errors.append(f"{where}.validation_detail: status differs from validation")
+    if status == "not_validated":
+        if not detail["reason"]:
+            errors.append(f"{where}.validation_detail: not_validated requires a reason")
+        return errors
+    source_ops = planned_by_table.get(relationship["from"]["table"], set())
+    if detail["operation_id"] not in source_ops:
+        errors.append(f"{where}.validation_detail: operation_id is not planned by the source")
+    orphans = _ct_values(detail["metrics"]).get("orphan_rows")
+    if not isinstance(orphans, int):
+        errors.append(f"{where}.validation_detail: {status} requires a measured orphan_rows")
+    elif status == "validated" and (orphans != 0 or detail["mode"] != "full_scope"):
+        errors.append(f"{where}.validation_detail: validated requires 0 orphans in full scope")
+    elif status == "violated" and orphans == 0:
+        errors.append(f"{where}.validation_detail: violated requires at least one orphan")
+    return errors
+
+
+def _ct_hypothesis_errors(
+    record: Mapping[str, Any],
+    known: set[tuple[str, ...]],
+    planned_by_table: Mapping[str, set[str]],
+) -> list[str]:
+    """Check that hypotheses stay apart from known relationships and meet the threshold."""
+    errors: list[str] = []
+    threshold = record["budget"]["min_inclusion_ratio"]
+    for index, item in enumerate(record["hypotheses"]):
+        where = f"$.relationship_hypotheses.hypotheses[{index}]"
+        if _ct_relationship_ends(item) in known:
+            errors.append(f"{where}: a hypothesis repeats a known relationship")
+        if item["operation_id"] not in planned_by_table.get(item["from"]["table"], set()):
+            errors.append(f"{where}: operation_id is not planned by the source table")
+        inclusion = _ct_values(item["evidence"]["metrics"]).get("inclusion_ratio")
+        if not isinstance(inclusion, (int, float)) or inclusion < threshold:
+            errors.append(f"{where}: inclusion_ratio is below min_inclusion_ratio")
+        if not item["evidence"]["target_key_unique"]:
+            errors.append(f"{where}: the target key of a hypothesis must be unique")
     return errors
 
 

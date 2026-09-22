@@ -9,6 +9,7 @@ DEMO = ROOT / "examples" / "demo"
 DEMO_PROFILE = DEMO / "output" / "run" / "profile.json"
 DEEP_PROFILE = DEMO / "output" / "deep" / "profile.json"
 PROFILE_1_0 = ROOT / "tests" / "fixtures" / "profile-1.0.json"
+PROFILE_1_1 = ROOT / "tests" / "fixtures" / "profile-1.1.json"
 
 
 @pytest.fixture(scope="session")
@@ -24,7 +25,7 @@ def demo_profile(demo_profile_data: dict) -> dict:
 
 @pytest.fixture
 def deep_profile() -> dict:
-    """Deep-level profile (contract 1.1) produced by the same notebook on the demo tables."""
+    """Deep-level profile (contract 1.2) produced by the same notebook on the demo tables."""
     return json.loads(DEEP_PROFILE.read_text(encoding="utf-8"))
 
 
@@ -32,6 +33,12 @@ def deep_profile() -> dict:
 def profile_1_0() -> dict:
     """Profile written by TableDossier 0.1.0 (contract 1.0), kept to prove it is still read."""
     return json.loads(PROFILE_1_0.read_text(encoding="utf-8"))
+
+
+@pytest.fixture
+def profile_1_1() -> dict:
+    """Deep profile written by TableDossier 0.2.0 (contract 1.1), kept to prove it is still read."""
+    return json.loads(PROFILE_1_1.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="session")

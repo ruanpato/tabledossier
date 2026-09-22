@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tabledossier:schema:profile:1.2",
+  "$id": "urn:tabledossier:schema:profile:1.1",
   "title": "TableDossier profile",
-  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.2 only adds to 1.1 (exact uniqueness, referential validation, relationship hypotheses), which only adds to 1.0 (deep level). See docs/contract.md.",
+  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.1 only adds to 1.0 (deep level). See docs/contract.md.",
   "type": "object",
   "required": ["kind", "schema_version", "tool", "run", "value_exposure", "tables", "relationships", "summary"],
   "additionalProperties": false,
   "properties": {
     "kind": {"const": "tabledossier.profile"},
-    "schema_version": {"const": "1.2"},
+    "schema_version": {"const": "1.1"},
     "tool": {
       "type": "object",
       "required": ["name", "version"],
@@ -22,9 +22,7 @@
     "value_exposure": {"$ref": "#/$defs/valueExposure"},
     "tables": {"type": "array", "items": {"$ref": "#/$defs/table"}},
     "relationships": {"type": "array", "items": {"$ref": "#/$defs/relationship"}},
-    "summary": {"$ref": "#/$defs/summary"},
-    "referential_validation": {"description": "1.2: run-level record of referential validation (null below the deep level).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/referentialValidation"}]},
-    "relationship_hypotheses": {"description": "1.2: data-driven relationship hypotheses, kept apart from known relationships (null below the deep level).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/relationshipHypotheses"}]}
+    "summary": {"$ref": "#/$defs/summary"}
   },
   "$defs": {
     "utcTimestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
@@ -167,8 +165,7 @@
         "operations": {"$ref": "#/$defs/operations"},
         "timings_ms": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
         "notes": {"$ref": "#/$defs/stringList"},
-        "deep": {"description": "1.1: what the deep level covered and what its budgets limited (null at other levels).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/deepCoverage"}]},
-        "uniqueness": {"description": "1.2: exact uniqueness of keys (null below the deep level).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/uniqueness"}]}
+        "deep": {"description": "1.1: what the deep level covered and what its budgets limited (null at other levels).", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/deepCoverage"}]}
       }
     },
     "source": {
@@ -490,7 +487,7 @@
             "additionalProperties": false,
             "properties": {
               "operation_id": {"type": "string"},
-              "kind": {"enum": ["catalog_metadata", "table_detail", "table_history", "information_schema", "sample_collect", "aggregate_pass", "deep_aggregate_pass", "element_explode_pass", "uniqueness_pass", "referential_check", "relationship_hypothesis_check"]},
+              "kind": {"enum": ["catalog_metadata", "table_detail", "table_history", "information_schema", "sample_collect", "aggregate_pass", "deep_aggregate_pass", "element_explode_pass"]},
               "description": {"type": "string"},
               "reads_user_data": {"type": "boolean"},
               "details": {"type": "object"}
@@ -772,8 +769,7 @@
         "validation": {"enum": ["not_validated", "validated", "violated"]},
         "scope": {"enum": ["declared_metadata", "human_provided"]},
         "description": {"$ref": "#/$defs/nullableString"},
-        "notes": {"$ref": "#/$defs/stringList"},
-        "validation_detail": {"description": "1.2: why the relationship is validated, violated or not validated.", "oneOf": [{"type": "null"}, {"$ref": "#/$defs/validationDetail"}]}
+        "notes": {"$ref": "#/$defs/stringList"}
       }
     },
     "summary": {
@@ -806,218 +802,7 @@
             "warning": {"type": "integer", "minimum": 0}
           }
         },
-        "suggested_rules": {"type": "integer", "minimum": 0},
-        "uniqueness": {
-          "description": "1.2: measured keys by outcome.",
-          "type": "object",
-          "required": ["keys_measured", "unique", "unique_non_null", "duplicates", "empty"],
-          "additionalProperties": false,
-          "properties": {
-            "keys_measured": {"type": "integer", "minimum": 0},
-            "unique": {"type": "integer", "minimum": 0},
-            "unique_non_null": {"type": "integer", "minimum": 0},
-            "duplicates": {"type": "integer", "minimum": 0},
-            "empty": {"type": "integer", "minimum": 0}
-          }
-        },
-        "relationships": {
-          "description": "1.2: relationships by validation status.",
-          "type": "object",
-          "required": ["validated", "violated", "not_validated"],
-          "additionalProperties": false,
-          "properties": {
-            "validated": {"type": "integer", "minimum": 0},
-            "violated": {"type": "integer", "minimum": 0},
-            "not_validated": {"type": "integer", "minimum": 0}
-          }
-        },
-        "relationship_hypotheses": {"description": "1.2: hypotheses listed.", "type": "integer", "minimum": 0}
-      }
-    },
-    "limitedItems": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["item", "reason", "detail"],
-        "additionalProperties": false,
-        "properties": {"item": {"type": "string"}, "reason": {"type": "string"}, "detail": {"type": "string"}}
-      }
-    },
-    "uniquenessKey": {
-      "description": "1.2: exact uniqueness of one key (one or more columns) over the analysed scope. Only counts are recorded, never key values.",
-      "type": "object",
-      "required": ["key_id", "origins", "names", "columns", "field_ids", "status", "reason", "outcome", "scope", "operation_id", "metrics", "limitations"],
-      "additionalProperties": false,
-      "properties": {
-        "key_id": {"type": "string", "pattern": "^k_[0-9a-f]{12}$"},
-        "origins": {"type": "array", "minItems": 1, "items": {"enum": ["configured", "declared_primary_key", "declared_unique", "identifier_candidate"]}},
-        "names": {"$ref": "#/$defs/stringList"},
-        "columns": {"$ref": "#/$defs/stringList"},
-        "field_ids": {"type": "array", "items": {"type": "string", "pattern": "^f_[0-9a-f]{12}$"}},
-        "status": {"enum": ["measured", "not_computed", "not_eligible", "error"]},
-        "reason": {"$ref": "#/$defs/nullableString"},
-        "outcome": {"enum": ["unique", "unique_non_null", "duplicates", "empty", null]},
-        "scope": {"enum": ["table_metadata", "full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "sample"]},
-        "operation_id": {"$ref": "#/$defs/nullableString"},
-        "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
-        "limitations": {"$ref": "#/$defs/stringList"}
-      }
-    },
-    "uniqueness": {
-      "type": "object",
-      "required": ["keys", "sources", "budget", "passes", "limited", "null_semantics", "notes"],
-      "additionalProperties": false,
-      "properties": {
-        "keys": {"type": "array", "items": {"$ref": "#/$defs/uniquenessKey"}},
-        "sources": {
-          "type": "object",
-          "required": ["configured", "declared_keys", "identifier_candidates"],
-          "additionalProperties": false,
-          "properties": {"configured": {"type": "boolean"}, "declared_keys": {"type": "boolean"}, "identifier_candidates": {"type": "boolean"}}
-        },
-        "budget": {
-          "type": "object",
-          "required": ["max_keys", "max_passes"],
-          "additionalProperties": false,
-          "properties": {"max_keys": {"type": "integer", "minimum": 1}, "max_passes": {"type": "integer", "minimum": 1}}
-        },
-        "passes": {
-          "type": "object",
-          "required": ["budget", "planned"],
-          "additionalProperties": false,
-          "properties": {"budget": {"type": "integer", "minimum": 0}, "planned": {"type": "integer", "minimum": 0}}
-        },
-        "limited": {"$ref": "#/$defs/limitedItems"},
-        "null_semantics": {"type": "string"},
-        "notes": {"$ref": "#/$defs/stringList"}
-      }
-    },
-    "validationSide": {
-      "type": "object",
-      "required": ["table", "scope", "consistency_mode", "delta_version"],
-      "additionalProperties": false,
-      "properties": {
-        "table": {"type": "string"},
-        "scope": {"enum": ["table_metadata", "full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "sample"]},
-        "consistency_mode": {"enum": ["pinned_delta_version", "unpinned", "metadata_only"]},
-        "delta_version": {"type": ["integer", "null"], "minimum": 0}
-      }
-    },
-    "typeCompatibility": {
-      "type": "object",
-      "required": ["from_column", "from_type", "to_column", "to_type", "compatible", "rule"],
-      "additionalProperties": false,
-      "properties": {
-        "from_column": {"type": "string"},
-        "from_type": {"type": "string"},
-        "to_column": {"type": "string"},
-        "to_type": {"type": "string"},
-        "compatible": {"type": "boolean"},
-        "rule": {"type": "string"}
-      }
-    },
-    "validationDetail": {
-      "type": "object",
-      "required": ["status", "reason", "mode", "from", "to", "operation_id", "type_compatibility", "target_key_unique", "metrics", "limitations"],
-      "additionalProperties": false,
-      "properties": {
-        "status": {"enum": ["not_validated", "validated", "violated"]},
-        "reason": {"$ref": "#/$defs/nullableString"},
-        "mode": {"enum": ["full_scope", "sample", null]},
-        "from": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/validationSide"}]},
-        "to": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/validationSide"}]},
-        "operation_id": {"$ref": "#/$defs/nullableString"},
-        "type_compatibility": {"type": "array", "items": {"$ref": "#/$defs/typeCompatibility"}},
-        "target_key_unique": {"type": ["boolean", "null"]},
-        "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
-        "limitations": {"$ref": "#/$defs/stringList"}
-      }
-    },
-    "referentialValidation": {
-      "type": "object",
-      "required": ["requested", "mode", "budget", "planned", "validated", "violated", "not_validated", "limited", "notes"],
-      "additionalProperties": false,
-      "properties": {
-        "requested": {
-          "type": "object",
-          "required": ["configured", "declared"],
-          "additionalProperties": false,
-          "properties": {"configured": {"type": "boolean"}, "declared": {"type": "boolean"}}
-        },
-        "mode": {"enum": ["full_scope", "sample"]},
-        "budget": {
-          "type": "object",
-          "required": ["max_relationships", "max_sample_rows"],
-          "additionalProperties": false,
-          "properties": {"max_relationships": {"type": "integer", "minimum": 0}, "max_sample_rows": {"type": "integer", "minimum": 1}}
-        },
-        "planned": {"type": "integer", "minimum": 0},
-        "validated": {"type": "integer", "minimum": 0},
-        "violated": {"type": "integer", "minimum": 0},
-        "not_validated": {"type": "integer", "minimum": 0},
-        "limited": {"$ref": "#/$defs/limitedItems"},
-        "notes": {"$ref": "#/$defs/stringList"}
-      }
-    },
-    "hypothesis": {
-      "description": "1.2: a data-driven relationship hypothesis. It is never a known relationship, has no cardinality and is never drawn as an ER edge.",
-      "type": "object",
-      "required": ["hypothesis_id", "status", "from", "to", "cardinality", "evidence", "operation_id", "limitations"],
-      "additionalProperties": false,
-      "properties": {
-        "hypothesis_id": {"type": "string", "pattern": "^hyp_[0-9]+$"},
-        "status": {"const": "hypothesis"},
-        "from": {"$ref": "#/$defs/relationshipEnd"},
-        "to": {"$ref": "#/$defs/relationshipEnd"},
-        "cardinality": {"type": "null"},
-        "evidence": {
-          "type": "object",
-          "required": ["inclusion_scope", "from", "to", "metrics", "target_key_id", "target_key_unique", "type_compatibility", "range_relation", "range_basis"],
-          "additionalProperties": false,
-          "properties": {
-            "inclusion_scope": {"enum": ["sample", "full_scope"]},
-            "from": {"$ref": "#/$defs/validationSide"},
-            "to": {"$ref": "#/$defs/validationSide"},
-            "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
-            "target_key_id": {"type": "string", "pattern": "^k_[0-9a-f]{12}$"},
-            "target_key_unique": {"type": "boolean"},
-            "type_compatibility": {"type": "array", "items": {"$ref": "#/$defs/typeCompatibility"}},
-            "range_relation": {"enum": ["contained", "overlapping", "not_compared"]},
-            "range_basis": {"enum": ["values", "lengths"]}
-          }
-        },
-        "operation_id": {"type": "string"},
-        "limitations": {"$ref": "#/$defs/stringList"}
-      }
-    },
-    "relationshipHypotheses": {
-      "type": "object",
-      "required": ["enabled", "reason", "budget", "targets", "pairs_considered", "pairs_evaluated", "pairs_not_evaluated", "pairs_known_excluded", "pairs_disjoint_excluded", "pairs_rejected", "hypotheses", "method", "limitations"],
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {"type": "boolean"},
-        "reason": {"$ref": "#/$defs/nullableString"},
-        "budget": {
-          "type": "object",
-          "required": ["max_pairs", "max_sample_rows", "inclusion_scope", "min_inclusion_ratio"],
-          "additionalProperties": false,
-          "properties": {
-            "max_pairs": {"type": "integer", "minimum": 0},
-            "max_sample_rows": {"type": "integer", "minimum": 1},
-            "inclusion_scope": {"enum": ["sample", "full_scope"]},
-            "min_inclusion_ratio": {"type": "number", "minimum": 0, "maximum": 1}
-          }
-        },
-        "targets": {"type": "integer", "minimum": 0},
-        "pairs_considered": {"type": "integer", "minimum": 0},
-        "pairs_evaluated": {"type": "integer", "minimum": 0},
-        "pairs_not_evaluated": {"type": "integer", "minimum": 0},
-        "pairs_known_excluded": {"type": "integer", "minimum": 0},
-        "pairs_disjoint_excluded": {"type": "integer", "minimum": 0},
-        "pairs_rejected": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
-        "hypotheses": {"type": "array", "items": {"$ref": "#/$defs/hypothesis"}},
-        "method": {"type": "string"},
-        "limitations": {"$ref": "#/$defs/stringList"}
+        "suggested_rules": {"type": "integer", "minimum": 0}
       }
     }
   }
