@@ -143,9 +143,8 @@ actually tested.
 
 ## 6. Quickstart
 
-The package is not published on PyPI. Install the tagged release from GitHub (the `v0.2.0` tag exists once 0.2.0
-is released; `@v0.1.0` installs the previous release), or from a checkout with `python -m pip install .`
-(air-gapped machines: see [offline installation](docs/offline-install.md)).
+The package is not published on PyPI. Install the tagged release from GitHub, or from a checkout with
+`python -m pip install .` (air-gapped machines: see [offline installation](docs/offline-install.md)).
 
 ```bash
 python -m venv .venv
