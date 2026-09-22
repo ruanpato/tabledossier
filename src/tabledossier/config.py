@@ -113,6 +113,27 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_json_paths": 50,
         "max_json_depth": 3,
         "max_json_object_keys": 50,
+        "uniqueness": {
+            "keys": [],
+            "declared_keys": False,
+            "identifier_candidates": False,
+            "max_keys": 5,
+            "max_passes": 1,
+        },
+        "referential": {
+            "configured": False,
+            "declared": False,
+            "mode": "full_scope",
+            "max_relationships": 5,
+            "max_sample_rows": 10000,
+        },
+        "relationship_hypotheses": {
+            "enabled": False,
+            "max_pairs": 5,
+            "max_sample_rows": 10000,
+            "inclusion_scope": "sample",
+            "min_inclusion_ratio": 0.95,
+        },
     },
     "table_options": {},
     "relationships": [],
@@ -313,6 +334,17 @@ def config_errors(config: Mapping[str, Any], schema: Mapping[str, Any]) -> list[
                 parse_display_path(item["column"])
             except IdentifierError as exc:
                 errors.append(f"{where}.column: {exc}")
+
+    key_ids: set[str] = set()
+    for index, item in enumerate(config.get("deep", {}).get("uniqueness", {}).get("keys", [])):
+        where = f"$.deep.uniqueness.keys[{index}]"
+        _cfg_check_table(item["table"], where, errors)
+        for col_index, column in enumerate(item["columns"]):
+            _cfg_check_column_ref(column, f"{where}.columns[{col_index}]", errors)
+        if item.get("id") is not None:
+            if item["id"] in key_ids:
+                errors.append(f"{where}: duplicate key id {item['id']!r}")
+            key_ids.add(item["id"])
 
     policy = config.get("value_policy", {})
     for list_name in ("example_columns", "redact_columns"):
