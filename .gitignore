@@ -33,8 +33,9 @@ annotations.local.json
 *.key
 .databrickscfg
 
-# Local planning notes (kept on disk, not published)
+# Local planning notes and per-machine agent notes (kept on disk, not published)
 docs/reference/
+CLAUDE.local.md
 
 # OS / editors
 .DS_Store
