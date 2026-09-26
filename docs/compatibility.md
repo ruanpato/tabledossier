@@ -1,6 +1,6 @@
 # Compatibility
 
-Last reviewed: 2026-09-22 (release 0.4.0).
+Last reviewed: 2026-09-26 (no new measurements since release 0.4.0, 2026-09-22; every row keeps its own date and run id).
 
 ## Targets
 
