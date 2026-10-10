@@ -10,6 +10,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `docs/compatibility.md` records the first real run of the release workflow (tag `v0.4.0`), which created the draft
   release with its three files.
 
+### Fixed
+
+- The aggregate plan could use more passes than `limits.max_aggregate_passes`: an expression is never split across
+  passes, so each cost-2 `all_values_equal` that did not fit the last slot of a pass opened a new one (one or more
+  passes over the budget). The planner now lowers the budget until the kept expressions fit the passes; the
+  expressions left out are reported as `expression_budget` omissions, as before. The deep extra passes get the same
+  guard against `deep.max_extra_passes` (today every deep expression costs 1, so they never exceeded it).
+
 ## [0.4.0] - 2026-09-22
 
 "Ready for Databricks": integration with Jobs, Unity Catalog constraints assembled and tested end to end with a

@@ -163,3 +163,91 @@ def test_sample_plan_only_strings_and_respects_policy():
     assert not plan_sample(profiled, _config(analysis_level="metadata"))["enabled"]
     limited = plan_sample(profiled, _config(sampling={"max_columns": 1}))
     assert len(limited["field_ids"]) == 1 and limited["omitted_field_ids"]
+
+
+def _string_fields(count):
+    return [f(f"s{index}", t("string")) for index in range(count)]
+
+
+def _pass_costs(plan):
+    costs = {spec["alias"]: spec["cost"] for spec in plan["specs"]}
+    return [sum(costs[alias] for alias in aliases) for aliases in plan["passes"]]
+
+
+def test_pass_budget_holds_when_a_cost_two_expression_does_not_fit_the_last_slot():
+    # Three string fields at 13 expressions per pass used to pack into passes of 12, 13 and 1
+    # expressions: all_values_equal costs 2 and is never split across passes.
+    tree = build_schema_tree(_string_fields(3), max_depth=3, max_fields=200)
+    profiled, _ = select_profile_fields(tree, None)
+    config = _config(limits={"max_expressions_per_pass": 13, "max_aggregate_passes": 2})
+    plan = plan_aggregates(profiled, config=config, capabilities={}, scope="full_table")
+    assert plan["standard_passes"] == len(plan["passes"]) <= 2
+    assert all(cost <= 13 for cost in _pass_costs(plan))
+    dropped = [o for o in plan["omissions"] if o["reason"] == "expression_budget"]
+    assert dropped and "never split across passes" in dropped[0]["detail"]
+    kept = {(spec["field_id"], spec["metric"]) for spec in plan["specs"]}
+    for item in plan["static_metrics"]:
+        assert (item["field_id"], item["metric"]["name"]) not in kept
+
+
+def test_pass_budget_property_over_random_plans():
+    import random
+
+    kinds = ["integer", "float", "decimal", "string", "boolean", "date", "timestamp", "binary"]
+    rng = random.Random(20261010)
+    for _ in range(600):
+        fields = [f(f"c{index}", t(rng.choice(kinds))) for index in range(rng.randint(1, 10))]
+        tree = build_schema_tree(fields, max_depth=3, max_fields=200)
+        profiled, _ = select_profile_fields(tree, None)
+        per_pass = rng.randint(10, 20)
+        passes = rng.randint(1, 4)
+        config = _config(
+            limits={"max_expressions_per_pass": per_pass, "max_aggregate_passes": passes}
+        )
+        plan = plan_aggregates(profiled, config=config, capabilities={}, scope="full_table")
+        assert plan["standard_passes"] <= passes
+        assert all(cost <= per_pass for cost in _pass_costs(plan))
+        assert plan["expression_count"] <= plan["expression_capacity"]
+
+
+def test_deep_expressions_never_open_more_than_max_extra_passes():
+    tree = build_schema_tree(_string_fields(1), max_depth=3, max_fields=200)
+    profiled, _ = select_profile_fields(tree, None)
+    field = profiled[0]["field_id"]
+    deep = [
+        {
+            "metric": f"deep_{index}",
+            "op": "count_all",
+            "field_id": field,
+            "tier": 5,
+            # ten 1-cost expressions, then a 2-cost one that does not fit the 11th slot
+            "cost": 2 if index == 10 else 1,
+            "params": {},
+            "group": "element",
+        }
+        for index in range(40)
+    ]
+    for extra in (0, 1, 2, 3):
+        config = _config(limits={"max_expressions_per_pass": 11, "max_aggregate_passes": 1})
+        plan = plan_aggregates(
+            profiled,
+            config=config,
+            capabilities={},
+            scope="full_table",
+            deep_candidates=deep,
+            max_extra_passes=extra,
+        )
+        assert plan["extra_passes"] <= extra
+        assert all(cost <= 11 for cost in _pass_costs(plan))
+    # When the fragmented packing still fits deep.max_extra_passes, nothing is dropped.
+    config = _config(limits={"max_expressions_per_pass": 11, "max_aggregate_passes": 1})
+    plan = plan_aggregates(
+        profiled,
+        config=config,
+        capabilities={},
+        scope="full_table",
+        deep_candidates=deep[:21],
+        max_extra_passes=5,
+    )
+    assert plan["deep_dropped"] == []
+    assert plan["extra_passes"] == 3
