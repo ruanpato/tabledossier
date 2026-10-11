@@ -1,6 +1,10 @@
-"""Command-line interface: ``init``, ``validate``, ``generate``, ``render`` and ``schema``.
+"""Command-line interface: offline commands, plus ``profile``, which connects to a database.
 
-Every command works offline and without Spark, database drivers or cloud SDKs.
+Commands: ``init``, ``validate``, ``generate``, ``render``, ``schema`` and ``profile``.
+
+Every command except ``profile`` works offline and without Spark, database drivers or cloud
+SDKs. ``profile`` connects to a database (PostgreSQL, optional ``[postgres]`` extra); its driver
+is imported only when it runs.
 
 Exit codes are stable (see ``docs/cli.md``)::
 
@@ -11,18 +15,22 @@ Exit codes are stable (see ``docs/cli.md``)::
     4  I/O problem (unreadable input, or output exists without --overwrite)
     5  valid profile of a *partial* run            (validate --profile)
     6  valid profile of a *failed* run             (validate --profile)
-    7  configured quality checks failed            (validate --profile --fail-on-check-failures)
+    7  configured quality checks failed            (validate/profile --fail-on-check-failures)
+    8  the database driver is not installed        (profile)
+    9  could not connect to the database           (profile)
 """
 
 import argparse
 import json
 import os
+import re
 import sys
 from collections.abc import Sequence
 from typing import Any
 
 from tabledossier._version import __version__
-from tabledossier.config import ANALYSIS_LEVELS, default_config
+from tabledossier.config import ANALYSIS_LEVELS, DEFAULT_CONFIG, default_config
+from tabledossier.errors import sanitize_message
 from tabledossier.jsonutil import pretty_json
 from tabledossier.notebook import generate_notebook
 from tabledossier.package import DOCUMENT_FILES, OutputExistsError, build_documents, write_files
@@ -37,6 +45,11 @@ EXIT_IO = 4
 EXIT_PARTIAL = 5
 EXIT_FAILED_RUN = 6
 EXIT_CHECKS = 7
+EXIT_DRIVER = 8
+EXIT_CONNECT = 9
+_DSN_ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_WORK_MEM = re.compile(r"^[1-9][0-9]{0,6}(kB|MB|GB)$")
+_URI = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
 class CliError(Exception):
@@ -254,12 +267,146 @@ def cmd_schema(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- parser
 
 
+def _dsn_env_name(text: str) -> str:
+    # Never repeat the value: a connection string passed by mistake would end up in logs.
+    if not _DSN_ENV_NAME.match(text):
+        raise argparse.ArgumentTypeError(
+            "takes the NAME of an environment variable (letters, digits, underscores), not a "
+            "connection string"
+        )
+    return text
+
+
+def _seconds(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("expected a whole number of seconds") from None
+    if not 1 <= value <= 86400:
+        raise argparse.ArgumentTypeError("expected between 1 and 86400 seconds")
+    return value
+
+
+def _work_mem(text: str) -> str:
+    if not _WORK_MEM.match(text):
+        raise argparse.ArgumentTypeError("expected a size such as 4MB, 64MB or 1GB")
+    return text
+
+
+# Configuration keys that do nothing with --engine postgres: a notice is printed when they were
+# changed from their default (an init-generated configuration always lists them).
+_NOT_APPLICABLE = (
+    ("consistency", "pin_delta_version"),
+    ("metrics", "approx_distinct_rsd"),
+    ("metrics", "quantile_accuracy"),
+    ("jobs", "exit_summary"),
+)
+
+
+def cmd_profile(args: argparse.Namespace) -> int:
+    """Profile the configured tables in a database and write a new result package."""
+    config = _validate_config(args.config)
+    if not config["tables"]:
+        raise CliError(EXIT_INVALID, f"configuration {args.config!r} lists no tables")
+    output = args.output or config["output_dir"]
+    if not output:
+        raise CliError(
+            EXIT_INVALID,
+            "no output directory: pass --output or set output_dir in the configuration",
+        )
+    if _URI.match(output) and not re.match(r"^[A-Za-z]:[\\/]", output):
+        raise CliError(EXIT_INVALID, f"--output must be a local directory, not a URI ({output!r})")
+    if output.replace("\\", "/").startswith("/Volumes/"):
+        raise CliError(EXIT_INVALID, "--output must be a local directory, not a Databricks volume")
+    not_applicable = [
+        f"{section}.{key}"
+        for section, key in _NOT_APPLICABLE
+        if config[section][key] != DEFAULT_CONFIG[section][key]
+    ]
+    for item in not_applicable:
+        _err(f"note: {item} has no effect with --engine postgres")
+    recorded_output = output if not os.path.isabs(output) else "<absolute path>"
+    config = {**config, "output_dir": recorded_output}
+    parameter_sources = {
+        "precedence": ["built-in defaults", "configuration file", "command-line options"],
+        "command_line": {
+            "engine": args.engine,
+            "output": recorded_output if args.output else None,
+            "statement_timeout_s": args.statement_timeout,
+            "lock_timeout_s": args.lock_timeout,
+            "connect_timeout_s": args.connect_timeout,
+            "work_mem": args.work_mem,
+        },
+        "connection": {
+            "source": "environment variable named by --dsn-env"
+            if args.dsn_env
+            else "libpq environment (PG* variables, service file, .pgpass)"
+        },
+        "not_applicable": not_applicable,
+    }
+    # Imported here: only this command connects, and the offline commands must stay light.
+    from tabledossier.connectors import postgres
+
+    settings = postgres.ConnectionSettings(
+        dsn_env=args.dsn_env,
+        statement_timeout_s=args.statement_timeout,
+        lock_timeout_s=args.lock_timeout,
+        connect_timeout_s=args.connect_timeout,
+        work_mem=args.work_mem,
+    )
+    try:
+        result = postgres.run_profile(
+            config,
+            output_dir=output,
+            settings=settings,
+            parameter_sources=parameter_sources,
+            check=check_profile,
+        )
+    except postgres.DriverMissingError as exc:
+        raise CliError(EXIT_DRIVER, str(exc)) from None
+    except postgres.ConnectFailed as exc:
+        raise CliError(EXIT_CONNECT, str(exc)) from None
+    except OutputExistsError as exc:
+        raise CliError(EXIT_IO, str(exc)) from None
+    except OSError as exc:
+        raise CliError(
+            EXIT_IO, f"cannot create the run directory under {output!r}: {exc.strerror or exc}"
+        ) from None
+    profile = result.profile
+    run = profile["run"]
+    summary = profile["summary"]
+    checks = summary["checks"]
+    print(f"Run {run['run_id']}: status {run['status']}, {summary['tables_total']} table(s).")
+    print(
+        f"Tables: {summary['tables_succeeded']} succeeded, {summary['tables_partial']} partial, "
+        f"{summary['tables_failed']} failed. Checks: {checks['pass']} pass, {checks['fail']} "
+        f"fail, {checks['not_evaluated']} not evaluated, {checks['error']} error."
+    )
+    print(f"Result package: {result.run_dir}")
+    if result.validation_errors:
+        _err("The profile failed its own validation; the package was written with the errors:")
+        for error in result.validation_errors[:20]:
+            _err(f"  - {error}")
+        return EXIT_INTERNAL
+    if run["status"] == "failed":
+        _err("Every table failed; see the errors in the profile.")
+        return EXIT_FAILED_RUN
+    if run["status"] == "partial":
+        _err("The run is partial: at least one table failed or is incomplete.")
+        return EXIT_PARTIAL
+    if args.fail_on_check_failures and checks["fail"]:
+        _err(f"{checks['fail']} configured check(s) failed.")
+        return EXIT_CHECKS
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(
         prog="tabledossier",
         description=(
-            "Portable data profiling, notebooks, and documentation. All commands work offline."
+            "Portable data profiling, notebooks, and documentation. Every command works "
+            "offline except profile, which connects to a database."
         ),
     )
     parser.add_argument("--version", action="version", version=f"tabledossier {__version__}")
@@ -323,6 +470,61 @@ def build_parser() -> argparse.ArgumentParser:
     schema.add_argument("--output", help="write to a file instead of stdout")
     schema.add_argument("--overwrite", action="store_true", help="replace an existing file")
     schema.set_defaults(handler=cmd_schema)
+
+    profile = commands.add_parser(
+        "profile",
+        help="profile the configured tables directly in a database (connects; read-only)",
+    )
+    profile.add_argument(
+        "--engine", required=True, choices=("postgres",), help="database engine (postgres)"
+    )
+    profile.add_argument("--config", required=True, help="configuration file")
+    profile.add_argument(
+        "--output",
+        help="directory that receives <run_id>/ (default: the configuration's output_dir)",
+    )
+    profile.add_argument(
+        "--dsn-env",
+        type=_dsn_env_name,
+        metavar="NAME",
+        help="name of an environment variable holding the connection string (default: libpq "
+        "environment variables, service file and .pgpass)",
+    )
+    profile.add_argument(
+        "--statement-timeout",
+        type=_seconds,
+        default=300,
+        metavar="SECONDS",
+        help="server-side limit of each statement (default: 300)",
+    )
+    profile.add_argument(
+        "--lock-timeout",
+        type=_seconds,
+        default=10,
+        metavar="SECONDS",
+        help="how long a statement may wait for a lock (default: 10)",
+    )
+    profile.add_argument(
+        "--connect-timeout",
+        type=_seconds,
+        default=10,
+        metavar="SECONDS",
+        help="how long to wait for the connection (default: 10)",
+    )
+    profile.add_argument(
+        "--work-mem",
+        type=_work_mem,
+        default="16MB",
+        metavar="SIZE",
+        help="work_mem of the run's transactions, e.g. 16MB (each exact distinct count or "
+        "quantile in a pass may sort up to this much in memory; default: 16MB)",
+    )
+    profile.add_argument(
+        "--fail-on-check-failures",
+        action="store_true",
+        help="exit with code 7 when configured quality checks failed",
+    )
+    profile.set_defaults(handler=cmd_profile)
     return parser
 
 
@@ -346,7 +548,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _err("interrupted")
         return EXIT_INTERNAL
     except Exception as exc:  # noqa: BLE001 - last-resort guard with a stable exit code
-        _err(f"internal error: {type(exc).__name__}: {exc}")
+        _err(f"internal error: {type(exc).__name__}: {sanitize_message(str(exc))}")
         _err("Please report this with the command you ran (never include credentials or data).")
         return EXIT_INTERNAL
 
