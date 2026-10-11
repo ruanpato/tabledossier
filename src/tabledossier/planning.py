@@ -496,8 +496,16 @@ def plan_aggregates(
                     }
                 )
 
-    capacity = limits["max_expressions_per_pass"] * limits["max_aggregate_passes"]
-    kept, dropped = _pl_apply_budget(candidates, capacity)
+    per_pass = limits["max_expressions_per_pass"]
+    capacity = per_pass * limits["max_aggregate_passes"]
+    # An expression is never split across passes, so in-order packing can need one more pass
+    # than the expression total suggests (a cost-2 expression that does not fit the last slot
+    # opens a new pass). Lower the budget until the kept expressions fit the pass budget.
+    budget = capacity
+    kept, dropped = _pl_apply_budget(candidates, budget)
+    while _pl_pass_count(kept, per_pass, per_pass) > limits["max_aggregate_passes"]:
+        budget -= 1
+        kept, dropped = _pl_apply_budget(candidates, budget)
     omissions: dict[str, dict[str, Any]] = {}
     for spec in dropped:
         fid = spec["field_id"]
@@ -512,6 +520,7 @@ def plan_aggregates(
                     f"aggregate expression budget of {capacity} "
                     f"({limits['max_expressions_per_pass']} per pass x "
                     f"{limits['max_aggregate_passes']} passes) exceeded"
+                    + (" (an expression is never split across passes)" if budget < capacity else "")
                 ),
                 "metrics": [],
             },
@@ -529,7 +538,6 @@ def plan_aggregates(
                 ),
             }
         )
-    per_pass = limits["max_expressions_per_pass"]
     for index, spec in enumerate(kept):
         spec["alias"] = f"a{index:04d}"
     costs = {spec["alias"]: spec["cost"] for spec in kept}
@@ -538,13 +546,22 @@ def plan_aggregates(
     kept_deep: list[dict[str, Any]] = []
     dropped_deep: list[dict[str, Any]] = []
     if deep_candidates:
-        room = per_pass - sum(costs[alias] for alias in passes[-1]) if passes else per_pass
+        used = sum(costs[alias] for alias in passes[-1]) if passes else per_pass
+        room = per_pass - used
         deep_cost = sum(spec["cost"] for spec in deep_candidates)
         needed = -(-max(0, deep_cost - room) // per_pass)
         extra = min(needed, max(0, max_extra_passes))
+        deep_budget = room + per_pass * extra
         kept_deep, dropped_deep = _pl_apply_budget(
-            [dict(spec) for spec in deep_candidates], room + per_pass * extra
+            [dict(spec) for spec in deep_candidates], deep_budget
         )
+        # Same packing rule as above: the deep expressions must fit the room left in the last
+        # standard pass plus deep.max_extra_passes passes, never more.
+        while _pl_pass_count(kept_deep, per_pass, used) > max(0, max_extra_passes):
+            deep_budget -= 1
+            kept_deep, dropped_deep = _pl_apply_budget(
+                [dict(spec) for spec in deep_candidates], deep_budget
+            )
         for spec in dropped_deep:
             fid = spec["field_id"]
             entry = omissions.setdefault(
@@ -614,6 +631,20 @@ def _pl_pack(
         out[-1].append(spec["alias"])
         used += spec["cost"]
     return out
+
+
+def _pl_pass_count(specs: Sequence[Mapping[str, Any]], per_pass: int, used: int) -> int:
+    """Return the passes :func:`_pl_pack` opens for ``specs`` after a pass holding ``used``.
+
+    ``used = per_pass`` counts the passes of a packing that starts from nothing.
+    """
+    opened = 0
+    for spec in specs:
+        if used + spec["cost"] > per_pass:
+            opened += 1
+            used = 0
+        used += spec["cost"]
+    return opened
 
 
 def _pl_apply_budget(

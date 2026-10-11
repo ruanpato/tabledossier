@@ -2,12 +2,12 @@
   "kind": "tabledossier.generation_manifest",
   "manifest_version": "1.0",
   "tool_version": "0.4.0",
-  "generation_id": "sha256:b0a78333e3a95f4faede7b93fa92405755ca4695e61a3d020d4720308b33d720",
+  "generation_id": "sha256:6dd97476f8f593ba99c071b94c11887ee8f80abc3571e16f80bc4073019b75de",
   "contains_results": false,
   "notebook": {
     "file_name": "profile_databricks.py",
     "format": "databricks_source_python",
-    "sha256": "sha256:6ab4130297f7107d524e53c763c2a4a704df9365ab9027cf27bb32a72e276374",
+    "sha256": "sha256:dc0144633110b24a3419a0ec15ade02b83545490d1859ea20aaba011f87cfa82",
     "cells": 43
   },
   "config_fingerprint": "sha256:d06c5bef0b6b1a77dbc2966006c5bd58b3bf48ba48c8688db7e64e1a38cd40b9",
@@ -55,7 +55,7 @@
     {
       "module": "tabledossier.planning",
       "source_path": "src/tabledossier/planning.py",
-      "sha256": "sha256:970ba12c986e535097884051dc5a72ebdf514b2ec1bbd7412608cf06151c40c1"
+      "sha256": "sha256:024e46091f23508405e533d58d7c88466c3a9bcee30175eab68bad63de722b2a"
     },
     {
       "module": "tabledossier.semantic",
