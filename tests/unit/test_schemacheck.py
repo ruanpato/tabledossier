@@ -14,6 +14,7 @@ SCHEMA_NAMES = [
     "profile",
     "profile-1.0",
     "profile-1.1",
+    "profile-1.2",
     "annotations",
     "suggested_rules",
     "manifest",
@@ -144,6 +145,45 @@ def test_profile_1_1_additions_agreement(deep_profile, schemas):
         field = next(f for f in target["field_profiles"] if f["field_id"] == payload["field_id"])
         field["json_paths"]["paths"][0] = path
         assert not _agree(variant, schema)
+
+
+def test_profile_1_2_agreement(profile_1_2, schemas):
+    schema = schemas["profile-1.2"]
+    assert _agree(profile_1_2, schema)
+    for variant in _mutations(profile_1_2):
+        _agree(variant, schema)
+    relabelled = {**profile_1_2, "schema_version": "1.3"}
+    assert not _agree(relabelled, schema)
+    assert _agree(relabelled, schemas["profile"]), "1.3 only adds to 1.2"
+    for path, value in (
+        (("run", "environment", "engine"), "postgresql"),
+        (("run", "environment", "execution_context"), "local_cli"),
+        (("tables", 0, "consistency", "mode"), "transaction_snapshot"),
+        (
+            ("tables", 0, "constraints"),
+            [
+                {
+                    "name": "pk",
+                    "constraint_type": "primary_key",
+                    "columns": ["id"],
+                    "expression": None,
+                    "referenced": None,
+                    "enforcement": "enforced",
+                    "source": "system_catalog",
+                }
+            ],
+        ),
+    ):
+        variant = copy.deepcopy(profile_1_2)
+        node = variant
+        for key in path[:-1]:
+            node = node[key]
+        node[path[-1]] = value
+        assert not _agree(variant, schema), f"1.2 documents cannot use 1.3 additions ({path})"
+        assert _agree({**variant, "schema_version": "1.3"}, schemas["profile"]), path
+    variant = copy.deepcopy(profile_1_2)
+    variant["run"]["environment"]["postgresql_version"] = "17.11"
+    assert not _agree(variant, schema)
 
 
 def test_profile_1_1_agreement(profile_1_1, schemas):

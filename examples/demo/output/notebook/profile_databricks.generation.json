@@ -2,12 +2,12 @@
   "kind": "tabledossier.generation_manifest",
   "manifest_version": "1.0",
   "tool_version": "0.4.0",
-  "generation_id": "sha256:6dd97476f8f593ba99c071b94c11887ee8f80abc3571e16f80bc4073019b75de",
+  "generation_id": "sha256:22edd210105d935b51cfb803a1de08ec7cb77c72571ca51190e885e2ef80e041",
   "contains_results": false,
   "notebook": {
     "file_name": "profile_databricks.py",
     "format": "databricks_source_python",
-    "sha256": "sha256:dc0144633110b24a3419a0ec15ade02b83545490d1859ea20aaba011f87cfa82",
+    "sha256": "sha256:429ca47472b39cea4f978ca169d59ce44d2ffffb7aac52e4f1bffad1493fc5de",
     "cells": 43
   },
   "config_fingerprint": "sha256:d06c5bef0b6b1a77dbc2966006c5bd58b3bf48ba48c8688db7e64e1a38cd40b9",
@@ -55,12 +55,12 @@
     {
       "module": "tabledossier.planning",
       "source_path": "src/tabledossier/planning.py",
-      "sha256": "sha256:024e46091f23508405e533d58d7c88466c3a9bcee30175eab68bad63de722b2a"
+      "sha256": "sha256:d9bb36d231951df8a7fd0a6457594f724c5b15b4266009584c70186deb871949"
     },
     {
       "module": "tabledossier.semantic",
       "source_path": "src/tabledossier/semantic.py",
-      "sha256": "sha256:14e1b52707b12164c1eda7d2cdbb06f534676f56df0a9420ee44f329096edcc6"
+      "sha256": "sha256:a5a4e05231c75a1740a02963c63373d4fb43227290c1e06d7f8bae9067182aab"
     },
     {
       "module": "tabledossier.deep",
@@ -75,32 +75,32 @@
     {
       "module": "tabledossier.findings",
       "source_path": "src/tabledossier/findings.py",
-      "sha256": "sha256:84323f45be940c19f955304d9b2f5d9a767d49e063817ae65f3eeb9216621b4a"
+      "sha256": "sha256:5e4936eea16380d61e7962cc603ec0247daff5dc816c6d18c4d12dbc49a5b1fc"
     },
     {
       "module": "tabledossier.quality",
       "source_path": "src/tabledossier/quality.py",
-      "sha256": "sha256:5f728d2906f91e8477c5a690f2bb5b9f0c5532aaa029548c03952af89c45dcd2"
+      "sha256": "sha256:26d3334873b0eaf75782b2bcfad2b548f60233ab9f7646e6b6d5977f33ca510f"
     },
     {
       "module": "tabledossier.relationships",
       "source_path": "src/tabledossier/relationships.py",
-      "sha256": "sha256:9998a8aa06ce10bc19dd47628430431400b71458a46b4c2e8b7b7e264e5315ab"
+      "sha256": "sha256:74d0f1ca64e969b16e782c1f2d5cda00a67892e7aeb48097c5e2d04ed4a9454e"
     },
     {
       "module": "tabledossier.integrity",
       "source_path": "src/tabledossier/integrity.py",
-      "sha256": "sha256:ddf44175d564bcad100e53dae71972c75e9fbcbc7bb4aad12055482ef792934b"
+      "sha256": "sha256:e55b60f0e0f8f626ac2e167e2aeed31f71540c99eb624e66a7f2dfb183c4a427"
     },
     {
       "module": "tabledossier.contract",
       "source_path": "src/tabledossier/contract.py",
-      "sha256": "sha256:3bfbddb4e8b773682a366f74d6dc1e74976e1ce3d3f6c723067593c4ae0c19aa"
+      "sha256": "sha256:556833501e9f11ea35b272652a72fcd6e77e31b3d1246e353526393dbe95a723"
     },
     {
       "module": "tabledossier.render",
       "source_path": "src/tabledossier/render.py",
-      "sha256": "sha256:31bfca26a5cd3e269508a68bf8bc50415b7f1fd17430c4d18dcc7d211e2c4661"
+      "sha256": "sha256:15e25e943eef0938291f6fa1706a017a9b7f0f2a25f720a24729dbd26259967c"
     },
     {
       "module": "tabledossier.package",
@@ -110,7 +110,7 @@
     {
       "module": "tabledossier.assemble",
       "source_path": "src/tabledossier/assemble.py",
-      "sha256": "sha256:b868890b99e2be458e6d45f6fd6f0cae5f8a63a76906122de9d794e5647baf96"
+      "sha256": "sha256:aa6b2a576a420baeb48adb353101e4140d6cfff5043508f1ef2a2cfbde4c693a"
     },
     {
       "module": "tabledossier.runtime.spark",
@@ -130,7 +130,7 @@
     },
     {
       "name": "profile",
-      "sha256": "sha256:b949f622ebbe2489cae299ba95852d7cb03a7c9e0593808b353c150c9bab77ad"
+      "sha256": "sha256:b02dd982813f5be20bd98ed49bbfa85080c5def8fa5c0b460beea302f6ff3f12"
     }
   ],
   "target_runtimes": [

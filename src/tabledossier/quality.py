@@ -328,14 +328,20 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
                             )
                         )
                     continue
+                distinct = find_metric(metrics, "approx_distinct_count") or {}
                 rules.append(
                     _q_rule(
                         table_key,
                         column,
                         "unique",
                         {},
-                        "Approximate distinct count close to non-null count; confirm with an exact "
-                        "uniqueness check (deep.uniqueness) before adopting.",
+                        (
+                            "Exact distinct count close to non-null count in the analysed scope; "
+                            if distinct.get("accuracy") == "exact"
+                            else "Approximate distinct count close to non-null count; "
+                        )
+                        + "confirm with an exact uniqueness check (deep.uniqueness) before "
+                        "adopting.",
                         role["evidence"],
                     )
                 )
