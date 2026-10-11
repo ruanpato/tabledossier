@@ -92,8 +92,10 @@ jobs:
             mode: classic
           # Shared access mode and serverless compute use Spark Connect: the whole suite runs
           # through a local Spark Connect server started by SparkSession.builder.remote("local[2]").
+          # PySpark 3.5's connect extra pins numpy<2, and pyarrow 26 needs NumPy 2: keep pyarrow
+          # below 26 or the Connect client dependencies cannot be imported.
           - name: "Spark Connect 3.5 + Delta (DBR 15.4/16.4 line)"
-            packages: "'pyspark[connect]>=3.5.2,<3.6' 'delta-spark>=3.2,<3.4' setuptools"
+            packages: "'pyspark[connect]>=3.5.2,<3.6' 'delta-spark>=3.2,<3.4' setuptools 'pyarrow<26'"
             mode: connect
           - name: "Spark Connect 4.0 (DBR 17.3 line)"
             packages: "'pyspark[connect]>=4.0,<4.1'"
