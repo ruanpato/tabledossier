@@ -1,0 +1,57 @@
+{
+  "kind": "tabledossier.run_manifest",
+  "manifest_version": "1.0",
+  "run_id": "20261011T190520Z-dd97c5e0",
+  "status": "succeeded",
+  "tool_version": "0.4.0",
+  "profile_schema_version": "1.3",
+  "started_at": "2026-10-11T19:05:20.174Z",
+  "finished_at": "2026-10-11T19:05:20.275Z",
+  "generation_id": null,
+  "files": [
+    {
+      "path": "data_dictionary.md",
+      "sha256": "sha256:69170fb021d07f6c3a0f9f7e592aa31fa521acd235f9eabeebc10fa5bd8625d0",
+      "bytes": 50480
+    },
+    {
+      "path": "erd.mmd",
+      "sha256": "sha256:4908dec3ace40eeb155497445ded94724db927d072c4f1ce2ef2226d80383cb5",
+      "bytes": 2902
+    },
+    {
+      "path": "overview.md",
+      "sha256": "sha256:63d461ea1d7fd5c13d0e6b144a6239c13563ba3962b0f8a3076127bde42c67ae",
+      "bytes": 4008
+    },
+    {
+      "path": "profile.json",
+      "sha256": "sha256:9bff95c4525d2c9e4b29a7131c6eb157a4e86b8982ba452f3316f316864e56a0",
+      "bytes": 351539
+    },
+    {
+      "path": "quality_report.md",
+      "sha256": "sha256:b72b7c3d9370248701438218d8bd85fa449571432f10f96ebf820fe6a9041afd",
+      "bytes": 17855
+    },
+    {
+      "path": "relationships.md",
+      "sha256": "sha256:3dbe4be1d215bf425ab6e8dc1a1dd8fa3ba53438d39cf0f5984540a1b77295de",
+      "bytes": 3541
+    },
+    {
+      "path": "suggested_rules.json",
+      "sha256": "sha256:329e4812b0aa8e1cd882d4ea3618fe23380cf41d2cf4ca7e91b698eeecd9f40d",
+      "bytes": 21347
+    }
+  ],
+  "profile_validation": {
+    "checked": true,
+    "valid": true,
+    "errors": []
+  },
+  "notes": [
+    "profile.json is the source of every other file in this package.",
+    "Documents can be regenerated offline with: tabledossier render --input profile.json --output <dir>"
+  ]
+}

@@ -83,3 +83,41 @@ def test_databricks_demo_config_mirrors_local_demo():
     expected["output_dir"] = remote["output_dir"]
     expected["purpose"] = remote["purpose"]
     assert remote == expected
+
+
+POSTGRES = DEMO.parent / "postgres"
+
+
+def test_postgres_demo_config_mirrors_the_spark_demo():
+    local = json.loads((DEMO / "demo.config.json").read_text(encoding="utf-8"))
+    postgres = json.loads((POSTGRES / "demo.config.json").read_text(encoding="utf-8"))
+    normalized, errors = check_config(postgres)
+    assert errors == [] and normalized is not None
+    assert {**postgres, "purpose": local["purpose"]} == local
+
+
+def test_committed_postgres_packages_match_the_renderer():
+    """Profiles written by `tabledossier profile --engine postgres` on the PostgreSQL demo tables.
+
+    Rebuild with ``python examples/postgres/build_demo_outputs.py`` (needs a disposable
+    PostgreSQL server in ``TD_TEST_POSTGRES_DSN``).
+    """
+    for directory, level in (("run", "standard"), ("deep", "deep")):
+        folder = POSTGRES / "output" / directory
+        profile = json.loads((folder / "profile.json").read_text(encoding="utf-8"))
+        assert profile["schema_version"] == "1.3"
+        assert profile["run"]["analysis_level"] == level
+        environment = profile["run"]["environment"]
+        assert environment["engine"] == "postgresql"
+        assert environment["execution_context"] == "local_cli"
+        assert check_profile(profile) == []
+        for name, text in build_documents(profile).items():
+            committed = (folder / name).read_text(encoding="utf-8")
+            assert committed == text, f"postgres {directory}/{name} is stale; rebuild the demo"
+        manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+        assert check_document(manifest, "manifest") == []
+        listed = {entry["path"] for entry in manifest["files"]}
+        assert listed == {p.name for p in folder.iterdir()} - {"manifest.json"}
+        assert manifest["profile_validation"] == {"checked": True, "valid": True, "errors": []}
+        assert {t["consistency"]["mode"] for t in profile["tables"]} == {"transaction_snapshot"}
+        assert profile["run"]["effective_config"]["output_dir"] == "results"
