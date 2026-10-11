@@ -187,7 +187,7 @@ def test_profiles_of_contract_1_0_are_still_accepted(tmp_path, capsys):
     profile["schema_version"] = "9.9"
     relabelled.write_text(json.dumps(profile), encoding="utf-8")
     assert main(["validate", "--profile", str(relabelled)]) == 3
-    assert "supported: 1.0, 1.1, 1.2" in capsys.readouterr().err
+    assert "supported: 1.0, 1.1, 1.2, 1.3" in capsys.readouterr().err
 
 
 def test_profiles_of_contract_1_1_are_still_accepted(tmp_path, capsys):
@@ -212,9 +212,31 @@ def test_profiles_of_contract_1_1_are_still_accepted(tmp_path, capsys):
     assert main(["validate", "--profile", str(relabelled)]) == 0, "1.2 only adds to 1.1"
 
 
+def test_profiles_of_contract_1_2_are_still_accepted(tmp_path, capsys):
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "profile-1.2.json"
+    profile = json.loads(fixture.read_text(encoding="utf-8"))
+    assert profile["schema_version"] == "1.2" and profile["tool"]["version"] == "0.4.0"
+    assert main(["validate", "--profile", str(fixture)]) == 0
+    assert "schema 1.2" in capsys.readouterr().out
+    out = tmp_path / "docs"
+    assert main(["render", "--input", str(fixture), "--output", str(out)]) == 0
+    report = (out / "quality_report.md").read_text(encoding="utf-8")
+    assert "Uniqueness (exact)" in report and "Referential integrity" in report
+    # A 1.2 document may not use 1.3 additions: it is validated by the frozen 1.2 schema.
+    profile["run"]["environment"]["postgresql_version"] = None
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(profile), encoding="utf-8")
+    assert main(["validate", "--profile", str(bad)]) == 3
+    del profile["run"]["environment"]["postgresql_version"]
+    profile["schema_version"] = "1.3"
+    relabelled = tmp_path / "relabelled.json"
+    relabelled.write_text(json.dumps(profile), encoding="utf-8")
+    assert main(["validate", "--profile", str(relabelled)]) == 0, "1.3 only adds to 1.2"
+
+
 def test_schema_command_serves_every_profile_version(capsys):
     assert main(["schema", "profile"]) == 0
-    assert '"const": "1.2"' in capsys.readouterr().out
-    for version in ("1.0", "1.1"):
+    assert '"const": "1.3"' in capsys.readouterr().out
+    for version in ("1.0", "1.1", "1.2"):
         assert main(["schema", f"profile-{version}"]) == 0
         assert f'"const": "{version}"' in capsys.readouterr().out

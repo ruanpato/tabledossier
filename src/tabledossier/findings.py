@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from tabledossier.jsonutil import short_hash
-from tabledossier.metrics import metric_value, numeric_value
+from tabledossier.metrics import find_metric, metric_value, numeric_value
 
 
 def _fd_finding(
@@ -39,6 +39,12 @@ def _fd_finding(
         "severity_reason": severity_reason,
         "limitations": limitations,
     }
+
+
+def _fd_exact(metrics: list[Mapping[str, Any]], name: str) -> bool:
+    """Whether the engine labelled a (measured) metric exact; wording follows that label."""
+    metric = find_metric(metrics, name)
+    return metric is not None and metric.get("accuracy") == "exact"
 
 
 def _fd_evidence(metrics: list[Mapping[str, Any]], *names: str) -> list[dict[str, Any]]:
@@ -146,19 +152,25 @@ def field_findings(
             )
         )
     if "identifier_candidate" in roles:
+        exact = _fd_exact(metrics, "approx_distinct_count")
         found.append(
             _fd_finding(
                 "identifier_candidate",
                 "info",
                 field,
                 "Identifier candidate",
-                "Approximate distinct count is close to the number of non-null values.",
+                "Exact distinct count is close to the number of non-null values."
+                if exact
+                else "Approximate distinct count is close to the number of non-null values.",
                 roles["identifier_candidate"]["evidence"],
                 {
                     "name": "identifier_min_distinct_ratio",
                     "value": thresholds["identifier_min_distinct_ratio"],
                 },
-                "info: approximate cardinality does not prove uniqueness.",
+                "info: a high distinct ratio in the analysed scope does not prove uniqueness "
+                "beyond it."
+                if exact
+                else "info: approximate cardinality does not prove uniqueness.",
                 roles["identifier_candidate"]["limitations"],
             )
         )
@@ -218,8 +230,10 @@ def field_findings(
                             {"name": "tail_iqr_multiplier", "value": multiplier},
                             "info: heavy tails are common in amounts and counts; review if "
                             "unexpected.",
-                            "Quantiles are approximate; min/max are exact over finite values in "
-                            "scope.",
+                            "Quantiles and min/max are exact over finite values in scope."
+                            if _fd_exact(metrics, "quantiles")
+                            else "Quantiles are approximate; min/max are exact over finite values "
+                            "in scope.",
                         )
                     )
 

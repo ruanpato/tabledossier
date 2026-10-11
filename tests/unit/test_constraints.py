@@ -12,6 +12,9 @@ from tabledossier.config import deep_merge, default_config
 from tabledossier.integrity import end_segments
 from tabledossier.keys import declared_column_segments, plan_uniqueness, requested_keys
 from tabledossier.relationships import (
+    DECLARED_NOTE,
+    ENFORCED_DECLARED_NOTE,
+    NOT_ENFORCED_DECLARED_NOTE,
     declared_relationships,
     key_constraints_from_rows,
     referenced_constraint_keys,
@@ -233,3 +236,133 @@ def test_declared_constraints_feed_uniqueness_and_relationships(deep_profile):
     assert end_segments(relationship, "to", customers["schema"]["fields"]) == [
         [{"kind": "field", "name": "customer_id"}]
     ]
+
+
+# --------------------------------------------------------------------------- system catalog rows
+
+
+def _catalog_row(name, kind, column, ordinal, **extra):
+    return {**_row(name, kind, column, ordinal, catalog="shop", schema="public"), **extra}
+
+
+def test_enforcement_notes_and_source_come_from_the_rows():
+    not_valid = (
+        "Constraint orders_fk was added NOT VALID: rows that existed before were never checked."
+    )
+    rows = [
+        _catalog_row("orders_pk", "PRIMARY KEY", "id", 1, enforcement="enforced"),
+        _catalog_row(
+            "orders_fk",
+            "FOREIGN KEY",
+            "customer_id",
+            1,
+            position=1,
+            unique_constraint_catalog="shop",
+            unique_constraint_schema="public",
+            unique_constraint_name="customers_pk",
+            enforcement="enforced",
+            notes=[not_valid],
+        ),
+    ]
+    targets = [_target("customers_pk", "customers", "id", 1, catalog="shop", schema="public")]
+    constraints, notes = key_constraints_from_rows(rows, targets, source="system_catalog")
+    assert [(c["enforcement"], c["source"]) for c in constraints] == [
+        ("enforced", "system_catalog")
+    ] * 2
+    assert notes == [not_valid], "row notes are appended once per constraint"
+    [relationship] = declared_relationships(
+        [{"table_key": "shop.public.orders", "constraints": constraints}]
+    )
+    assert relationship["enforcement"] == "enforced"
+    assert relationship["notes"] == [ENFORCED_DECLARED_NOTE]
+    assert "Unity" not in relationship["notes"][0]
+
+
+def test_declared_notes_follow_source_and_enforcement():
+    def note(enforcement, source):
+        constraint = {
+            "name": "fk",
+            "constraint_type": "foreign_key",
+            "columns": ["a"],
+            "expression": None,
+            "referenced": {"table": "s.t", "columns": ["b"]},
+            "enforcement": enforcement,
+            "source": source,
+        }
+        [relationship] = declared_relationships([{"table_key": "s.u", "constraints": [constraint]}])
+        return relationship["notes"]
+
+    assert note("not_enforced", "information_schema") == [DECLARED_NOTE], "Spark: unchanged"
+    assert note("unknown", "information_schema") == [DECLARED_NOTE]
+    assert note("enforced", "system_catalog") == [ENFORCED_DECLARED_NOTE]
+    assert note("not_enforced", "system_catalog") == [NOT_ENFORCED_DECLARED_NOTE]
+
+
+def test_unresolved_foreign_keys_name_information_schema_only_for_that_source():
+    rows = [
+        _catalog_row(
+            "gone_fk",
+            "FOREIGN KEY",
+            "x",
+            1,
+            position=1,
+            unique_constraint_catalog="shop",
+            unique_constraint_schema="public",
+            unique_constraint_name="gone_pk",
+        ),
+        _catalog_row("bare_fk", "FOREIGN KEY", "y", 1),
+    ]
+    _, spark_notes = key_constraints_from_rows(rows, [])
+    assert sum("information_schema" in n for n in spark_notes) == 2
+    constraints, notes = key_constraints_from_rows(rows, [], source="system_catalog")
+    assert all(c["referenced"] is None for c in constraints) and len(notes) == 2
+    assert not any("information_schema" in n for n in notes)
+    assert any("not visible in the catalog" in n for n in notes)
+    assert any("the catalog lists no referenced constraint" in n for n in notes)
+
+
+@pytest.mark.parametrize("case_sensitive", [False, True])
+def test_names_differing_only_by_case(case_sensitive):
+    rows = [
+        _catalog_row("Orders_PK", "PRIMARY KEY", "id", 1),
+        _catalog_row("orders_pk", "UNIQUE", "code", 1),
+        _catalog_row(
+            "orders_fk",
+            "FOREIGN KEY",
+            "customer_id",
+            1,
+            position=1,
+            unique_constraint_catalog="shop",
+            unique_constraint_schema="public",
+            unique_constraint_name="Customers_PK",
+        ),
+    ]
+    targets = [
+        _target("Customers_PK", "Customers", "Id", 1, catalog="shop", schema="public"),
+        _target("customers_pk", "customers", "id", 1, catalog="shop", schema="public"),
+    ]
+    constraints, notes = key_constraints_from_rows(rows, targets, case_sensitive=case_sensitive)
+    by_name = _by_name(constraints)
+    if case_sensitive:
+        # PostgreSQL: quoted names that differ only by case are distinct objects.
+        assert set(by_name) == {"Orders_PK", "orders_pk", "orders_fk"}
+        assert by_name["orders_fk"]["referenced"] == {
+            "table": "shop.public.Customers",
+            "columns": ["Id"],
+        }
+        assert notes == []
+        assert referenced_constraint_keys(
+            [*rows, {**rows[2], "unique_constraint_name": "customers_pk"}], case_sensitive=True
+        ) == [("shop", "public", "Customers_PK"), ("shop", "public", "customers_pk")]
+    else:
+        # Unity Catalog folds case: the two spellings are one constraint and one target table.
+        assert set(by_name) == {"Orders_PK", "orders_fk"}
+        assert by_name["Orders_PK"]["columns"] == ["id"], "the first row of the folded name wins"
+        assert by_name["orders_fk"]["referenced"] == {
+            "table": "shop.public.Customers",
+            "columns": ["Id"],
+        }
+        assert notes == []
+        assert referenced_constraint_keys(
+            [*rows, {**rows[2], "unique_constraint_name": "customers_pk"}]
+        ) == [("shop", "public", "Customers_PK")]

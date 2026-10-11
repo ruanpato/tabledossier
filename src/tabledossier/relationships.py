@@ -8,8 +8,9 @@ Relationships are never inferred from column names (a column ending in
 Cardinality is recorded only when a person provided it.
 
 Declared PRIMARY KEY, UNIQUE and FOREIGN KEY constraints are assembled here
-from ``information_schema`` rows (:func:`key_constraints_from_rows`); the
-Spark adapter only runs the parameterized queries that return those rows.
+from ``information_schema``-shaped rows (:func:`key_constraints_from_rows`);
+the engine adapter only runs the queries that return those rows. Notes follow
+the ``source`` and ``enforcement`` labels of each constraint.
 """
 
 from collections.abc import Iterable, Mapping
@@ -26,6 +27,15 @@ DECLARED_NOTE = (
     "Declared as a FOREIGN KEY constraint. Unity Catalog primary and foreign keys are "
     "informational (not enforced): the declaration alone does not prove the data."
 )
+ENFORCED_DECLARED_NOTE = (
+    "Declared as a FOREIGN KEY constraint that the database enforces for writes; the declaration "
+    "alone still does not prove every stored row (it can be bypassed, e.g. with "
+    "session_replication_role = replica, or added NOT VALID)."
+)
+NOT_ENFORCED_DECLARED_NOTE = (
+    "Declared as a FOREIGN KEY constraint that the database does not enforce: the declaration "
+    "alone does not prove the data."
+)
 PROVIDED_NOTE = "Provided by a person; the statement alone does not prove the data."
 INFORMATION_SCHEMA_KINDS = {
     "PRIMARY KEY": "primary_key",
@@ -40,6 +50,14 @@ def _rel_text(value: Any) -> str:
 
 def _rel_fold(*parts: Any) -> tuple[str, ...]:
     return tuple(_rel_text(part).casefold() for part in parts)
+
+
+def _rel_identity(case_sensitive: bool, *parts: Any) -> tuple[str, ...]:
+    return tuple(_rel_text(part) for part in parts) if case_sensitive else _rel_fold(*parts)
+
+
+def _rel_catalog(source: str) -> str:
+    return "information_schema" if source == "information_schema" else "the catalog"
 
 
 def _rel_kind(value: Any) -> str | None:
@@ -63,12 +81,15 @@ def _rel_reference(row: Mapping[str, Any]) -> tuple[str, str, str] | None:
     )
 
 
-def referenced_constraint_keys(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, str, str]]:
+def referenced_constraint_keys(
+    rows: Iterable[Mapping[str, Any]], *, case_sensitive: bool = False
+) -> list[tuple[str, str, str]]:
     """Return ``(catalog, schema, name)`` of the constraints referenced by foreign keys.
 
     ``rows`` are the ``information_schema`` rows of one table (see
     :func:`key_constraints_from_rows`). Each referenced constraint is listed
-    once, compared case-insensitively, in the order of first appearance.
+    once, compared case-insensitively unless ``case_sensitive``, in the order
+    of first appearance.
     """
     seen: set[tuple[str, ...]] = set()
     out = []
@@ -76,8 +97,9 @@ def referenced_constraint_keys(rows: Iterable[Mapping[str, Any]]) -> list[tuple[
         reference = _rel_reference(row)
         if _rel_kind(row.get("constraint_type")) != "foreign_key" or reference is None:
             continue
-        if _rel_fold(*reference) not in seen:
-            seen.add(_rel_fold(*reference))
+        identity = _rel_identity(case_sensitive, *reference)
+        if identity not in seen:
+            seen.add(identity)
             out.append(reference)
     return out
 
@@ -87,23 +109,33 @@ def _rel_referenced(
     reference: tuple[str, str, str] | None,
     positions: list[int | None],
     targets: Mapping[tuple[str, ...], list[Mapping[str, Any]]],
+    *,
+    source: str,
+    case_sensitive: bool,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Resolve the referenced table and columns of one foreign key, or say why not."""
     if reference is None:
+        listing = (
+            "information_schema.referential_constraints"
+            if source == "information_schema"
+            else "the catalog"
+        )
         return None, (
-            f"Foreign key {name}: information_schema.referential_constraints lists no referenced "
+            f"Foreign key {name}: {listing} lists no referenced "
             "constraint, so the relationship is not documented."
         )
-    target_rows = targets.get(_rel_fold(*reference), [])
+    target_rows = targets.get(_rel_identity(case_sensitive, *reference), [])
     label = ".".join(reference)
     if not target_rows:
         return None, (
             f"Foreign key {name} references constraint {label}, whose columns are not visible in "
-            "information_schema (missing, or not readable with these permissions), so the "
+            f"{_rel_catalog(source)} (missing, or not readable with these permissions), so the "
             "relationship is not documented."
         )
     tables = {
-        _rel_fold(row.get("table_catalog"), row.get("table_schema"), row.get("table_name"))
+        _rel_identity(
+            case_sensitive, row.get("table_catalog"), row.get("table_schema"), row.get("table_name")
+        )
         for row in target_rows
     }
     by_position: dict[int, str] = {}
@@ -134,7 +166,11 @@ def _rel_referenced(
 
 
 def key_constraints_from_rows(
-    rows: Iterable[Mapping[str, Any]], referenced_rows: Iterable[Mapping[str, Any]]
+    rows: Iterable[Mapping[str, Any]],
+    referenced_rows: Iterable[Mapping[str, Any]],
+    *,
+    source: str = "information_schema",
+    case_sensitive: bool = False,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Assemble PRIMARY KEY, UNIQUE and FOREIGN KEY records from ``information_schema`` rows.
 
@@ -150,19 +186,27 @@ def key_constraints_from_rows(
     ``ordinal_position``).
 
     Catalog, schema and constraint names are compared case-insensitively, as
-    Unity Catalog does, and row order does not matter: constraints are sorted
-    by name and columns by ``ordinal_position``. Other constraint types (CHECK)
-    are ignored. Returns ``(constraints, notes)``; a foreign key whose
-    referenced columns cannot be resolved keeps ``referenced: None`` and a note
-    says why (it is then not documented as a relationship).
+    Unity Catalog does, unless ``case_sensitive`` (PostgreSQL names that differ
+    only by case are distinct), and row order does not matter: constraints are
+    sorted by name and columns by ``ordinal_position``. Other constraint types
+    (CHECK) are ignored. A row may also carry ``enforcement`` (default
+    ``not_enforced``, as in Unity Catalog) and ``notes`` (appended to the
+    returned notes once each). ``source`` labels every constraint.
+
+    Returns ``(constraints, notes)``; a foreign key whose referenced columns
+    cannot be resolved keeps ``referenced: None`` and a note says why (it is
+    then not documented as a relationship).
     """
     grouped: dict[tuple[str, ...], dict[str, Any]] = {}
     for row in rows:
         kind = _rel_kind(row.get("constraint_type"))
         if kind is None:
             continue
-        identity = _rel_fold(
-            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        identity = _rel_identity(
+            case_sensitive,
+            row.get("constraint_catalog"),
+            row.get("constraint_schema"),
+            row.get("constraint_name"),
         )
         entry = grouped.setdefault(
             identity,
@@ -171,8 +215,13 @@ def key_constraints_from_rows(
                 "kind": kind,
                 "columns": {},
                 "reference": None,
+                "enforcement": row.get("enforcement") or "not_enforced",
+                "notes": [],
             },
         )
+        for note in row.get("notes") or []:
+            if note not in entry["notes"]:
+                entry["notes"].append(str(note))
         position = _rel_position(row.get("ordinal_position"))
         order = position if position is not None else len(entry["columns"]) + 1
         entry["columns"].setdefault(
@@ -185,8 +234,11 @@ def key_constraints_from_rows(
         entry["reference"] = entry["reference"] or _rel_reference(row)
     targets: dict[tuple[str, ...], list[Mapping[str, Any]]] = {}
     for row in referenced_rows:
-        identity = _rel_fold(
-            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        identity = _rel_identity(
+            case_sensitive,
+            row.get("constraint_catalog"),
+            row.get("constraint_schema"),
+            row.get("constraint_name"),
         )
         targets.setdefault(identity, []).append(row)
     constraints = []
@@ -197,9 +249,17 @@ def key_constraints_from_rows(
         if entry["kind"] == "foreign_key":
             positions = [position for _, position in ordered]
             referenced, note = _rel_referenced(
-                entry["name"], entry["reference"], positions, targets
+                entry["name"],
+                entry["reference"],
+                positions,
+                targets,
+                source=source,
+                case_sensitive=case_sensitive,
             )
             if note:
+                notes.append(note)
+        for note in entry["notes"]:
+            if note not in notes:
                 notes.append(note)
         constraints.append(
             {
@@ -208,8 +268,8 @@ def key_constraints_from_rows(
                 "columns": [column for column, _ in ordered],
                 "expression": None,
                 "referenced": referenced,
-                "enforcement": "not_enforced",
-                "source": "information_schema",
+                "enforcement": entry["enforcement"],
+                "source": source,
             }
         )
     return constraints, notes
@@ -221,6 +281,15 @@ def _rel_table(text: str) -> str:
 
 def _rel_columns(columns: Iterable[Any]) -> list[str]:
     return [display_path(column_reference_segments(column)) for column in columns]
+
+
+def _rel_declared_note(constraint: Mapping[str, Any]) -> str:
+    """Return the note of a declared relationship, from the constraint's labels."""
+    if constraint.get("enforcement") == "enforced":
+        return ENFORCED_DECLARED_NOTE
+    if constraint.get("source", "information_schema") == "information_schema":
+        return DECLARED_NOTE
+    return NOT_ENFORCED_DECLARED_NOTE
 
 
 def declared_relationships(tables: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -246,7 +315,7 @@ def declared_relationships(tables: Iterable[Mapping[str, Any]]) -> list[dict[str
                     "validation": "not_validated",
                     "scope": "declared_metadata",
                     "description": None,
-                    "notes": [DECLARED_NOTE],
+                    "notes": [_rel_declared_note(constraint)],
                 }
             )
     return out
