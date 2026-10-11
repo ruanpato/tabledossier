@@ -24,13 +24,13 @@ from typing import Any
 from pyspark.sql import functions as F
 
 from tabledossier.assemble import (
+    assemble_field_results,
     element_field_metrics,
-    field_metrics,
-    field_profile,
     finalize_table,
     known_relationships,
     new_table,
     policy_field_ids,
+    table_field_profiles,
 )
 from tabledossier.config import ROW_READING_LEVELS, table_options_for
 from tabledossier.deep import (
@@ -74,23 +74,22 @@ from tabledossier.paths import (
     table_lookup_key,
 )
 from tabledossier.planning import (
+    aggregate_operations,
     build_schema_tree,
+    collect_sample_rows,
+    elapsed_ms,
     iter_nodes,
+    new_sample_record,
+    observed_operation,
     operation,
     plan_aggregates,
     plan_sample,
+    sample_notes,
     scope_label,
     select_profile_fields,
 )
 from tabledossier.relationships import key_constraints_from_rows, referenced_constraint_keys
-from tabledossier.semantic import (
-    candidate_roles,
-    infer_format,
-    is_json_like,
-    json_shape,
-    value_concentration,
-    value_examples,
-)
+from tabledossier.semantic import candidate_roles, sample_semantics
 
 TIMESTAMP_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX"
 TIMESTAMP_NTZ_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
@@ -112,25 +111,6 @@ _SP_CAST_TYPES = {
     "date": "date",
     "timestamp": "timestamp",
 }
-
-
-# --------------------------------------------------------------------------- timing
-
-
-def _sp_ms(start: float) -> int:
-    return max(0, int((time.perf_counter() - start) * 1000))
-
-
-def _sp_observed(
-    op_id: str, status: str, start: float | None, rows: int | None = None, detail: str | None = None
-) -> dict[str, Any]:
-    return {
-        "operation_id": op_id,
-        "status": status,
-        "duration_ms": _sp_ms(start) if start is not None else None,
-        "rows_returned": rows,
-        "detail": detail,
-    }
 
 
 # --------------------------------------------------------------------------- environment
@@ -969,8 +949,9 @@ def collect_sample(
 
     Values are cut server-side to ``max_value_chars`` (truncated values are
     flagged and excluded from inference). Rows are retained until the payload
-    budget ``max_bytes`` would be exceeded; iteration then stops. The payload
-    budget accounts for retained values, not total process memory.
+    budget ``max_bytes`` would be exceeded; iteration then stops (see
+    :func:`collect_sample_rows`). The payload budget accounts for retained
+    values, not total process memory.
     """
     max_chars = plan["max_value_chars"]
     expressions = []
@@ -988,39 +969,8 @@ def collect_sample(
         rows_iter: Any = limited.toLocalIterator()
     except (AttributeError, NotImplementedError):
         rows_iter = iter(limited.collect())
-    fields: dict[str, dict[str, Any]] = {
-        node["field_id"]: {"values": [], "nulls": 0, "truncated": 0} for node in nodes
-    }
-    rows = 0
-    used = 0
-    stopped = "exhausted"
-    for row in rows_iter:
-        pending = []
-        row_bytes = 0
-        for index, node in enumerate(nodes):
-            value = row[f"s{index}"]
-            if value is None:
-                pending.append((node["field_id"], "null", None))
-            elif row[f"t{index}"]:
-                pending.append((node["field_id"], "truncated", None))
-            else:
-                row_bytes += len(value.encode("utf-8"))
-                pending.append((node["field_id"], "value", value))
-        if used + row_bytes > plan["max_bytes"]:
-            stopped = "byte_budget"
-            break
-        used += row_bytes
-        rows += 1
-        for fid, status, value in pending:
-            if status == "null":
-                fields[fid]["nulls"] += 1
-            elif status == "truncated":
-                fields[fid]["truncated"] += 1
-            else:
-                fields[fid]["values"].append(value)
-    if stopped == "exhausted" and rows >= plan["max_rows"]:
-        stopped = "row_limit"
-    return {"rows": rows, "bytes": used, "stopped_reason": stopped, "fields": fields}
+    # Rows are tuples ordered like ``expressions``: (s0, t0, s1, t1, ...).
+    return collect_sample_rows(rows_iter, [node["field_id"] for node in nodes], plan)
 
 
 # --------------------------------------------------------------------------- aggregates
@@ -1056,7 +1006,9 @@ def run_aggregates(
         op_id = f"op_aggregate_{index + 1}"
         active = [alias for alias in aliases if alias in compiled]
         if not active:
-            observed.append(_sp_observed(op_id, "skipped", None, detail="no valid expressions"))
+            observed.append(
+                observed_operation(op_id, "skipped", None, detail="no valid expressions")
+            )
             continue
         start = time.perf_counter()
         try:
@@ -1077,13 +1029,15 @@ def run_aggregates(
                 active = valid
                 if not active:
                     observed.append(
-                        _sp_observed(op_id, "skipped", start, detail="all expressions rejected")
+                        observed_operation(
+                            op_id, "skipped", start, detail="all expressions rejected"
+                        )
                     )
                     continue
                 aggregated = frame.agg(*[compiled[alias] for alias in active])
             row = aggregated.collect()[0]
             results.update(row.asDict())
-            observed.append(_sp_observed(op_id, "succeeded", start, rows=1))
+            observed.append(observed_operation(op_id, "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "aggregate")
             errors.append(record)
@@ -1093,7 +1047,7 @@ def run_aggregates(
                     "aggregation pass failed: " + (record["condition"] or record["error_class"]),
                 )
             observed.append(
-                _sp_observed(
+                observed_operation(
                     op_id, "failed", start, detail=record["condition"] or record["error_class"]
                 )
             )
@@ -1197,24 +1151,6 @@ def _sp_statistics_row_count(extended: Mapping[str, str]) -> dict[str, Any]:
     )
 
 
-def _sp_omission_reason(
-    fid: str,
-    top_name: str,
-    reasons: Mapping[str, str],
-    parents: Mapping[str, Mapping[str, Any]],
-    selected: set[str] | None,
-) -> str:
-    current: str | None = fid
-    while current is not None:
-        if current in reasons:
-            return reasons[current]
-        parent = parents.get(current)
-        current = parent["field_id"] if parent else None
-    if selected is not None and top_name not in selected:
-        return "not_selected"
-    return "inside_collection"
-
-
 def profile_table(
     spark: Any,
     input_text: str,
@@ -1255,10 +1191,10 @@ def profile_table(
     )
     try:
         extended = read_describe_extended(spark, quoted)
-        observed.append(_sp_observed("op_describe", "succeeded", metadata_start))
+        observed.append(observed_operation("op_describe", "succeeded", metadata_start))
     except Exception as exc:  # noqa: BLE001
         observed.append(
-            _sp_observed(
+            observed_operation(
                 "op_describe", "failed", metadata_start, detail="table could not be resolved"
             )
         )
@@ -1267,7 +1203,7 @@ def profile_table(
             f"[tabledossier] {key}: could not be resolved "
             f"({table['errors'][-1]['condition'] or table['errors'][-1]['error_class']})"
         )
-        timings["total"] = _sp_ms(total_start)
+        timings["total"] = elapsed_ms(total_start)
         finalize_table(table, config)
         return table
     is_view = "VIEW" in (extended.get("Type") or "").upper()
@@ -1284,7 +1220,7 @@ def profile_table(
         start = time.perf_counter()
         try:
             detail = read_describe_detail(spark, quoted)
-            observed.append(_sp_observed("op_detail", "succeeded", start, rows=1))
+            observed.append(observed_operation("op_detail", "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
             cause = record["condition"] or record["error_class"]
@@ -1293,7 +1229,7 @@ def profile_table(
                 # Expected: engines without Delta (or Delta itself) may reject DESCRIBE DETAIL
                 # for other formats. Size and file count are then simply unavailable.
                 observed.append(
-                    _sp_observed(
+                    observed_operation(
                         "op_detail",
                         "skipped",
                         start,
@@ -1306,7 +1242,7 @@ def profile_table(
                     f"{provider}); size and file count are unavailable."
                 )
             else:
-                observed.append(_sp_observed("op_detail", "failed", start, detail=cause))
+                observed.append(observed_operation("op_detail", "failed", start, detail=cause))
                 table["notes"].append(
                     "DESCRIBE DETAIL failed for this source (not permitted or not supported)."
                 )
@@ -1329,11 +1265,11 @@ def profile_table(
         start = time.perf_counter()
         try:
             version, version_timestamp = read_latest_version(spark, quoted)
-            observed.append(_sp_observed("op_history", "succeeded", start, rows=1))
+            observed.append(observed_operation("op_history", "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "snapshot")
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_history",
                     "failed",
                     start,
@@ -1371,7 +1307,7 @@ def profile_table(
             declared, notes, skipped = read_unity_constraints(spark, parts)
             constraints.extend(declared)
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_constraints", "skipped" if skipped else "succeeded", start, detail=skipped
                 )
             )
@@ -1381,7 +1317,7 @@ def profile_table(
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_constraints",
                     "failed",
                     start,
@@ -1401,8 +1337,8 @@ def profile_table(
         schema = base.schema
     except Exception as exc:  # noqa: BLE001
         table["errors"].append(error_record(exc, "resolve"))
-        timings["metadata"] = _sp_ms(metadata_start)
-        timings["total"] = _sp_ms(total_start)
+        timings["metadata"] = elapsed_ms(metadata_start)
+        timings["total"] = elapsed_ms(total_start)
         finalize_table(table, config)
         return table
     limits = config["limits"]
@@ -1411,7 +1347,7 @@ def profile_table(
     )
     tree["captured_from"] = "pinned_snapshot" if version is not None else "current_table"
     table["schema"] = tree
-    timings["metadata"] = _sp_ms(metadata_start)
+    timings["metadata"] = elapsed_ms(metadata_start)
 
     pinned = version is not None
     if level == "metadata":
@@ -1496,33 +1432,20 @@ def profile_table(
     element_contexts: dict[str, dict[str, Any]] = deep_plan["contexts"] if deep_plan else {}
     table["omissions"].extend(omissions)
     profiled_ids = {node["field_id"] for node in profiled}
-    reasons = {item["field_id"]: item["reason"] for item in omissions if item["field_id"]}
-    parents: dict[str, Any] = {}
-    for node in iter_nodes(tree["fields"]):
-        for child in node["children"]:
-            parents[child["field_id"]] = node
     nodes_by_id = {node["field_id"]: node for node in iter_nodes(tree["fields"])}
-    wanted = set(selected) if selected is not None else None
-    for node in iter_nodes(tree["fields"]):
-        fid = node["field_id"]
-        reason: str | None = None
-        is_profiled = fid in profiled_ids or fid in element_contexts
-        if not is_profiled:
-            reason = _sp_omission_reason(fid, node["path"][0]["name"], reasons, parents, wanted)
-        record = field_profile(node, profiled=is_profiled, omission_reason=reason)
-        if fid in element_contexts:
-            record["element_context"] = dict(element_contexts[fid])
-        table["field_profiles"].append(record)
+    table["field_profiles"].extend(
+        table_field_profiles(tree, profiled_ids, omissions, selected, element_contexts)
+    )
     if level == "metadata":
         for field in table["field_profiles"]:
             field["profiled"] = False
             field["omission_reason"] = "metadata_level"
         table["table_metrics"].append(_sp_statistics_row_count(extended))
-        timings["total"] = _sp_ms(total_start)
+        timings["total"] = elapsed_ms(total_start)
         finalize_table(table, config)
         return table
     if any(error["stage"] == "resolve" for error in table["errors"]):
-        timings["total"] = _sp_ms(total_start)
+        timings["total"] = elapsed_ms(total_start)
         table["schema"] = tree
         finalize_table(table, config)
         return table
@@ -1537,30 +1460,7 @@ def profile_table(
     # 2. transient sample ---------------------------------------------------------
     sample_plan = plan_sample(profiled, config)
     sample_nodes = [nodes_by_id[fid] for fid in sample_plan["field_ids"]]
-    sample_record: dict[str, Any] = {
-        "enabled": sample_plan["enabled"],
-        "method": sample_plan["method"]
-        if sample_plan["enabled"]
-        else ("none" if config["sampling"]["method"] == "none" else config["sampling"]["method"]),
-        "biased": True
-        if sample_plan["method"] == "prefix"
-        else (False if sample_plan["method"] == "random" else None),
-        "reads_full_source": True if sample_plan["method"] == "random" else None,
-        "max_rows": sample_plan["max_rows"],
-        "max_bytes": sample_plan["max_bytes"],
-        "max_value_chars": sample_plan["max_value_chars"],
-        "random_fraction": sample_plan["random_fraction"],
-        "seed": sample_plan["seed"],
-        "rows_collected": None,
-        "bytes_retained": None,
-        "values_truncated": None,
-        "stopped_reason": "disabled"
-        if config["sampling"]["method"] == "none"
-        else "not_applicable",
-        "fields_sampled": len(sample_nodes),
-        "fields_omitted": len(sample_plan["omitted_field_ids"]),
-        "notes": [sample_plan["reason"]] if sample_plan["reason"] else [],
-    }
+    sample_record = new_sample_record(sample_plan, config)
     table["sample"] = sample_record
     json_ids: set[str] = set()
     semantic_by_id: dict[str, dict[str, Any]] = {}
@@ -1568,16 +1468,7 @@ def profile_table(
     redacted_ids = policy_field_ids(config, table_lookup_key(parts), "redact_columns")
     sample_start = time.perf_counter()
     if sample_plan["enabled"]:
-        sample_record["notes"] = [
-            "Values are inspected transiently for format and JSON inference; they are not "
-            "persisted.",
-            "prefix: the first rows produced by the engine; potentially biased, not random."
-            if sample_plan["method"] == "prefix"
-            else (
-                "random: Bernoulli sampling may evaluate every row in scope; the fraction "
-                "does not reduce I/O proportionally."
-            ),
-        ]
+        sample_record["notes"] = sample_notes(sample_plan["method"])
         planned.append(
             operation(
                 "op_sample",
@@ -1593,7 +1484,7 @@ def profile_table(
         try:
             sample = collect_sample(frame, sample_nodes, sample_plan)
             observed.append(
-                _sp_observed("op_sample", "succeeded", sample_start, rows=sample["rows"])
+                observed_operation("op_sample", "succeeded", sample_start, rows=sample["rows"])
             )
             sample_record.update(
                 {
@@ -1610,46 +1501,16 @@ def profile_table(
                 if config["value_policy"]["persist_examples"]
                 else set()
             )
-            json_keys = config["value_policy"]["json_key_names"] == "include"
-            for node in sample_nodes:
-                data = sample["fields"][node["field_id"]]
-                fmt = infer_format(
-                    data["values"],
-                    sql_nulls=data["nulls"],
-                    truncated=data["truncated"],
-                    sample_method=sample_plan["method"],
-                    semantic_config=config["semantic"],
-                )
-                entry: dict[str, Any] = {
-                    "observed_format": fmt,
-                    "json_profile": None,
-                    "concentration": None,
-                    "examples": None,
-                }
-                if is_json_like(data["values"]) or fmt.get("format") in (
-                    "json_object",
-                    "json_array",
-                ):
-                    shape = json_shape(
-                        data["values"],
-                        sql_nulls=data["nulls"],
-                        truncated=data["truncated"],
-                        include_key_names=json_keys and node["field_id"] not in redacted_ids,
-                        sample_method=sample_plan["method"],
-                    )
-                    entry["json_profile"] = shape
-                    eligible = shape["eligible_observations"]
-                    structured = shape["counts"]["object"] + shape["counts"]["array"]
-                    if eligible and structured / eligible >= config["thresholds"]["json_min_ratio"]:
-                        json_ids.add(node["field_id"])
-                entry["concentration"] = value_concentration(data["values"])
-                if node["field_id"] in example_ids and node["field_id"] not in redacted_ids:
-                    entry["examples"] = value_examples(
-                        data["values"],
-                        max_examples=config["value_policy"]["max_examples_per_column"],
-                        max_chars=config["value_policy"]["max_example_chars"],
-                    )
-                semantic_by_id[node["field_id"]] = entry
+            sample_semantics(
+                sample,
+                sample_nodes,
+                sample_plan["method"],
+                config,
+                redacted_ids=redacted_ids,
+                example_ids=example_ids,
+                semantic_by_id=semantic_by_id,
+                json_ids=json_ids,
+            )
             if deep_plan is not None:
                 json_catalogs = _sp_json_catalogs(
                     deep_plan, sample, json_ids, config, redacted_ids, sample_plan["method"]
@@ -1660,14 +1521,14 @@ def profile_table(
             table["errors"].append(record)
             sample_record["stopped_reason"] = "error"
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_sample",
                     "failed",
                     sample_start,
                     detail=record["condition"] or record["error_class"],
                 )
             )
-    timings["sample"] = _sp_ms(sample_start)
+    timings["sample"] = elapsed_ms(sample_start)
 
     # 3. shared aggregation passes (+ deep expressions) --------------------------
     redacted = set(redacted_ids)
@@ -1694,30 +1555,16 @@ def profile_table(
     )
     for omission in agg_plan["omissions"]:
         table["omissions"].append(omission)
-    for index, aliases in enumerate(agg_plan["passes"]):
-        specs = [spec for spec in agg_plan["specs"] if spec["alias"] in set(aliases)]
-        extra_pass = index >= agg_plan["standard_passes"]
-        details: dict[str, Any] = {
-            "expressions": sum(spec["cost"] for spec in specs),
-            "fields": len({spec["field_id"] for spec in specs if spec["field_id"]}),
-        }
-        if deep_plan is not None:
-            details["deep_expressions"] = sum(spec["cost"] for spec in specs if spec.get("group"))
-        planned.append(
-            operation(
-                f"op_aggregate_{index + 1}",
-                "deep_aggregate_pass" if extra_pass else "aggregate_pass",
-                (
-                    "extra aggregation for deep expressions that did not fit the standard passes "
-                    "(counts against deep.max_extra_passes; single agg call)"
-                    if extra_pass
-                    else "one shared aggregation over the analysed scope (single agg call; not a "
-                    "guarantee of a single physical scan)"
-                ),
-                reads_user_data=True,
-                **details,
-            )
+    planned.extend(
+        aggregate_operations(
+            agg_plan,
+            deep=deep_plan is not None,
+            standard_description="one shared aggregation over the analysed scope (single agg "
+            "call; not a guarantee of a single physical scan)",
+            extra_description="extra aggregation for deep expressions that did not fit the "
+            "standard passes (counts against deep.max_extra_passes; single agg call)",
         )
+    )
     distinct_plan = None
     if deep_plan is not None:
         distinct_plan = plan_element_distinct(deep_plan["element_nodes"], element_contexts, config)
@@ -1761,45 +1608,19 @@ def profile_table(
     aggregate_start = time.perf_counter()
     results, failed, agg_errors = run_aggregates(frame, agg_plan, nodes_by_id, ctx, observed)
     table["errors"].extend(agg_errors)
-    timings["aggregate"] = _sp_ms(aggregate_start)
+    timings["aggregate"] = elapsed_ms(aggregate_start)
 
-    specs_by_field: dict[str | None, list[dict[str, Any]]] = {}
-    for spec in agg_plan["specs"]:
-        if spec.get("group") != "json_path":
-            specs_by_field.setdefault(spec["field_id"], []).append(spec)
-    static_by_field: dict[str, list[dict[str, Any]]] = {}
-    for item in [*agg_plan["static_metrics"], *deep_static]:
-        static_by_field.setdefault(item["field_id"], []).append(item)
-    row_spec = specs_by_field[None][0]
-    if row_spec["alias"] in failed or results.get(row_spec["alias"]) is None:
-        row_count = None
-        table["table_metrics"].append(
-            not_measured(
-                "row_count",
-                "error",
-                failed.get(row_spec["alias"], "row count not returned"),
-                scope=scope,
-                source="aggregate",
-            )
-        )
-    else:
-        row_count = int(results[row_spec["alias"]])
-        table["table_metrics"].append(
-            measured(
-                "row_count",
-                row_count,
-                unit="rows",
-                scope=scope,
-                accuracy="exact",
-                source="aggregate",
-                method="count(*) over the analysed scope",
-            )
-        )
-    null_counts: dict[str, int | None] = {}
-    for spec in agg_plan["specs"]:
-        if spec["metric"] == "null_count" and spec["alias"] not in failed:
-            value = results.get(spec["alias"])
-            null_counts[spec["field_id"]] = int(value) if value is not None else None
+    _, specs_by_field, static_by_field, null_counts = assemble_field_results(
+        table,
+        agg_plan,
+        results,
+        failed,
+        scope=scope,
+        nodes_by_id=nodes_by_id,
+        semantic_by_id=semantic_by_id,
+        extra_static=deep_static,
+        skip_field_ids=set(element_contexts),
+    )
     distinct_metrics: dict[str, list[dict[str, Any]]] = {}
     if distinct_plan is not None:
         distinct_metrics = _sp_run_element_distinct(
@@ -1812,49 +1633,28 @@ def profile_table(
             timings=timings,
         )
     for field in table["field_profiles"]:
-        if not field["profiled"]:
+        context = element_contexts.get(field["field_id"])
+        if not field["profiled"] or context is None:
             continue
         node = nodes_by_id[field["field_id"]]
         parent_id = node.get("parent_field_id")
-        context = element_contexts.get(field["field_id"])
-        if context is not None:
-            totals = _sp_collection_totals(
-                {field["field_id"]: context}, specs_by_field, results, failed
-            )
-            field["metrics"] = element_field_metrics(
-                node,
-                context,
-                specs_by_field.get(field["field_id"], []),
-                results,
-                failed,
-                scope=scope,
-                element_total=totals.get(context["collection_field_id"]),
-                parent_null_count=null_counts.get(parent_id)
-                if parent_id and parent_id in element_contexts
-                else None,
-                static=static_by_field.get(field["field_id"], []),
-                extra=distinct_metrics.get(field["field_id"], []),
-            )
-            continue
-        field["metrics"] = field_metrics(
+        totals = _sp_collection_totals(
+            {field["field_id"]: context}, specs_by_field, results, failed
+        )
+        field["metrics"] = element_field_metrics(
             node,
+            context,
             specs_by_field.get(field["field_id"], []),
             results,
             failed,
             scope=scope,
-            row_count=row_count,
-            parent_null_count=null_counts.get(parent_id) if parent_id else None,
+            element_total=totals.get(context["collection_field_id"]),
+            parent_null_count=null_counts.get(parent_id)
+            if parent_id and parent_id in element_contexts
+            else None,
             static=static_by_field.get(field["field_id"], []),
+            extra=distinct_metrics.get(field["field_id"], []),
         )
-        inferred = semantic_by_id.get(field["field_id"])
-        if inferred is not None:
-            field["semantics"] = {
-                "observed_format": inferred["observed_format"],
-                "candidate_roles": [],
-            }
-            field["json_profile"] = inferred["json_profile"]
-            field["concentration"] = inferred["concentration"]
-            field["examples"] = inferred["examples"]
     if not capabilities.get("try_parse_json", {}).get("available") and json_ids:
         table["unsupported"].append(
             {
@@ -1885,7 +1685,7 @@ def profile_table(
             table["errors"].append(error_record(exc, "assemble"))
             table["uniqueness"] = None
             log(f"[tabledossier] {key}: uniqueness failed unexpectedly ({type(exc).__name__})")
-    timings["total"] = _sp_ms(total_start)
+    timings["total"] = elapsed_ms(total_start)
     finalize_table(table, config)
     extra = (
         f" (+{(table['deep'] or {}).get('extra_passes', {}).get('planned', 0)} deep extra pass(es))"
@@ -1967,13 +1767,13 @@ def _sp_uniqueness(
             cause = record["condition"] or record["error_class"]
             for member in members:
                 errors[member] = "uniqueness pass failed: " + cause
-            observed.append(_sp_observed(op_id, "failed", pass_start, detail=cause))
+            observed.append(observed_operation(op_id, "failed", pass_start, detail=cause))
             continue
         for index, member in enumerate(members):
             results[member] = raw.get(index, {})
-        observed.append(_sp_observed(op_id, "succeeded", pass_start, rows=len(raw)))
+        observed.append(observed_operation(op_id, "succeeded", pass_start, rows=len(raw)))
     if plan["passes"]:
-        table["timings_ms"]["uniqueness"] = _sp_ms(start)
+        table["timings_ms"]["uniqueness"] = elapsed_ms(start)
         log(
             f"[tabledossier] {table['table_key']}: {sum(len(m) for m in plan['passes'])} key(s) "
             f"checked for exact uniqueness in {len(plan['passes'])} pass(es)"
@@ -2104,7 +1904,7 @@ def _sp_run_element_distinct(
             )
             plan["skip_reason"] = reason
             plan["budget_limited"] = True
-            observed.append(_sp_observed("op_deep_elements", "skipped", start, detail=reason))
+            observed.append(observed_operation("op_deep_elements", "skipped", start, detail=reason))
             unmeasured("not_computed", reason)
             return {fid: [item["metric"] for item in items] for fid, items in out.items()}
     try:
@@ -2114,12 +1914,12 @@ def _sp_run_element_distinct(
         table["errors"].append(record)
         cause = record["condition"] or record["error_class"]
         plan["error"] = cause
-        observed.append(_sp_observed("op_deep_elements", "failed", start, detail=cause))
+        observed.append(observed_operation("op_deep_elements", "failed", start, detail=cause))
         unmeasured("error", "element distinct pass failed: " + cause)
-        timings["deep_elements"] = _sp_ms(start)
+        timings["deep_elements"] = elapsed_ms(start)
         return {fid: [item["metric"] for item in items] for fid, items in out.items()}
-    observed.append(_sp_observed("op_deep_elements", "succeeded", start, rows=1))
-    timings["deep_elements"] = _sp_ms(start)
+    observed.append(observed_operation("op_deep_elements", "succeeded", start, rows=1))
+    timings["deep_elements"] = elapsed_ms(start)
     plan["result"] = raw
     stopped = raw["n"] >= plan["max_elements"]
     method = (
@@ -2557,7 +2357,7 @@ def validate_relationships(
             record = error_record(exc, "aggregate")
             cause = record["condition"] or record["error_class"]
             source["operations"]["observed"].append(
-                _sp_observed(op_id, "failed", start, detail=cause)
+                observed_operation(op_id, "failed", start, detail=cause)
             )
             relationship["validation_detail"] = not_validated_detail(
                 f"the check could not read the data ({cause})",
@@ -2566,7 +2366,9 @@ def validate_relationships(
                 type_compatibility=compatibility,
             )
             continue
-        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        source["operations"]["observed"].append(
+            observed_operation(op_id, "succeeded", start, rows=1)
+        )
         detail = validation_detail(
             raw,
             mode=settings["mode"],
@@ -2692,11 +2494,13 @@ def evaluate_hypotheses(
             record = error_record(exc, "aggregate")
             cause = record["condition"] or record["error_class"]
             source["operations"]["observed"].append(
-                _sp_observed(op_id, "failed", start, detail=cause)
+                observed_operation(op_id, "failed", start, detail=cause)
             )
             rejected["check_failed"] += 1
             continue
-        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        source["operations"]["observed"].append(
+            observed_operation(op_id, "succeeded", start, rows=1)
+        )
         evaluated += 1
         scope = "sample" if sample else source["scope"]["scope_label"]
         metrics, inclusion = hypothesis_evidence(

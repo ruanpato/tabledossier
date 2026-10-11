@@ -5,8 +5,10 @@ full package after a run; ``tabledossier render`` regenerates the documents
 from a transferred ``profile.json`` with exactly the same functions.
 """
 
+import datetime
 import hashlib
 import os
+import secrets
 from collections.abc import Mapping
 from typing import Any
 
@@ -122,6 +124,12 @@ def job_summary(
         },
         "relationship_hypotheses": int(summary.get("relationship_hypotheses") or 0),
     }
+
+
+def new_run_id(moment: datetime.datetime) -> str:
+    """Return a unique run identifier such as ``20260921T183000Z-1a2b3c4d``."""
+    utc = moment.astimezone(datetime.timezone.utc)
+    return utc.strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(4)
 
 
 def running_manifest(run_id: str, started_at: str, generation_id: str | None) -> dict[str, Any]:
