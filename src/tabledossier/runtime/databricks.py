@@ -9,9 +9,7 @@ per run under the configured ``output_dir``; existing files are never
 overwritten.
 """
 
-import datetime
 import os
-import secrets
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -25,6 +23,7 @@ from tabledossier.jsonutil import canonical_json, format_utc, pretty_json, utc_n
 from tabledossier.package import (
     build_documents,
     job_summary,
+    new_run_id,
     run_manifest,
     running_manifest,
     write_files,
@@ -41,12 +40,6 @@ from tabledossier.runtime.spark import (
 
 class DestinationError(RuntimeError):
     """Raised when the output directory cannot be used."""
-
-
-def new_run_id(moment: datetime.datetime) -> str:
-    """Return a unique run identifier such as ``20260921T183000Z-1a2b3c4d``."""
-    utc = moment.astimezone(datetime.timezone.utc)
-    return utc.strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(4)
 
 
 def prepare_run(
