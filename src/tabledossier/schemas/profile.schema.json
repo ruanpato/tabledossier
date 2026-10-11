@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tabledossier:schema:profile:1.2",
+  "$id": "urn:tabledossier:schema:profile:1.3",
   "title": "TableDossier profile",
-  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.2 only adds to 1.1 (exact uniqueness, referential validation, relationship hypotheses), which only adds to 1.0 (deep level). See docs/contract.md.",
+  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.3 only adds to 1.2 (PostgreSQL engine and local CLI context, server version, transaction snapshot consistency, connect error stage, system catalog constraints), which only adds to 1.1 (exact uniqueness, referential validation, relationship hypotheses), which only adds to 1.0 (deep level). See docs/contract.md.",
   "type": "object",
   "required": ["kind", "schema_version", "tool", "run", "value_exposure", "tables", "relationships", "summary"],
   "additionalProperties": false,
   "properties": {
     "kind": {"const": "tabledossier.profile"},
-    "schema_version": {"const": "1.2"},
+    "schema_version": {"const": "1.3"},
     "tool": {
       "type": "object",
       "required": ["name", "version"],
@@ -80,10 +80,11 @@
       "required": ["engine", "execution_context", "python_version"],
       "additionalProperties": false,
       "properties": {
-        "engine": {"enum": ["spark", "none"]},
-        "execution_context": {"enum": ["databricks", "spark", "synthetic"]},
+        "engine": {"description": "1.3: adds postgresql.", "enum": ["spark", "none", "postgresql"]},
+        "execution_context": {"description": "1.3: adds local_cli (a run of the tabledossier command line).", "enum": ["databricks", "spark", "synthetic", "local_cli"]},
         "python_version": {"type": "string"},
         "spark_version": {"$ref": "#/$defs/nullableString"},
+        "postgresql_version": {"$ref": "#/$defs/nullableString", "description": "1.3: PostgreSQL server version (major.minor, from server_version_num)."},
         "databricks_runtime_version": {"$ref": "#/$defs/nullableString"},
         "session_timezone": {"$ref": "#/$defs/nullableString"},
         "ansi_mode": {"type": ["boolean", "null"]},
@@ -108,7 +109,7 @@
       "required": ["stage", "error_class", "condition", "message"],
       "additionalProperties": false,
       "properties": {
-        "stage": {"enum": ["resolve", "metadata", "snapshot", "sample", "semantic", "aggregate", "checks", "assemble"]},
+        "stage": {"description": "1.3: adds connect (the connection failed or was lost during the run).", "enum": ["resolve", "metadata", "snapshot", "sample", "semantic", "aggregate", "checks", "assemble", "connect"]},
         "error_class": {"type": "string"},
         "condition": {"$ref": "#/$defs/nullableString"},
         "message": {"type": "string", "maxLength": 1000}
@@ -196,9 +197,9 @@
       "required": ["mode", "delta_version", "version_timestamp", "guarantee", "notes"],
       "additionalProperties": false,
       "properties": {
-        "mode": {"enum": ["pinned_delta_version", "unpinned", "metadata_only"]},
+        "mode": {"description": "1.3: adds transaction_snapshot (every read of the table used one database transaction snapshot).", "enum": ["pinned_delta_version", "unpinned", "metadata_only", "transaction_snapshot"]},
         "delta_version": {"type": ["integer", "null"], "minimum": 0},
-        "version_timestamp": {"$ref": "#/$defs/nullableString"},
+        "version_timestamp": {"$ref": "#/$defs/nullableString", "description": "1.3: for transaction_snapshot, the UTC start of the snapshot transaction; for pinned_delta_version, the commit time of that version."},
         "guarantee": {"type": "string"},
         "notes": {"$ref": "#/$defs/stringList"}
       }
@@ -407,7 +408,7 @@
           ]
         },
         "enforcement": {"enum": ["enforced", "not_enforced", "unknown"]},
-        "source": {"enum": ["information_schema", "delta_table_property", "source_schema"]}
+        "source": {"description": "1.3: adds system_catalog (constraints read from the database's system catalog, e.g. PostgreSQL pg_catalog).", "enum": ["information_schema", "delta_table_property", "source_schema", "system_catalog"]}
       }
     },
     "finding": {
@@ -899,7 +900,7 @@
       "properties": {
         "table": {"type": "string"},
         "scope": {"enum": ["table_metadata", "full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "sample"]},
-        "consistency_mode": {"enum": ["pinned_delta_version", "unpinned", "metadata_only"]},
+        "consistency_mode": {"description": "1.3: adds transaction_snapshot.", "enum": ["pinned_delta_version", "unpinned", "metadata_only", "transaction_snapshot"]},
         "delta_version": {"type": ["integer", "null"], "minimum": 0}
       }
     },

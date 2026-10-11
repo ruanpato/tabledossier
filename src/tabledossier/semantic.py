@@ -26,7 +26,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-from tabledossier.metrics import metric_value
+from tabledossier.metrics import find_metric, metric_value
 
 FORMAT_DETECTORS = (
     "json_object",
@@ -383,8 +383,9 @@ def candidate_roles(
     """Suggest candidate roles from measured metrics and observed format.
 
     Identifier candidates are limited to integers, strings and decimals with
-    scale 0, with few nulls and an approximate distinct count close to the
-    number of non-null values.
+    scale 0 (``decimal(p,0)`` or ``numeric(p,0)``), with few nulls and a
+    distinct count close to the number of non-null values. The limitation
+    follows the distinct count's ``accuracy`` label (approximate or exact).
     """
     metric_list = list(metrics)
     roles: list[dict[str, Any]] = []
@@ -396,10 +397,11 @@ def candidate_roles(
         if (observed_format or {}).get("status") == "detected"
         else None
     )
-    scale = re.search(r"decimal\(\s*\d+\s*,\s*(\d+)\s*\)", physical_type)
+    scale = re.search(r"(?:decimal|numeric)\(\s*\d+\s*,\s*(\d+)\s*\)", physical_type)
     key_like = type_kind in ("integer", "string") or (
         type_kind == "decimal" and scale is not None and scale.group(1) == "0"
     )
+    exact = (find_metric(metric_list, "approx_distinct_count") or {}).get("accuracy") == "exact"
     if isinstance(non_null, int) and isinstance(distinct, int) and non_null > 0:
         ratio = distinct / non_null
         if (
@@ -419,9 +421,13 @@ def candidate_roles(
                         *([{"observed_format": fmt}] if fmt else []),
                     ],
                     "limitations": (
-                        "Approximate distinct counts do not prove uniqueness or a primary key; "
-                        "exact validation requires an additional read (deep.uniqueness at the "
-                        "deep level)."
+                        "A high distinct ratio in the analysed scope does not prove uniqueness "
+                        "beyond it or a primary key; key validation requires an additional read "
+                        "(deep.uniqueness at the deep level)."
+                        if exact
+                        else "Approximate distinct counts do not prove uniqueness or a primary "
+                        "key; exact validation requires an additional read (deep.uniqueness at "
+                        "the deep level)."
                     ),
                 }
             )

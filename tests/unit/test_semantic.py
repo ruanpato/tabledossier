@@ -121,35 +121,43 @@ def test_concentration_has_no_labels():
     assert "secret" not in repr(summary)
 
 
-def _metric(name, value):
+def _metric(name, value, accuracy="exact"):
     return measured(
         name,
         value,
         unit="rows",
         scope="full_table",
-        accuracy="exact",
+        accuracy=accuracy,
         source="aggregate",
         method="m",
     )
 
 
+_NO_NULLS = measured(
+    "null_ratio",
+    0.0,
+    value_type="ratio",
+    unit="ratio",
+    scope="full_table",
+    accuracy="exact",
+    source="derived",
+    method="m",
+    denominator=1000,
+    denominator_unit="rows",
+)
+
+
 def test_candidate_roles_respect_types_and_nulls():
-    metrics = [_metric("non_null_count", 1000), _metric("approx_distinct_count", 990)]
-    ratio_metric = measured(
-        "null_ratio",
-        0.0,
-        value_type="ratio",
-        unit="ratio",
-        scope="full_table",
-        accuracy="exact",
-        source="derived",
-        method="m",
-        denominator=1000,
-        denominator_unit="rows",
-    )
+    metrics = [
+        _metric("non_null_count", 1000),
+        _metric("approx_distinct_count", 990, accuracy="approximate"),
+    ]
+    ratio_metric = _NO_NULLS
     roles = candidate_roles("integer", [*metrics, ratio_metric], None, THRESHOLDS, "bigint")
     assert roles[0]["role"] == "identifier_candidate"
-    assert "do not prove uniqueness" in roles[0]["limitations"]
+    assert roles[0]["limitations"].startswith(
+        "Approximate distinct counts do not prove uniqueness or a primary key"
+    )
     assert (
         candidate_roles("decimal", [*metrics, ratio_metric], None, THRESHOLDS, "decimal(12,2)")
         == []
@@ -178,3 +186,23 @@ def test_candidate_roles_respect_types_and_nulls():
         == "categorical_candidate"
     )
     assert candidate_roles("boolean", categorical, None, THRESHOLDS) == []
+
+
+def test_candidate_roles_follow_the_accuracy_label_and_postgresql_types():
+    """An exact distinct count (PostgreSQL count(DISTINCT)) never calls itself approximate."""
+    metrics = [_metric("non_null_count", 1000), _metric("approx_distinct_count", 990), _NO_NULLS]
+    roles = candidate_roles("integer", metrics, None, THRESHOLDS, "bigint")
+    assert roles[0]["role"] == "identifier_candidate"
+    limitation = roles[0]["limitations"]
+    assert "pproximate" not in limitation
+    assert "does not prove uniqueness beyond it" in limitation
+    # numeric(p,0) is eligible like decimal(p,0); a positive scale is not.
+    for physical, eligible in (
+        ("numeric(10,0)", True),
+        ("numeric( 18 , 0 )", True),
+        ("numeric(12,2)", False),
+        ("numeric", False),
+        ("decimal(10,0)", True),
+    ):
+        found = candidate_roles("decimal", metrics, None, THRESHOLDS, physical)
+        assert bool(found) is eligible, physical

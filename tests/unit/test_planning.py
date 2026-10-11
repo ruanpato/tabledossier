@@ -153,6 +153,36 @@ def test_redaction_and_json_capability():
     }
 
 
+def test_json_unsupported_reason_is_given_by_the_engine():
+    tree = build_schema_tree(FIELDS, max_depth=3, max_fields=200)
+    profiled, _ = select_profile_fields(tree, None)
+    text = next(n for n in profiled if n["display_path"] == "`a.b`")
+
+    def reason(**extra):
+        plan = plan_aggregates(
+            profiled,
+            config=_config(),
+            capabilities={"try_parse_json": False},
+            scope="full_table",
+            json_field_ids={text["field_id"]},
+            **extra,
+        )
+        [static] = [
+            s["metric"]
+            for s in plan["static_metrics"]
+            if s["metric"]["name"] == "json_invalid_count"
+        ]
+        assert static["status"] == "unsupported"
+        return static["reason"]
+
+    assert reason() == (
+        "try_parse_json is not available in this runtime; JSON validity is reported for the "
+        "sample only"
+    )
+    engine_text = "pg_input_is_valid needs PostgreSQL 16; JSON validity is reported for the sample"
+    assert reason(json_unsupported_reason=engine_text) == engine_text
+
+
 def test_sample_plan_only_strings_and_respects_policy():
     tree = build_schema_tree(FIELDS, max_depth=3, max_fields=200)
     profiled, _ = select_profile_fields(tree, None)

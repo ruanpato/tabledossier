@@ -5,10 +5,28 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Profile contract 1.3 (additive): `postgresql` as `environment.engine`, `local_cli` as `execution_context`,
+  `environment.postgresql_version`, the consistency mode `transaction_snapshot` (tables and validation sides), the
+  error stage `connect` and the constraint source `system_catalog`. The notebook writes 1.3; the CLI reads 1.0, 1.1,
+  1.2 (frozen schema, `tabledossier schema profile-1.2`) and 1.3. Invariants tie `transaction_snapshot` to the
+  `postgresql` engine and allow a `delta_version` only for `pinned_delta_version`. Spark profiles are unchanged apart
+  from `schema_version`; Spark documents change only as listed under Changed.
+
 ### Changed
 
 - `docs/compatibility.md` records the first real run of the release workflow (tag `v0.4.0`), which created the draft
   release with its three files.
+- Shared wording follows the labels of the record it describes instead of assuming Spark, so the text stays true for
+  other engines while Spark texts are unchanged: findings, candidate roles, proposed rules, `≈` in the data
+  dictionary and the uniqueness dimension of the quality report follow the `accuracy` of the distinct count or
+  quantiles; declared-constraint and relationship notes follow `source` and `enforcement`; referential notes, scope
+  and versions follow the consistency mode; the overview shows the PostgreSQL version and local CLI runs. A
+  deep-level report in which no table reached the deep analysis no longer describes the deep passes, and says when
+  the engine does not support deep part I. `aggregate_metric` accepts per-spec `labels` (accuracy, method, unit,
+  details), `plan_aggregates` the engine's JSON-validation reason, `referential_summary` the mode targets are read
+  with, and `key_constraints_from_rows` per-row `enforcement` and `notes`, a `source` and case-sensitive names.
 
 ### Fixed
 
