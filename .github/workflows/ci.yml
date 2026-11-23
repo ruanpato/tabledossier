@@ -64,6 +64,7 @@ jobs:
           tabledossier generate --config profile.config.json --output dist/profile_databricks.py
           tabledossier render --input "$GITHUB_WORKSPACE/examples/demo/output/run/profile.json" --output docs/generated
           python -c "import sys; import tabledossier.cli; assert 'pyspark' not in sys.modules"
+          python -c "import sys; import tabledossier.cli; assert 'psycopg' not in sys.modules"
       - name: Wheel contents
         shell: bash
         run: |
@@ -72,6 +73,8 @@ jobs:
           from tabledossier import __version__ as version
           names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
           for required in ("tabledossier/py.typed", "tabledossier/schemas/profile.schema.json",
+                           "tabledossier/connectors/postgres.py",
+                           "tabledossier/schemas/profile-1.2.schema.json",
                            f"tabledossier-{version}.dist-info/licenses/LICENSE",
                            f"tabledossier-{version}.dist-info/licenses/NOTICE"):
               assert any(n.endswith(required.split("/", 1)[1]) for n in names), required
@@ -115,3 +118,55 @@ jobs:
         run: python -m pip install -e . pytest ${{ matrix.packages }}
       - name: Integration tests (real local Spark, synthetic data, no credentials)
         run: python -m pytest tests/integration -ra
+
+  # Not among the required checks of the rulesets: an administrator decides whether to add them.
+  postgres:
+    name: PostgreSQL integration (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Oldest supported major (end of life 2026-11-12) with the lowest psycopg the extra allows.
+          - name: "PostgreSQL 14, psycopg 3.2"
+            image: "postgres:14"
+            driver: "psycopg[binary]==3.2.*"
+          - name: "PostgreSQL 18, psycopg 3.3"
+            image: "postgres:18"
+            driver: "psycopg[binary]>=3.3,<4"
+    services:
+      postgres:
+        image: ${{ matrix.image }}
+        env:
+          POSTGRES_PASSWORD: ci-only-synthetic-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # A disposable CI service container; the tests create their own database and roles.
+      TD_TEST_POSTGRES_DSN: "host=localhost port=5432 user=postgres password=ci-only-synthetic-password dbname=postgres"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install with the postgres extra
+        run: python -m pip install -e ".[postgres]" pytest "${{ matrix.driver }}"
+      - name: Server and driver versions
+        run: |
+          python - <<'PY'
+          import os, psycopg
+          with psycopg.connect(os.environ["TD_TEST_POSTGRES_DSN"]) as conn:
+              print("server", conn.execute("SHOW server_version").fetchone()[0])
+          print("psycopg", psycopg.__version__, "libpq", psycopg.pq.version())
+          PY
+      - name: The offline commands never import the installed driver
+        run: |
+          python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('psycopg') else 1)"
+          python -m pytest tests/unit/test_postgres_cli.py tests/unit/test_notebook.py -ra
+      - name: Integration tests (synthetic data, a SELECT-only role, no credentials in output)
+        run: python -m pytest tests/postgres -ra
