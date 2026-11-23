@@ -183,7 +183,7 @@ The generated notebook itself is committed at
 | Level `deep`, part I: array/map element metrics, element distinct counts, JSON path catalogue and full-scope validation, with budgets | Implemented (0.2.0); tested locally with Spark 3.5/4.0, classic and Spark Connect |
 | Level `deep`, part II: exact uniqueness of keys, referential validation pinned to the recorded snapshots, data-driven relationship hypotheses, with budgets | Implemented (0.3.0); tested locally with Spark 3.5/4.0, classic and Spark Connect; declared keys and foreign keys tested with a simulated `information_schema` |
 | Delta snapshot pinning (`VERSION AS OF`) for every row read | Implemented; tested with local delta-spark 3.3 |
-| Profile JSON Schema 1.2 (additive; the CLI still reads 1.0 and 1.1), stdlib + formal validation | Implemented |
+| Profile JSON Schema 1.3 (additive; the CLI still reads 1.0, 1.1 and 1.2), stdlib + formal validation | Implemented |
 | Data dictionary, DQR, relationships, Mermaid ERD, suggested rules | Implemented |
 | Human annotations file | Implemented |
 | Unity Catalog PK/FK/UNIQUE from `information_schema` | Implemented; assembly tested with synthetic rows and end to end with a simulated `information_schema`; **Unity Catalog validation pending** |
@@ -291,7 +291,7 @@ that row counts are rows in scope, not business entities. Full reference: [confi
 ```text
 results/<run_id>/
   manifest.json          run manifest: status, file hashes, profile validation result
-  profile.json           canonical profile (schema 1.2) — the source of everything below
+  profile.json           canonical profile (schema 1.3) — the source of everything below
   overview.md            run, environment, tables, sampling, capabilities, errors
   data_dictionary.md     fields, types, descriptions (with their origin), measurements
   quality_report.md      DQR: executed checks, completeness, alerts, proposals, limits

@@ -24,8 +24,8 @@ Um notebook gerado **não contém resultados**; métricas existem apenas depois 
 
 ## Princípios
 
-- **Contrato canônico** versionado (JSON Schema 1.2, que só acrescenta ao 1.1, que só acrescenta ao 1.0; a CLI lê
-  os três) independente de Spark, Databricks ou PostgreSQL. Cada métrica
+- **Contrato canônico** versionado (JSON Schema 1.3, que só acrescenta ao 1.2, que só acrescenta ao 1.1, que só
+  acrescenta ao 1.0; a CLI lê os quatro) independente de Spark, Databricks ou PostgreSQL. Cada métrica
   informa `status`, `scope` (escopo), `accuracy` (exatidão) e `source` (origem). "Não calculado" nunca vira zero.
 - **Código único**: as células do runtime são os próprios módulos do pacote, copiados de forma legível e
   verificável (com SHA-256), sem payloads codificados.

@@ -253,7 +253,7 @@ def test_hypotheses_stay_apart_and_meet_the_threshold(deep_profile):
 
 
 def test_standard_profiles_record_why_nothing_was_validated(demo_profile):
-    assert demo_profile["schema_version"] == "1.2"
+    assert demo_profile["schema_version"] == "1.3"
     assert demo_profile["referential_validation"] is None
     assert demo_profile["relationship_hypotheses"] is None
     for relationship in demo_profile["relationships"]:

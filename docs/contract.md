@@ -1,4 +1,4 @@
-# Profile contract (schema 1.2)
+# Profile contract (schema 1.3)
 
 `profile.json` is the canonical, engine-independent result of one run. Every document
 (`data_dictionary.md`, `quality_report.md`, `relationships.md`, `erd.mmd`, `suggested_rules.json`) is
@@ -6,7 +6,7 @@ derived from it, in the notebook and by `tabledossier render`. The formal defini
 shipped in the package:
 
 ```bash
-tabledossier schema profile        # contract 1.2; also: profile-1.0, profile-1.1, config, annotations, suggested_rules, manifest
+tabledossier schema profile        # contract 1.3; also: profile-1.0, profile-1.1, profile-1.2, config, annotations, suggested_rules, manifest
 ```
 
 Validation happens in two layers. In the notebook, a standard-library interpreter of the same schema
@@ -17,11 +17,12 @@ validator enforces.
 
 ## Versioning
 
-- The notebooks of releases 0.3 and 0.4 write `schema_version` `"1.2"`. The CLI (`validate`, `render`) reads `"1.0"`,
-  `"1.1"` and `"1.2"` and validates each profile against the schema of its own version: 1.0 profiles against the
-  frozen schema of 0.1.x (`tabledossier schema profile-1.0`), 1.1 profiles against the frozen schema of 0.2.x
-  (`tabledossier schema profile-1.1`), 1.2 profiles against the current one. Other versions are rejected with a
-  message naming the supported ones.
+- The notebook writes `schema_version` `"1.3"` (the notebooks of releases 0.3 and 0.4 wrote `"1.2"`). The CLI
+  (`validate`, `render`) reads `"1.0"`, `"1.1"`, `"1.2"` and `"1.3"` and validates each profile against the schema of
+  its own version: 1.0 profiles against the frozen schema of 0.1.x (`tabledossier schema profile-1.0`), 1.1 profiles
+  against the frozen schema of 0.2.x (`tabledossier schema profile-1.1`), 1.2 profiles against the frozen schema of
+  0.3.x and 0.4.x (`tabledossier schema profile-1.2`), 1.3 profiles against the current one. Other versions are
+  rejected with a message naming the supported ones.
 - **1.1 only adds to 1.0**: the `deep` analysis level, `element_context` and `json_paths` on field profiles, the
   per-table `deep` record and two operation kinds (`deep_aggregate_pass`, `element_explode_pass`). These
   properties are optional in the 1.1 schema (a 1.0 document relabelled `1.1` is valid); the notebook always
@@ -31,6 +32,13 @@ validator enforces.
   `relationships`, `relationship_hypotheses`) and three operation kinds (`uniqueness_pass`, `referential_check`,
   `relationship_hypothesis_check`). They are optional in the 1.2 schema (a 1.1 document relabelled `1.2` is
   valid); the 0.3 and 0.4 notebooks always write them, as `null` when not applicable. A 1.1 document cannot use them.
+- **1.3 only adds to 1.2**: `postgresql` as `run.environment.engine`, `local_cli` as `execution_context` (a run of
+  the `tabledossier` command line), the optional `environment.postgresql_version`, `transaction_snapshot` as a
+  consistency mode (table `consistency.mode` and the `consistency_mode` of validation sides), `connect` as an error
+  stage and `system_catalog` as a constraint source. Nothing became required (a 1.2 document relabelled `1.3` is
+  valid); a 1.2 document cannot use them. Spark profiles written by the notebook differ from 1.2 ones only in
+  `schema_version`. Two invariants come with them: a table or validation side in `transaction_snapshot` mode
+  requires `run.environment.engine` `postgresql`, and `delta_version` is set only for `pinned_delta_version`.
 - Map sizes and entry counts are labelled `entries` (0.1 wrote `elements`); both are accepted.
 - Additive or breaking changes produce a new version; the notebook and the CLI of the same release always
   agree because the notebook embeds the schema of the release that generated it.
@@ -40,7 +48,7 @@ validator enforces.
 | Field | Meaning |
 | --- | --- |
 | `kind` | Always `tabledossier.profile`. |
-| `schema_version` | Contract version (`1.2`; readers also accept `1.0` and `1.1`). |
+| `schema_version` | Contract version (`1.3`; readers also accept `1.0`, `1.1` and `1.2`). |
 | `tool` | `{name, version}` of the TableDossier release that produced the profile. |
 | `run` | Run identity, timing, environment, effective configuration (see below). |
 | `value_exposure` | What kinds of values the profile may contain under the configured policy. |
@@ -60,7 +68,7 @@ validator enforces.
 | `started_at`, `finished_at` | UTC timestamps `YYYY-MM-DDTHH:MM:SS.mmmZ`. Re-rendering never changes them. |
 | `duration_ms` | Wall-clock duration measured by the notebook. |
 | `reference_time` | Instant used by temporal metrics (`after_reference_count`); dates compare with its UTC date. |
-| `environment` | `engine`, `execution_context` (`databricks` when `DATABRICKS_RUNTIME_VERSION` is set, else `spark`), Python, Spark and runtime versions, session time zone, ANSI mode, whether Spark Connect was used. No user or host names. |
+| `environment` | `engine`, `execution_context` (`databricks` when `DATABRICKS_RUNTIME_VERSION` is set, else `spark`), Python, Spark and runtime versions, session time zone, ANSI mode, whether Spark Connect was used. 1.3: `engine` `postgresql` with `execution_context` `local_cli` and `postgresql_version` (major.minor, from `server_version_num`), without the Spark keys. No user or host names. |
 | `effective_config` | Configuration after defaults, generated values and widgets. The schema forbids unknown keys, so it cannot carry credentials. Filter values are included because they define the population. |
 | `config_fingerprint` | `sha256:` of the canonical JSON of `effective_config`. |
 | `parameter_sources` | Precedence applied and which widgets differed from the generated defaults. |
@@ -76,17 +84,17 @@ validator enforces.
 | `table_key` | Canonical display name (`catalog.schema.table`, backticks when needed). |
 | `identifier` | `input` as given, parsed `parts`, and the fully `quoted` form used in SQL. |
 | `status` | `succeeded`, `partial` (some stage failed) or `failed` (not resolvable or invalid options). |
-| `errors` | Sanitized errors: `stage`, `error_class`, engine `condition`, `message` (first line, quoted literals and URIs removed). |
+| `errors` | Sanitized errors: `stage` (`resolve`, `metadata`, `snapshot`, `sample`, `semantic`, `aggregate`, `checks`, `assemble`; 1.3 adds `connect`: the connection failed or was lost during the run), `error_class`, engine `condition`, `message` (first line, quoted literals and URIs removed). |
 | `purpose` | Per-table purpose from configuration. |
 | `source` | Catalog metadata: type, provider, comment, timestamps, partitioning/clustering columns, `size_in_bytes` and `file_count` as metrics, `metadata_state` (`current_at_capture`). Storage locations and owners are never recorded. |
-| `consistency` | `mode` (`pinned_delta_version`, `unpinned`, `metadata_only`), pinned `delta_version`, its commit timestamp and a human-readable `guarantee`. |
+| `consistency` | `mode` (`pinned_delta_version`, `unpinned`, `metadata_only`; 1.3: `transaction_snapshot`, every read of the table used one database transaction snapshot), pinned `delta_version` (only for `pinned_delta_version`), `version_timestamp` (the commit time of that version; for `transaction_snapshot`, the UTC start of the snapshot transaction) and a human-readable `guarantee`. |
 | `scope` | `population` (`full`/`filtered`), `scope_label`, the structured `filters`, `selected_columns` and the row semantics statement. |
 | `sample` | The transient sample: method, bias, limits, rows collected, bytes retained, truncated values, why collection stopped. |
 | `summary` | Counts: columns, schema nodes, fields profiled/omitted, findings, checks, proposals. |
 | `table_metrics` | Table-level metrics (`row_count`). |
 | `schema` | Schema tree (see below) with `captured_from` = `pinned_snapshot` or `current_table`. |
 | `field_profiles` | One record per schema node, profiled or not (with `omission_reason`). |
-| `constraints` | Declared constraints: primary/foreign/unique keys from Unity Catalog `information_schema` (`enforcement: not_enforced`), Delta CHECK constraints (`enforced`). |
+| `constraints` | Declared constraints with their `enforcement` and `source`: primary/foreign/unique keys from Unity Catalog `information_schema` (`enforcement: not_enforced`), Delta CHECK constraints (`delta_table_property`, `enforced`); 1.3: `system_catalog` for constraints read from the database's system catalog, with the enforcement the catalog records. |
 | `findings`, `quality_checks`, `suggested_rules` | See below. |
 | `omissions` | What was not documented or measured and why (`not_selected`, `inside_collection`, `max_depth`, `max_fields`, `expression_budget`; deep level: `deep_budget`, `deep_not_selected`, `nested_collection`). |
 | `unsupported` | Capabilities the runtime lacked. |
@@ -131,13 +139,19 @@ before nested fields.
 | Axis | Values |
 | --- | --- |
 | `status` | `measured`; or, always with `value: null` and a `reason`: `not_computed`, `unsupported`, `insufficient_data`, `redacted`, `error`, `unavailable`. |
-| `scope` | `full_snapshot` / `filtered_snapshot` (pinned Delta version), `full_table` / `filtered_table` (not pinned), `sample` (transient sample only), `table_metadata` (catalog metadata, never a filtered scope). |
-| `accuracy` | `exact`; `approximate` (HyperLogLog++ distinct counts, `percentile_approx` quantiles); `as_recorded` (metadata or pre-existing statistics of unknown freshness); `unknown`. |
+| `scope` | `full_snapshot` / `filtered_snapshot` (pinned Delta version, or a 1.3 transaction snapshot), `full_table` / `filtered_table` (not pinned), `sample` (transient sample only), `table_metadata` (catalog metadata, never a filtered scope). |
+| `accuracy` | `exact`; `approximate` (Spark: HyperLogLog++ distinct counts, `percentile_approx` quantiles); `as_recorded` (metadata or pre-existing statistics of unknown freshness); `unknown`. |
 | `source` | `aggregate`, `derived` (computed from other metrics), `sample`, `catalog_metadata`, `table_statistics`, `table_history`. |
 
 A value can be exact for the sample and still say nothing about the table; the four axes keep these
 statements apart. An empty table has `row_count = 0` and ratios with status `insufficient_data` (never 100%
 completeness from a division by zero).
+
+`accuracy`, `method` and `details` describe how the engine computed a metric. An engine that counts distinct values
+exactly labels `approx_distinct_count` `accuracy: exact` (without `relative_standard_deviation`), and exact quantiles
+carry no `accuracy_parameter`: the metric **name** `approx_distinct_count` is kept for compatibility, and `accuracy`
+is authoritative. Documents, findings, candidate roles and proposed rules follow these labels (for example, no `≈`
+before an exact distinct count). The Spark notebook labels its distinct counts and quantiles `approximate`.
 
 ### Value encoding
 
@@ -160,10 +174,10 @@ completeness from a division by zero).
 | Table | `row_count` |
 | All profiled fields | `null_count`, `non_null_count`, `null_ratio` (denominator: rows in scope) |
 | Nested struct fields | `null_count_parent_present`, `null_ratio_given_parent_present` (denominator: rows whose parent is not null) |
-| Orderable atomic types | `approx_distinct_count` (with `relative_standard_deviation`), `all_values_equal` (min = max) |
+| Orderable atomic types | `approx_distinct_count` (approximate with `relative_standard_deviation`, or labelled exact), `all_values_equal` (min = max) |
 | Integer, decimal, float | `min`, `max`, `mean`, `stddev` (sample), `quantiles`, `zero_count`, `negative_count`, `positive_count` |
 | Float only | `nan_count`, `positive_infinity_count`, `negative_infinity_count`, `finite_count`; min/max/mean/stddev/quantiles and sign counts use finite values only (denominator: `finite_count`) |
-| String | `empty_count`, `whitespace_only_count`, `min_length`, `max_length`, `mean_length`, `length_quantiles` (characters), `json_invalid_count` (full scope, only with `try_parse_json`) |
+| String | `empty_count`, `whitespace_only_count`, `min_length`, `max_length`, `mean_length`, `length_quantiles` (characters), `json_invalid_count` (full scope, only when the engine can validate JSON; Spark: `try_parse_json`) |
 | Boolean | `true_count`, `false_count` |
 | Date, timestamp | `min`, `max`, `after_reference_count`; for `timestamp_ntz` the last one is `not_computed` (no unambiguous reference instant) |
 | Binary | `min_length`, `max_length` (bytes) |
@@ -252,9 +266,9 @@ The sample catalogue is never a complete or guaranteed schema: paths absent from
 ## Deep level, part II (1.2)
 
 Uniqueness, referential validation and hypotheses record **counts only**: duplicated key values, orphan values and
-matching values are never collected by the notebook nor written to the profile. Every check is one Spark action,
-declared in `operations.planned` of the table it reads (the source table for relationships) and bounded by the
-budgets of the `deep` configuration.
+matching values are never collected by the notebook nor written to the profile. Every check is one engine action
+(one Spark action in the notebook), declared in `operations.planned` of the table it reads (the source table for
+relationships) and bounded by the budgets of the `deep` configuration.
 
 ### Uniqueness (1.2)
 
@@ -295,12 +309,12 @@ Every relationship has `validation` (`validated`, `violated`, `not_validated`) a
 | --- | --- |
 | `status`, `reason` | The same status as `validation`; `not_validated` always has a reason (not requested, not the deep level, budget, table not profiled, incompatible or ineligible columns, read failure, sample without orphans). |
 | `mode` | `full_scope` or `sample` (source rows limited to `max_sample_rows`). |
-| `from`, `to` | Table, scope label, consistency mode and the Delta version read. The source keeps its analysed scope (filters); the target is read in full at its recorded version. |
+| `from`, `to` | Table, scope label, consistency mode and the Delta version read (`null` unless `pinned_delta_version`). The source keeps its analysed scope (filters); the target is read in full at its recorded version (or, 1.3, in the run's transaction snapshot). |
 | `operation_id` | The `referential_check` operation of the source table. |
 | `type_compatibility` | One record per column pair: physical types, `compatible` and the rule applied. |
 | `target_key_unique` | Whether the target key had no duplicate value (evidence for cardinality; never a cardinality). |
 | `metrics` | `source_rows`, `source_rows_with_null_key`, `source_rows_with_complete_key`, `orphan_rows`, `orphan_ratio` (denominator: source rows with a complete key), `target_rows`, `target_rows_with_null_key`, `target_distinct_keys`, `target_duplicate_key_groups`. |
-| `limitations` | For example unpinned tables or sample semantics. |
+| `limitations` | For example tables pinned neither to a Delta version nor to a transaction snapshot, or sample semantics. |
 
 `validated` requires a full-scope check with no orphan; `violated` requires at least one orphan (an orphan found in
 a sample is an orphan of the table); a sample without orphans stays `not_validated`. Invariants enforce these rules.
@@ -333,7 +347,8 @@ inclusion threshold.
 proportion under independent sampling; it neither removes sampling bias nor establishes business meaning.
 
 `candidate_roles` (`identifier_candidate`, `categorical_candidate`, `json_document_candidate`) list evidence
-and limitations. Approximate distinct counts never prove uniqueness.
+and limitations. Distinct counts never prove uniqueness beyond the analysed scope (approximate ones not even
+within it); the wording follows the `accuracy` label of the distinct count.
 
 `json_profile` separates SQL NULL, the JSON literal `null`, invalid text, scalars, objects and arrays;
 values truncated by `sampling.max_value_chars` are excluded, never counted as invalid. It reports
@@ -358,7 +373,9 @@ exists only for allow-listed columns.
 Each relationship has `origin` (`declared_constraint`, `configuration`, `annotation`), participating columns
 (composite keys preserved), `cardinality` (only when provided by a person), `enforcement`, `validation` with its
 `validation_detail` (1.2, see [Referential validation](#referential-validation-12)) and `scope`. Nothing is inferred
-from column names: data-driven candidates are listed only as `relationship_hypotheses`.
+from column names: data-driven candidates are listed only as `relationship_hypotheses`. The note of a declared
+relationship follows the constraint's `source` and `enforcement`: Unity Catalog keys are informational, and a
+foreign key that the database enforces for writes still does not prove every stored row.
 
 ## Other documents
 

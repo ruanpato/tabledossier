@@ -136,6 +136,17 @@ def _as_value_type(metric: str, kind: str, raw: Any) -> str | None:
     return None
 
 
+def _as_labelled(details: dict[str, Any], labels: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Merge the engine's ``details`` labels last; a key mapped to ``None`` is removed."""
+    merged = dict(details)
+    for key, value in (labels.get("details") or {}).items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = value
+    return merged or None
+
+
 def _as_insufficient(metric: str, kind: str, scope: str) -> dict[str, Any]:
     if metric == "stddev":
         reason = "fewer than two (finite) non-null values in scope"
@@ -154,13 +165,23 @@ def aggregate_metric(
     scope: str,
     denominators: Mapping[str, int | None],
 ) -> dict[str, Any]:
-    """Convert one raw aggregate result into a contract metric."""
+    """Convert one raw aggregate result into a contract metric.
+
+    ``spec["labels"]`` (optional) states how the engine computed the metric when
+    it differs from :data:`METRIC_INFO`: ``accuracy``, ``method``, ``unit`` and
+    ``details`` (merged last; a key mapped to ``None`` is removed, e.g. an exact
+    distinct count drops ``relative_standard_deviation``).
+    """
     name = spec["metric"]
     unit, accuracy, method = METRIC_INFO[name]
     if kind == "binary" and name in ("min_length", "max_length"):
         unit = "bytes"
     if kind == "map" and unit == "elements":
         unit = "entries"
+    labels = spec.get("labels") or {}
+    accuracy = labels.get("accuracy", accuracy)
+    method = labels.get("method", method)
+    unit = labels.get("unit", unit)
     details: dict[str, Any] = {}
     if spec["op"] == "approx_distinct":
         details["relative_standard_deviation"] = spec["params"]["rsd"]
@@ -201,7 +222,7 @@ def aggregate_metric(
             accuracy=accuracy,
             source="aggregate",
             method=method,
-            details=details,
+            details=_as_labelled(details, labels),
         )
     denominator = None
     denominator_unit = None
@@ -225,7 +246,7 @@ def aggregate_metric(
         method=method,
         denominator=denominator,
         denominator_unit=denominator_unit if denominator is not None else None,
-        details=details or None,
+        details=_as_labelled(details, labels),
     )
 
 

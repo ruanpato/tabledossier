@@ -129,7 +129,7 @@ tabledossier render --input examples/demo/output/run/profile.json \
 | Arquivo | Conteúdo |
 | --- | --- |
 | `manifest.json` | status da execução, hashes dos arquivos, resultado da validação |
-| `profile.json` | perfil canônico (contrato 1.2) — fonte de todos os documentos |
+| `profile.json` | perfil canônico (contrato 1.3) — fonte de todos os documentos |
 | `overview.md` | execução, ambiente, tabelas, amostragem, erros |
 | `data_dictionary.md` | dicionário de dados com origem de cada descrição |
 | `quality_report.md` | DQR: checks executados, completude, alertas, propostas e limitações |

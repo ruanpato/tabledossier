@@ -165,7 +165,7 @@ def test_metadata_level_notebook_run(spark, demo_tables, notebook, tmp_path):
         )
 
 
-def test_deep_notebook_run_exports_a_valid_1_2_package(
+def test_deep_notebook_run_exports_a_valid_1_3_package(
     spark, spark_mode, demo_tables, notebook, tmp_path
 ):
     namespace = run_notebook(
@@ -183,7 +183,7 @@ def test_deep_notebook_run_exports_a_valid_1_2_package(
     run_dir = Path(export["run_dir"])
     profile = json.loads((run_dir / "profile.json").read_text(encoding="utf-8"))
     assert check_profile(profile) == []
-    assert profile["schema_version"] == "1.2" and profile["run"]["analysis_level"] == "deep"
+    assert profile["schema_version"] == "1.3" and profile["run"]["analysis_level"] == "deep"
     assert profile["run"]["environment"]["spark_connect"] is (spark_mode == "connect")
     per_run = {"referential_check": 0, "relationship_hypothesis_check": 0}
     for table in profile["tables"]:

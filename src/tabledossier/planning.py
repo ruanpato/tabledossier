@@ -354,6 +354,7 @@ def plan_aggregates(
     redacted_field_ids: set[str] | frozenset[str] = frozenset(),
     deep_candidates: Sequence[Mapping[str, Any]] = (),
     max_extra_passes: int = 0,
+    json_unsupported_reason: str | None = None,
 ) -> dict[str, Any]:
     """Plan shared aggregation passes (``standard`` metrics plus optional ``deep`` ones).
 
@@ -367,6 +368,11 @@ def plan_aggregates(
     standard pass plus at most ``max_extra_passes`` additional passes; when
     they do not fit, the highest tiers are dropped first and recorded as
     ``deep_budget`` omissions. ``extra_passes`` reports the passes added.
+
+    ``json_unsupported_reason`` is the reason recorded for ``json_invalid_count``
+    when the engine cannot validate JSON over the full scope
+    (``capabilities["try_parse_json"]`` false); the default names Spark's
+    ``try_parse_json``.
     """
     metrics_cfg = config["metrics"]
     limits = config["limits"]
@@ -488,7 +494,8 @@ def plan_aggregates(
                         "metric": not_measured(
                             "json_invalid_count",
                             "unsupported",
-                            "try_parse_json is not available in this runtime; "
+                            json_unsupported_reason
+                            or "try_parse_json is not available in this runtime; "
                             "JSON validity is reported for the sample only",
                             scope=scope,
                             source="aggregate",
