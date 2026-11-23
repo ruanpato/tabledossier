@@ -142,3 +142,10 @@ with their date, not deleted.
 | 6 | **PyPI before 1.0** | (a) publish 0.x pre-releases on PyPI (trusted publishing; one more job in the release workflow) after checking that the name `tabledossier` is available; (b) wait for 1.0 | Installation friction; the package name | (a), once the name is checked (needs network; not done in this review) |
 | 7 | **Connector decisions for 0.5.0**: driver, PostgreSQL versions tested, connection and credentials, deep part II in 0.5.0 or 0.5.x, the exact list of contract 1.3 additions | Driver: (a) psycopg 3 as the optional extra, (b) psycopg2, (c) a pure-Python driver. PostgreSQL versions in CI: (a) oldest supported and newest major, (b) one version. Connection and credentials: (a) only from the environment (libpq variables, `.pgpass`, service file, or an environment variable whose name is given on the command line), (b) a connection option in the configuration file. Deep part II: (a) last task of 0.5.0, cut to 0.5.1 if it runs long, (b) 0.5.x from the start. Contract 1.3: (a) the minimal list (`engine`, `execution_context`, `consistency.mode` values, an engine version field, a `connect` error stage), (b) a longer list decided in the first task | The first 0.5.0 task (the adapter) | (a) for every sub-question |
 | 8 | **PostgreSQL CI jobs required in the rulesets** | (a) required from the first release that ships the connector (administrator edits both rulesets; the 12 existing names unchanged); (b) informational only | The 0.5.0 release pull request | (a) |
+
+Decided:
+
+- **2026-11-23, decision 7, contract 1.3 additions.** The minimal list plus the constraint source `system_catalog`, as
+  merged in #21: PostgreSQL's `information_schema` hides the constraints of tables a role may only read, so the
+  connector reads `pg_constraint`, and labelling those rows `information_schema` would be false. The other
+  sub-questions of decision 7 stay open.

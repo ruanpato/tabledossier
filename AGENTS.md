@@ -34,7 +34,7 @@ an experienced engineer: direct, technical, no basics.
 src/tabledossier/          The package. Most modules are copied verbatim into generated notebooks (see notebook.py)
   runtime/spark.py         Spark adapter: metadata, snapshot, sample, aggregation and deep passes
   runtime/databricks.py    Run orchestration inside the notebook: parameters, destination, batch, export, job summary
-  schemas/                 JSON Schemas: the contract (profile 1.0, 1.1 frozen; 1.2 current), config, annotations, …
+  schemas/                 JSON Schemas: the contract (profile 1.0, 1.1, 1.2 frozen; 1.3 current), config, annotations, …
   cli.py, notebook.py, validation.py, resources.py   Never embedded; the only modules that may import jsonschema
 tests/unit                 No Spark; run against the built wheel in CI on Python 3.10–3.14 (Linux) and 3.12 (macOS, Windows)
 tests/integration          Real local Spark (3.5 + Delta and 4.0, classic and Spark Connect); skipped without Java
@@ -180,7 +180,7 @@ Details in [CONTRIBUTING.md](CONTRIBUTING.md) (gitflow, rulesets, release steps)
   after changing the runtime or the renderer, rebuild them and review the diff.
 - **Configuration is 1.0 and additive.** New sections (`deep`, `jobs`) kept the version; `init` writes every option,
   so a new option changes the generated configuration and the tests that compare it.
-- **A new profile field is a new contract version.** 1.0 and 1.1 are frozen files; 1.2 is the current one. The
+- **A new profile field is a new contract version.** 1.0, 1.1 and 1.2 are frozen files; 1.3 is the current one. The
   notebook embeds the schema of its release, so notebook and CLI of the same release always agree.
 - **The rulesets require the 12 CI jobs by name**; a new job is informational until an administrator adds it; a
   renamed job blocks every pull request.

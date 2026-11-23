@@ -19,7 +19,7 @@ records carry their own status (`accepted`) and date.
 | [status.md](status.md) | Current | 2026-09-26 | What each release delivered and what stayed pending; where documents and the repository disagree; git, releases, rulesets |
 | [roadmap.md](roadmap.md) | Current | 2026-09-26 | Milestones 0.5.0 to 1.0.0 and the cross-cutting "Databricks evidence", each with objective, scope and an observable exit criterion; open decisions, numbered |
 | [architecture.md](architecture.md) | Current | 2026-09-22 | Principles, modules, notebook composition, execution per table at the standard and deep levels, testing against Spark Connect |
-| [contract.md](contract.md) | Current | 2026-09-22 | `profile.json` fields (schema 1.2), metric semantics and encoding, manifests |
+| [contract.md](contract.md) | Current | 2026-10-11 | `profile.json` fields (schema 1.3), metric semantics and encoding, manifests |
 | [configuration.md](configuration.md) | Current | 2026-09-22 | Every configuration option, filters, checks, deep budgets, jobs, relationships |
 | [cli.md](cli.md) | Current | 2026-09-22 | Commands and exit codes |
 | [compatibility.md](compatibility.md) | Current | 2026-09-26 | Target runtimes, what was tested (with run ids), what is pending; no new measurement since 0.4.0 |
