@@ -22,7 +22,7 @@ import math
 import re
 import statistics
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -371,6 +371,65 @@ def value_examples(values: list[str], *, max_examples: int, max_chars: int) -> d
         "policy": "allow-listed by value_policy.example_columns",
         "values": examples,
     }
+
+
+def sample_semantics(
+    sample: Mapping[str, Any],
+    nodes: Sequence[Mapping[str, Any]],
+    sample_method: str,
+    config: Mapping[str, Any],
+    *,
+    redacted_ids: Collection[str],
+    example_ids: Collection[str],
+    semantic_by_id: dict[str, dict[str, Any]],
+    json_ids: set[str],
+) -> None:
+    """Infer the observed format, JSON shape, concentration and examples of sampled fields.
+
+    Fills the caller-owned ``semantic_by_id`` (one entry per field of ``nodes``)
+    and ``json_ids`` (fields whose structured JSON share reaches
+    ``thresholds.json_min_ratio``) one field at a time, so whatever was inferred
+    before an exception is kept. JSON key names are listed only when the value
+    policy includes them and the field is not redacted; examples are kept only
+    for allow-listed fields that are not redacted.
+    """
+    json_keys = config["value_policy"]["json_key_names"] == "include"
+    for node in nodes:
+        data = sample["fields"][node["field_id"]]
+        fmt = infer_format(
+            data["values"],
+            sql_nulls=data["nulls"],
+            truncated=data["truncated"],
+            sample_method=sample_method,
+            semantic_config=config["semantic"],
+        )
+        entry: dict[str, Any] = {
+            "observed_format": fmt,
+            "json_profile": None,
+            "concentration": None,
+            "examples": None,
+        }
+        if is_json_like(data["values"]) or fmt.get("format") in ("json_object", "json_array"):
+            shape = json_shape(
+                data["values"],
+                sql_nulls=data["nulls"],
+                truncated=data["truncated"],
+                include_key_names=json_keys and node["field_id"] not in redacted_ids,
+                sample_method=sample_method,
+            )
+            entry["json_profile"] = shape
+            eligible = shape["eligible_observations"]
+            structured = shape["counts"]["object"] + shape["counts"]["array"]
+            if eligible and structured / eligible >= config["thresholds"]["json_min_ratio"]:
+                json_ids.add(node["field_id"])
+        entry["concentration"] = value_concentration(data["values"])
+        if node["field_id"] in example_ids and node["field_id"] not in redacted_ids:
+            entry["examples"] = value_examples(
+                data["values"],
+                max_examples=config["value_policy"]["max_examples_per_column"],
+                max_chars=config["value_policy"]["max_example_chars"],
+            )
+        semantic_by_id[node["field_id"]] = entry
 
 
 def candidate_roles(

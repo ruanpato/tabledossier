@@ -8,9 +8,13 @@ specs into expressions and performs the actions. Adding metrics therefore adds
 expressions to a bounded number of shared aggregation passes; it never adds one
 Spark action per column. A single aggregation call is an organizational goal,
 not a promise of a single physical scan or of a cost similar to ``count(*)``.
+
+The bookkeeping every adapter shares also lives here: planned and observed
+operation records, the sample record and the sample's payload-budget loop.
 """
 
-from collections.abc import Iterator, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from typing import Any
 
 from tabledossier.metrics import not_measured
@@ -319,6 +323,97 @@ def plan_sample(profiled: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
         plan["field_ids"] = [node["field_id"] for node in strings[:limit]]
         plan["omitted_field_ids"] = [node["field_id"] for node in strings[limit:]]
     return plan
+
+
+def new_sample_record(plan: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a table's ``sample`` record for a sample plan, before any row is read.
+
+    The collection counts stay ``None`` until the adapter fills them in; the
+    notes hold the plan's reason when the sample is disabled.
+    """
+    method = config["sampling"]["method"]
+    return {
+        "enabled": plan["enabled"],
+        "method": plan["method"] if plan["enabled"] else method,
+        "biased": True
+        if plan["method"] == "prefix"
+        else (False if plan["method"] == "random" else None),
+        "reads_full_source": True if plan["method"] == "random" else None,
+        "max_rows": plan["max_rows"],
+        "max_bytes": plan["max_bytes"],
+        "max_value_chars": plan["max_value_chars"],
+        "random_fraction": plan["random_fraction"],
+        "seed": plan["seed"],
+        "rows_collected": None,
+        "bytes_retained": None,
+        "values_truncated": None,
+        "stopped_reason": "disabled" if method == "none" else "not_applicable",
+        "fields_sampled": len(plan["field_ids"]),
+        "fields_omitted": len(plan["omitted_field_ids"]),
+        "notes": [plan["reason"]] if plan["reason"] else [],
+    }
+
+
+def sample_notes(method: str) -> list[str]:
+    """Return the notes of an enabled sample; the second one describes ``method``."""
+    return [
+        "Values are inspected transiently for format and JSON inference; they are not persisted.",
+        "prefix: the first rows produced by the engine; potentially biased, not random."
+        if method == "prefix"
+        else (
+            "random: Bernoulli sampling may evaluate every row in scope; the fraction "
+            "does not reduce I/O proportionally."
+        ),
+    ]
+
+
+def collect_sample_rows(
+    rows: Iterable[Sequence[Any]], field_ids: Sequence[str], plan: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Retain sampled string values within the plan's payload budget.
+
+    Each row is positional, ``(s0, t0, s1, t1, ...)``: for every field of
+    ``field_ids`` (in that order) its value, already cut to ``max_value_chars``,
+    then whether it was cut. Truncated values are counted and excluded from
+    inference; they are not charged to the budget. Rows are retained until the
+    payload budget ``max_bytes`` would be exceeded: the row that does not fit is
+    dropped and iteration stops. The budget accounts for retained values, not
+    total process memory. Returns ``rows``, ``bytes``, ``stopped_reason`` and,
+    per field, its ``values``, ``nulls`` and ``truncated`` count.
+    """
+    fields: dict[str, dict[str, Any]] = {
+        fid: {"values": [], "nulls": 0, "truncated": 0} for fid in field_ids
+    }
+    count = 0
+    used = 0
+    stopped = "exhausted"
+    for row in rows:
+        pending = []
+        row_bytes = 0
+        for index, fid in enumerate(field_ids):
+            value = row[2 * index]
+            if value is None:
+                pending.append((fid, "null", None))
+            elif row[2 * index + 1]:
+                pending.append((fid, "truncated", None))
+            else:
+                row_bytes += len(value.encode("utf-8"))
+                pending.append((fid, "value", value))
+        if used + row_bytes > plan["max_bytes"]:
+            stopped = "byte_budget"
+            break
+        used += row_bytes
+        count += 1
+        for fid, status, value in pending:
+            if status == "null":
+                fields[fid]["nulls"] += 1
+            elif status == "truncated":
+                fields[fid]["truncated"] += 1
+            else:
+                fields[fid]["values"].append(value)
+    if stopped == "exhausted" and count >= plan["max_rows"]:
+        stopped = "row_limit"
+    return {"rows": count, "bytes": used, "stopped_reason": stopped, "fields": fields}
 
 
 def _pl_catalog(kind: str) -> list[tuple[str, str, int, int]]:
@@ -690,3 +785,62 @@ def operation(
     if details:
         record["details"] = details
     return record
+
+
+def aggregate_operations(
+    agg_plan: Mapping[str, Any],
+    *,
+    deep: bool,
+    standard_description: str,
+    extra_description: str,
+    extra_details: Callable[[list[dict[str, Any]]], dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Return the planned ``op_aggregate_<n>`` records of an aggregate plan, in pass order.
+
+    Passes from ``standard_passes`` on are ``deep_aggregate_pass`` records
+    described by ``extra_description``; the others are ``aggregate_pass``
+    records described by ``standard_description``. Details count the
+    expressions and fields of the pass, then its deep expressions when
+    ``deep``, then whatever ``extra_details`` returns for the pass's specs.
+    """
+    out = []
+    for index, aliases in enumerate(agg_plan["passes"]):
+        members = set(aliases)
+        specs = [spec for spec in agg_plan["specs"] if spec["alias"] in members]
+        extra_pass = index >= agg_plan["standard_passes"]
+        details: dict[str, Any] = {
+            "expressions": sum(spec["cost"] for spec in specs),
+            "fields": len({spec["field_id"] for spec in specs if spec["field_id"]}),
+        }
+        if deep:
+            details["deep_expressions"] = sum(spec["cost"] for spec in specs if spec.get("group"))
+        if extra_details is not None:
+            details.update(extra_details(specs))
+        out.append(
+            operation(
+                f"op_aggregate_{index + 1}",
+                "deep_aggregate_pass" if extra_pass else "aggregate_pass",
+                extra_description if extra_pass else standard_description,
+                reads_user_data=True,
+                **details,
+            )
+        )
+    return out
+
+
+def elapsed_ms(start: float) -> int:
+    """Return the whole milliseconds elapsed since ``start`` (a ``time.perf_counter()`` value)."""
+    return max(0, int((time.perf_counter() - start) * 1000))
+
+
+def observed_operation(
+    op_id: str, status: str, start: float | None, rows: int | None = None, detail: str | None = None
+) -> dict[str, Any]:
+    """Return an observed-operation record (what the engine did, and for how long)."""
+    return {
+        "operation_id": op_id,
+        "status": status,
+        "duration_ms": elapsed_ms(start) if start is not None else None,
+        "rows_returned": rows,
+        "detail": detail,
+    }
