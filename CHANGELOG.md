@@ -13,9 +13,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
   1.2 (frozen schema, `tabledossier schema profile-1.2`) and 1.3. Invariants tie `transaction_snapshot` to the
   `postgresql` engine and allow a `delta_version` only for `pinned_delta_version`. Spark profiles are unchanged apart
   from `schema_version`; Spark documents change only as listed under Changed.
+- `AGENTS.md`: rules for coding agents and new contributors (principles, what to check before changing anything, the
+  minimum evidence per type of change, git and review conventions), with `CLAUDE.md` importing it.
+- `docs/status.md`: the state of the repository, the releases and the pending evidence, reviewed on 2026-09-26.
 
 ### Changed
 
+- `docs/roadmap.md` gives every version an objective, a scope and an observable exit criterion, adds the cross-cutting
+  "Databricks evidence" milestone and an "Open decisions" section; `docs/README.md` records the state and review date
+  of each document; `docs/compatibility.md` is dated for the review (no new measurement).
 - `docs/compatibility.md` records the first real run of the release workflow (tag `v0.4.0`), which created the draft
   release with its three files.
 - Shared wording follows the labels of the record it describes instead of assuming Spark, so the text stays true for
