@@ -6,6 +6,9 @@ import pytest
 
 from tabledossier.config import deep_merge, default_config
 from tabledossier.integrity import (
+    PINNED_CONSISTENCY_MODES,
+    SNAPSHOT_TARGET_SCOPE_NOTE,
+    TARGET_SCOPE_NOTE,
     compatible_kinds,
     end_segments,
     not_validated_detail,
@@ -138,6 +141,41 @@ def test_target_uniqueness_is_evidence_not_cardinality():
     )
     assert any("not pinned" in note for note in unpinned["limitations"])
     assert unpinned["target_key_unique"] is None, "no target key was measured"
+
+
+def test_transaction_snapshots_are_pinned_and_described_as_such():
+    snapshot = {"scope": "full_snapshot", "consistency_mode": "transaction_snapshot"}
+    detail = validation_detail(
+        {"rows": 10, "orphans": 0, "t_rows": 5, "t_distinct": 5},
+        mode="full_scope",
+        sample_rows=None,
+        from_info={**snapshot, "table": "public.orders", "delta_version": None},
+        to_info={**snapshot, "table": "public.customers", "delta_version": None},
+        compatibility=[],
+        operation_id="op_referential_1",
+    )
+    assert "transaction_snapshot" in PINNED_CONSISTENCY_MODES
+    assert detail["status"] == "validated"
+    assert detail["limitations"] == [SNAPSHOT_TARGET_SCOPE_NOTE]
+    assert not any("Delta" in note or "not pinned" in note for note in detail["limitations"])
+    # A Spark check keeps today's note; only the side that was not pinned gets a limitation.
+    spark = _detail({"rows": 10})
+    assert spark["limitations"] == [TARGET_SCOPE_NOTE]
+
+
+def test_referential_summary_note_follows_the_checked_targets():
+    config = deep_merge(default_config(), {"analysis_level": "deep"})
+
+    def summary_notes(*modes):
+        relationships = [
+            {"validation": "validated", "validation_detail": {"to": {"consistency_mode": m}}}
+            for m in modes
+        ]
+        return referential_summary(relationships, config, planned=0, limited=[])["notes"][:-1]
+
+    assert summary_notes() == [TARGET_SCOPE_NOTE], "nothing checked: today's note"
+    assert summary_notes("pinned_delta_version", "unpinned") == [TARGET_SCOPE_NOTE]
+    assert summary_notes("transaction_snapshot") == [SNAPSHOT_TARGET_SCOPE_NOTE]
 
 
 def test_referential_summary_counts_statuses():

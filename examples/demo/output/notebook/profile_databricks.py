@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # TableDossier profiling notebook
 # MAGIC
-# MAGIC Generated offline by TableDossier 0.4.0 (generation id `sha256:b0a78333e3a95f4faede7b93fa92405755ca4695e61a3d020d4720308b33d720`).
+# MAGIC Generated offline by TableDossier 0.4.0 (generation id `sha256:e3c32c4a6169b117c919ab44e9e9ec077ef6ca931ecc6bbe744fc6dbdc444d90`).
 # MAGIC
 # MAGIC **This notebook contains no results yet.** It was generated without access to your data; metrics exist only after you run it here.
 # MAGIC
@@ -218,7 +218,7 @@ TD_GENERATED_CONFIG = {'kind': 'tabledossier.config',
                                    'asserted.'}]}
 
 TD_GENERATION = {'generator_version': '0.4.0',
- 'generation_id': 'sha256:b0a78333e3a95f4faede7b93fa92405755ca4695e61a3d020d4720308b33d720'}
+ 'generation_id': 'sha256:e3c32c4a6169b117c919ab44e9e9ec077ef6ca931ecc6bbe744fc6dbdc444d90'}
 
 TD_WIDGET_DEFAULTS = {'tables_json': '["analytics.customers", "analytics.orders", "analytics.order_events", '
                 '"analytics.returns"]',
@@ -533,18 +533,18 @@ TD_SCHEMAS['config'] = json.loads(r'''{
     }
   }
 }''')
-# profile.schema.json: sha256:b949f622ebbe2489cae299ba95852d7cb03a7c9e0593808b353c150c9bab77ad
+# profile.schema.json: sha256:b02dd982813f5be20bd98ed49bbfa85080c5def8fa5c0b460beea302f6ff3f12
 TD_SCHEMAS['profile'] = json.loads(r'''{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tabledossier:schema:profile:1.2",
+  "$id": "urn:tabledossier:schema:profile:1.3",
   "title": "TableDossier profile",
-  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.2 only adds to 1.1 (exact uniqueness, referential validation, relationship hypotheses), which only adds to 1.0 (deep level). See docs/contract.md.",
+  "description": "Canonical, engine-independent result of one profiling run. Documentation is derived from this document only. Version 1.3 only adds to 1.2 (PostgreSQL engine and local CLI context, server version, transaction snapshot consistency, connect error stage, system catalog constraints), which only adds to 1.1 (exact uniqueness, referential validation, relationship hypotheses), which only adds to 1.0 (deep level). See docs/contract.md.",
   "type": "object",
   "required": ["kind", "schema_version", "tool", "run", "value_exposure", "tables", "relationships", "summary"],
   "additionalProperties": false,
   "properties": {
     "kind": {"const": "tabledossier.profile"},
-    "schema_version": {"const": "1.2"},
+    "schema_version": {"const": "1.3"},
     "tool": {
       "type": "object",
       "required": ["name", "version"],
@@ -616,10 +616,11 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
       "required": ["engine", "execution_context", "python_version"],
       "additionalProperties": false,
       "properties": {
-        "engine": {"enum": ["spark", "none"]},
-        "execution_context": {"enum": ["databricks", "spark", "synthetic"]},
+        "engine": {"description": "1.3: adds postgresql.", "enum": ["spark", "none", "postgresql"]},
+        "execution_context": {"description": "1.3: adds local_cli (a run of the tabledossier command line).", "enum": ["databricks", "spark", "synthetic", "local_cli"]},
         "python_version": {"type": "string"},
         "spark_version": {"$ref": "#/$defs/nullableString"},
+        "postgresql_version": {"$ref": "#/$defs/nullableString", "description": "1.3: PostgreSQL server version (major.minor, from server_version_num)."},
         "databricks_runtime_version": {"$ref": "#/$defs/nullableString"},
         "session_timezone": {"$ref": "#/$defs/nullableString"},
         "ansi_mode": {"type": ["boolean", "null"]},
@@ -644,7 +645,7 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
       "required": ["stage", "error_class", "condition", "message"],
       "additionalProperties": false,
       "properties": {
-        "stage": {"enum": ["resolve", "metadata", "snapshot", "sample", "semantic", "aggregate", "checks", "assemble"]},
+        "stage": {"description": "1.3: adds connect (the connection failed or was lost during the run).", "enum": ["resolve", "metadata", "snapshot", "sample", "semantic", "aggregate", "checks", "assemble", "connect"]},
         "error_class": {"type": "string"},
         "condition": {"$ref": "#/$defs/nullableString"},
         "message": {"type": "string", "maxLength": 1000}
@@ -732,9 +733,9 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
       "required": ["mode", "delta_version", "version_timestamp", "guarantee", "notes"],
       "additionalProperties": false,
       "properties": {
-        "mode": {"enum": ["pinned_delta_version", "unpinned", "metadata_only"]},
+        "mode": {"description": "1.3: adds transaction_snapshot (every read of the table used one database transaction snapshot).", "enum": ["pinned_delta_version", "unpinned", "metadata_only", "transaction_snapshot"]},
         "delta_version": {"type": ["integer", "null"], "minimum": 0},
-        "version_timestamp": {"$ref": "#/$defs/nullableString"},
+        "version_timestamp": {"$ref": "#/$defs/nullableString", "description": "1.3: for transaction_snapshot, the UTC start of the snapshot transaction; for pinned_delta_version, the commit time of that version."},
         "guarantee": {"type": "string"},
         "notes": {"$ref": "#/$defs/stringList"}
       }
@@ -943,7 +944,7 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
           ]
         },
         "enforcement": {"enum": ["enforced", "not_enforced", "unknown"]},
-        "source": {"enum": ["information_schema", "delta_table_property", "source_schema"]}
+        "source": {"description": "1.3: adds system_catalog (constraints read from the database's system catalog, e.g. PostgreSQL pg_catalog).", "enum": ["information_schema", "delta_table_property", "source_schema", "system_catalog"]}
       }
     },
     "finding": {
@@ -1435,7 +1436,7 @@ TD_SCHEMAS['profile'] = json.loads(r'''{
       "properties": {
         "table": {"type": "string"},
         "scope": {"enum": ["table_metadata", "full_table", "filtered_table", "full_snapshot", "filtered_snapshot", "sample"]},
-        "consistency_mode": {"enum": ["pinned_delta_version", "unpinned", "metadata_only"]},
+        "consistency_mode": {"description": "1.3: adds transaction_snapshot.", "enum": ["pinned_delta_version", "unpinned", "metadata_only", "transaction_snapshot"]},
         "delta_version": {"type": ["integer", "null"], "minimum": 0}
       }
     },
@@ -2930,7 +2931,7 @@ def numeric_value(metrics: Iterable[Mapping[str, Any]], name: str) -> float | No
 
 # DBTITLE 1,Runtime: tabledossier.planning
 # TableDossier 0.4.0 embedded runtime: module tabledossier.planning
-# Source: src/tabledossier/planning.py (sha256:970ba12c986e535097884051dc5a72ebdf514b2ec1bbd7412608cf06151c40c1)
+# Source: src/tabledossier/planning.py (sha256:1ed2dac4579531febb07c1624ef57b816ba66a92a00dd496b21b4895c08afb9c)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -2946,9 +2947,13 @@ specs into expressions and performs the actions. Adding metrics therefore adds
 expressions to a bounded number of shared aggregation passes; it never adds one
 Spark action per column. A single aggregation call is an organizational goal,
 not a promise of a single physical scan or of a cost similar to ``count(*)``.
+
+The bookkeeping every adapter shares also lives here: planned and observed
+operation records, the sample record and the sample's payload-budget loop.
 """
 
-from collections.abc import Iterator, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from typing import Any
 
 
@@ -3257,6 +3262,97 @@ def plan_sample(profiled: Sequence[Mapping[str, Any]], config: Mapping[str, Any]
     return plan
 
 
+def new_sample_record(plan: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a table's ``sample`` record for a sample plan, before any row is read.
+
+    The collection counts stay ``None`` until the adapter fills them in; the
+    notes hold the plan's reason when the sample is disabled.
+    """
+    method = config["sampling"]["method"]
+    return {
+        "enabled": plan["enabled"],
+        "method": plan["method"] if plan["enabled"] else method,
+        "biased": True
+        if plan["method"] == "prefix"
+        else (False if plan["method"] == "random" else None),
+        "reads_full_source": True if plan["method"] == "random" else None,
+        "max_rows": plan["max_rows"],
+        "max_bytes": plan["max_bytes"],
+        "max_value_chars": plan["max_value_chars"],
+        "random_fraction": plan["random_fraction"],
+        "seed": plan["seed"],
+        "rows_collected": None,
+        "bytes_retained": None,
+        "values_truncated": None,
+        "stopped_reason": "disabled" if method == "none" else "not_applicable",
+        "fields_sampled": len(plan["field_ids"]),
+        "fields_omitted": len(plan["omitted_field_ids"]),
+        "notes": [plan["reason"]] if plan["reason"] else [],
+    }
+
+
+def sample_notes(method: str) -> list[str]:
+    """Return the notes of an enabled sample; the second one describes ``method``."""
+    return [
+        "Values are inspected transiently for format and JSON inference; they are not persisted.",
+        "prefix: the first rows produced by the engine; potentially biased, not random."
+        if method == "prefix"
+        else (
+            "random: Bernoulli sampling may evaluate every row in scope; the fraction "
+            "does not reduce I/O proportionally."
+        ),
+    ]
+
+
+def collect_sample_rows(
+    rows: Iterable[Sequence[Any]], field_ids: Sequence[str], plan: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Retain sampled string values within the plan's payload budget.
+
+    Each row is positional, ``(s0, t0, s1, t1, ...)``: for every field of
+    ``field_ids`` (in that order) its value, already cut to ``max_value_chars``,
+    then whether it was cut. Truncated values are counted and excluded from
+    inference; they are not charged to the budget. Rows are retained until the
+    payload budget ``max_bytes`` would be exceeded: the row that does not fit is
+    dropped and iteration stops. The budget accounts for retained values, not
+    total process memory. Returns ``rows``, ``bytes``, ``stopped_reason`` and,
+    per field, its ``values``, ``nulls`` and ``truncated`` count.
+    """
+    fields: dict[str, dict[str, Any]] = {
+        fid: {"values": [], "nulls": 0, "truncated": 0} for fid in field_ids
+    }
+    count = 0
+    used = 0
+    stopped = "exhausted"
+    for row in rows:
+        pending = []
+        row_bytes = 0
+        for index, fid in enumerate(field_ids):
+            value = row[2 * index]
+            if value is None:
+                pending.append((fid, "null", None))
+            elif row[2 * index + 1]:
+                pending.append((fid, "truncated", None))
+            else:
+                row_bytes += len(value.encode("utf-8"))
+                pending.append((fid, "value", value))
+        if used + row_bytes > plan["max_bytes"]:
+            stopped = "byte_budget"
+            break
+        used += row_bytes
+        count += 1
+        for fid, status, value in pending:
+            if status == "null":
+                fields[fid]["nulls"] += 1
+            elif status == "truncated":
+                fields[fid]["truncated"] += 1
+            else:
+                fields[fid]["values"].append(value)
+    if stopped == "exhausted" and count >= plan["max_rows"]:
+        stopped = "row_limit"
+    return {"rows": count, "bytes": used, "stopped_reason": stopped, "fields": fields}
+
+
 def _pl_catalog(kind: str) -> list[tuple[str, str, int, int]]:
     specs = list(_PL_COMMON)
     if kind in ORDERABLE_KINDS:
@@ -3290,6 +3386,7 @@ def plan_aggregates(
     redacted_field_ids: set[str] | frozenset[str] = frozenset(),
     deep_candidates: Sequence[Mapping[str, Any]] = (),
     max_extra_passes: int = 0,
+    json_unsupported_reason: str | None = None,
 ) -> dict[str, Any]:
     """Plan shared aggregation passes (``standard`` metrics plus optional ``deep`` ones).
 
@@ -3303,6 +3400,11 @@ def plan_aggregates(
     standard pass plus at most ``max_extra_passes`` additional passes; when
     they do not fit, the highest tiers are dropped first and recorded as
     ``deep_budget`` omissions. ``extra_passes`` reports the passes added.
+
+    ``json_unsupported_reason`` is the reason recorded for ``json_invalid_count``
+    when the engine cannot validate JSON over the full scope
+    (``capabilities["try_parse_json"]`` false); the default names Spark's
+    ``try_parse_json``.
     """
     metrics_cfg = config["metrics"]
     limits = config["limits"]
@@ -3424,7 +3526,8 @@ def plan_aggregates(
                         "metric": not_measured(
                             "json_invalid_count",
                             "unsupported",
-                            "try_parse_json is not available in this runtime; "
+                            json_unsupported_reason
+                            or "try_parse_json is not available in this runtime; "
                             "JSON validity is reported for the sample only",
                             scope=scope,
                             source="aggregate",
@@ -3432,8 +3535,16 @@ def plan_aggregates(
                     }
                 )
 
-    capacity = limits["max_expressions_per_pass"] * limits["max_aggregate_passes"]
-    kept, dropped = _pl_apply_budget(candidates, capacity)
+    per_pass = limits["max_expressions_per_pass"]
+    capacity = per_pass * limits["max_aggregate_passes"]
+    # An expression is never split across passes, so in-order packing can need one more pass
+    # than the expression total suggests (a cost-2 expression that does not fit the last slot
+    # opens a new pass). Lower the budget until the kept expressions fit the pass budget.
+    budget = capacity
+    kept, dropped = _pl_apply_budget(candidates, budget)
+    while _pl_pass_count(kept, per_pass, per_pass) > limits["max_aggregate_passes"]:
+        budget -= 1
+        kept, dropped = _pl_apply_budget(candidates, budget)
     omissions: dict[str, dict[str, Any]] = {}
     for spec in dropped:
         fid = spec["field_id"]
@@ -3448,6 +3559,7 @@ def plan_aggregates(
                     f"aggregate expression budget of {capacity} "
                     f"({limits['max_expressions_per_pass']} per pass x "
                     f"{limits['max_aggregate_passes']} passes) exceeded"
+                    + (" (an expression is never split across passes)" if budget < capacity else "")
                 ),
                 "metrics": [],
             },
@@ -3465,7 +3577,6 @@ def plan_aggregates(
                 ),
             }
         )
-    per_pass = limits["max_expressions_per_pass"]
     for index, spec in enumerate(kept):
         spec["alias"] = f"a{index:04d}"
     costs = {spec["alias"]: spec["cost"] for spec in kept}
@@ -3474,13 +3585,22 @@ def plan_aggregates(
     kept_deep: list[dict[str, Any]] = []
     dropped_deep: list[dict[str, Any]] = []
     if deep_candidates:
-        room = per_pass - sum(costs[alias] for alias in passes[-1]) if passes else per_pass
+        used = sum(costs[alias] for alias in passes[-1]) if passes else per_pass
+        room = per_pass - used
         deep_cost = sum(spec["cost"] for spec in deep_candidates)
         needed = -(-max(0, deep_cost - room) // per_pass)
         extra = min(needed, max(0, max_extra_passes))
+        deep_budget = room + per_pass * extra
         kept_deep, dropped_deep = _pl_apply_budget(
-            [dict(spec) for spec in deep_candidates], room + per_pass * extra
+            [dict(spec) for spec in deep_candidates], deep_budget
         )
+        # Same packing rule as above: the deep expressions must fit the room left in the last
+        # standard pass plus deep.max_extra_passes passes, never more.
+        while _pl_pass_count(kept_deep, per_pass, used) > max(0, max_extra_passes):
+            deep_budget -= 1
+            kept_deep, dropped_deep = _pl_apply_budget(
+                [dict(spec) for spec in deep_candidates], deep_budget
+            )
         for spec in dropped_deep:
             fid = spec["field_id"]
             entry = omissions.setdefault(
@@ -3552,6 +3672,20 @@ def _pl_pack(
     return out
 
 
+def _pl_pass_count(specs: Sequence[Mapping[str, Any]], per_pass: int, used: int) -> int:
+    """Return the passes :func:`_pl_pack` opens for ``specs`` after a pass holding ``used``.
+
+    ``used = per_pass`` counts the passes of a packing that starts from nothing.
+    """
+    opened = 0
+    for spec in specs:
+        if used + spec["cost"] > per_pass:
+            opened += 1
+            used = 0
+        used += spec["cost"]
+    return opened
+
+
 def _pl_apply_budget(
     candidates: list[dict[str, Any]], capacity: int
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -3589,11 +3723,70 @@ def operation(
         record["details"] = details
     return record
 
+
+def aggregate_operations(
+    agg_plan: Mapping[str, Any],
+    *,
+    deep: bool,
+    standard_description: str,
+    extra_description: str,
+    extra_details: Callable[[list[dict[str, Any]]], dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Return the planned ``op_aggregate_<n>`` records of an aggregate plan, in pass order.
+
+    Passes from ``standard_passes`` on are ``deep_aggregate_pass`` records
+    described by ``extra_description``; the others are ``aggregate_pass``
+    records described by ``standard_description``. Details count the
+    expressions and fields of the pass, then its deep expressions when
+    ``deep``, then whatever ``extra_details`` returns for the pass's specs.
+    """
+    out = []
+    for index, aliases in enumerate(agg_plan["passes"]):
+        members = set(aliases)
+        specs = [spec for spec in agg_plan["specs"] if spec["alias"] in members]
+        extra_pass = index >= agg_plan["standard_passes"]
+        details: dict[str, Any] = {
+            "expressions": sum(spec["cost"] for spec in specs),
+            "fields": len({spec["field_id"] for spec in specs if spec["field_id"]}),
+        }
+        if deep:
+            details["deep_expressions"] = sum(spec["cost"] for spec in specs if spec.get("group"))
+        if extra_details is not None:
+            details.update(extra_details(specs))
+        out.append(
+            operation(
+                f"op_aggregate_{index + 1}",
+                "deep_aggregate_pass" if extra_pass else "aggregate_pass",
+                extra_description if extra_pass else standard_description,
+                reads_user_data=True,
+                **details,
+            )
+        )
+    return out
+
+
+def elapsed_ms(start: float) -> int:
+    """Return the whole milliseconds elapsed since ``start`` (a ``time.perf_counter()`` value)."""
+    return max(0, int((time.perf_counter() - start) * 1000))
+
+
+def observed_operation(
+    op_id: str, status: str, start: float | None, rows: int | None = None, detail: str | None = None
+) -> dict[str, Any]:
+    """Return an observed-operation record (what the engine did, and for how long)."""
+    return {
+        "operation_id": op_id,
+        "status": status,
+        "duration_ms": elapsed_ms(start) if start is not None else None,
+        "rows_returned": rows,
+        "detail": detail,
+    }
+
 # COMMAND ----------
 
 # DBTITLE 1,Runtime: tabledossier.semantic
 # TableDossier 0.4.0 embedded runtime: module tabledossier.semantic
-# Source: src/tabledossier/semantic.py (sha256:14e1b52707b12164c1eda7d2cdbb06f534676f56df0a9420ee44f329096edcc6)
+# Source: src/tabledossier/semantic.py (sha256:e5ed717c02f3b4218dfab2fb5e4c33b1cd6ea731e93be96cf21b98a52b561a14)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -3623,7 +3816,7 @@ import math
 import re
 import statistics
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -3973,6 +4166,65 @@ def value_examples(values: list[str], *, max_examples: int, max_chars: int) -> d
     }
 
 
+def sample_semantics(
+    sample: Mapping[str, Any],
+    nodes: Sequence[Mapping[str, Any]],
+    sample_method: str,
+    config: Mapping[str, Any],
+    *,
+    redacted_ids: Collection[str],
+    example_ids: Collection[str],
+    semantic_by_id: dict[str, dict[str, Any]],
+    json_ids: set[str],
+) -> None:
+    """Infer the observed format, JSON shape, concentration and examples of sampled fields.
+
+    Fills the caller-owned ``semantic_by_id`` (one entry per field of ``nodes``)
+    and ``json_ids`` (fields whose structured JSON share reaches
+    ``thresholds.json_min_ratio``) one field at a time, so whatever was inferred
+    before an exception is kept. JSON key names are listed only when the value
+    policy includes them and the field is not redacted; examples are kept only
+    for allow-listed fields that are not redacted.
+    """
+    json_keys = config["value_policy"]["json_key_names"] == "include"
+    for node in nodes:
+        data = sample["fields"][node["field_id"]]
+        fmt = infer_format(
+            data["values"],
+            sql_nulls=data["nulls"],
+            truncated=data["truncated"],
+            sample_method=sample_method,
+            semantic_config=config["semantic"],
+        )
+        entry: dict[str, Any] = {
+            "observed_format": fmt,
+            "json_profile": None,
+            "concentration": None,
+            "examples": None,
+        }
+        if is_json_like(data["values"]) or fmt.get("format") in ("json_object", "json_array"):
+            shape = json_shape(
+                data["values"],
+                sql_nulls=data["nulls"],
+                truncated=data["truncated"],
+                include_key_names=json_keys and node["field_id"] not in redacted_ids,
+                sample_method=sample_method,
+            )
+            entry["json_profile"] = shape
+            eligible = shape["eligible_observations"]
+            structured = shape["counts"]["object"] + shape["counts"]["array"]
+            if eligible and structured / eligible >= config["thresholds"]["json_min_ratio"]:
+                json_ids.add(node["field_id"])
+        entry["concentration"] = value_concentration(data["values"])
+        if node["field_id"] in example_ids and node["field_id"] not in redacted_ids:
+            entry["examples"] = value_examples(
+                data["values"],
+                max_examples=config["value_policy"]["max_examples_per_column"],
+                max_chars=config["value_policy"]["max_example_chars"],
+            )
+        semantic_by_id[node["field_id"]] = entry
+
+
 def candidate_roles(
     type_kind: str,
     metrics: Iterable[Mapping[str, Any]],
@@ -3983,8 +4235,9 @@ def candidate_roles(
     """Suggest candidate roles from measured metrics and observed format.
 
     Identifier candidates are limited to integers, strings and decimals with
-    scale 0, with few nulls and an approximate distinct count close to the
-    number of non-null values.
+    scale 0 (``decimal(p,0)`` or ``numeric(p,0)``), with few nulls and a
+    distinct count close to the number of non-null values. The limitation
+    follows the distinct count's ``accuracy`` label (approximate or exact).
     """
     metric_list = list(metrics)
     roles: list[dict[str, Any]] = []
@@ -3996,10 +4249,11 @@ def candidate_roles(
         if (observed_format or {}).get("status") == "detected"
         else None
     )
-    scale = re.search(r"decimal\(\s*\d+\s*,\s*(\d+)\s*\)", physical_type)
+    scale = re.search(r"(?:decimal|numeric)\(\s*\d+\s*,\s*(\d+)\s*\)", physical_type)
     key_like = type_kind in ("integer", "string") or (
         type_kind == "decimal" and scale is not None and scale.group(1) == "0"
     )
+    exact = (find_metric(metric_list, "approx_distinct_count") or {}).get("accuracy") == "exact"
     if isinstance(non_null, int) and isinstance(distinct, int) and non_null > 0:
         ratio = distinct / non_null
         if (
@@ -4019,9 +4273,13 @@ def candidate_roles(
                         *([{"observed_format": fmt}] if fmt else []),
                     ],
                     "limitations": (
-                        "Approximate distinct counts do not prove uniqueness or a primary key; "
-                        "exact validation requires an additional read (deep.uniqueness at the "
-                        "deep level)."
+                        "A high distinct ratio in the analysed scope does not prove uniqueness "
+                        "beyond it or a primary key; key validation requires an additional read "
+                        "(deep.uniqueness at the deep level)."
+                        if exact
+                        else "Approximate distinct counts do not prove uniqueness or a primary "
+                        "key; exact validation requires an additional read (deep.uniqueness at "
+                        "the deep level)."
                     ),
                 }
             )
@@ -5309,7 +5567,7 @@ def measured_keys(table: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 
 # DBTITLE 1,Runtime: tabledossier.findings
 # TableDossier 0.4.0 embedded runtime: module tabledossier.findings
-# Source: src/tabledossier/findings.py (sha256:84323f45be940c19f955304d9b2f5d9a767d49e063817ae65f3eeb9216621b4a)
+# Source: src/tabledossier/findings.py (sha256:5e4936eea16380d61e7962cc603ec0247daff5dc816c6d18c4d12dbc49a5b1fc)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5354,6 +5612,12 @@ def _fd_finding(
         "severity_reason": severity_reason,
         "limitations": limitations,
     }
+
+
+def _fd_exact(metrics: list[Mapping[str, Any]], name: str) -> bool:
+    """Whether the engine labelled a (measured) metric exact; wording follows that label."""
+    metric = find_metric(metrics, name)
+    return metric is not None and metric.get("accuracy") == "exact"
 
 
 def _fd_evidence(metrics: list[Mapping[str, Any]], *names: str) -> list[dict[str, Any]]:
@@ -5461,19 +5725,25 @@ def field_findings(
             )
         )
     if "identifier_candidate" in roles:
+        exact = _fd_exact(metrics, "approx_distinct_count")
         found.append(
             _fd_finding(
                 "identifier_candidate",
                 "info",
                 field,
                 "Identifier candidate",
-                "Approximate distinct count is close to the number of non-null values.",
+                "Exact distinct count is close to the number of non-null values."
+                if exact
+                else "Approximate distinct count is close to the number of non-null values.",
                 roles["identifier_candidate"]["evidence"],
                 {
                     "name": "identifier_min_distinct_ratio",
                     "value": thresholds["identifier_min_distinct_ratio"],
                 },
-                "info: approximate cardinality does not prove uniqueness.",
+                "info: a high distinct ratio in the analysed scope does not prove uniqueness "
+                "beyond it."
+                if exact
+                else "info: approximate cardinality does not prove uniqueness.",
                 roles["identifier_candidate"]["limitations"],
             )
         )
@@ -5533,8 +5803,10 @@ def field_findings(
                             {"name": "tail_iqr_multiplier", "value": multiplier},
                             "info: heavy tails are common in amounts and counts; review if "
                             "unexpected.",
-                            "Quantiles are approximate; min/max are exact over finite values in "
-                            "scope.",
+                            "Quantiles and min/max are exact over finite values in scope."
+                            if _fd_exact(metrics, "quantiles")
+                            else "Quantiles are approximate; min/max are exact over finite values "
+                            "in scope.",
                         )
                     )
 
@@ -5561,7 +5833,7 @@ def field_findings(
 
 # DBTITLE 1,Runtime: tabledossier.quality
 # TableDossier 0.4.0 embedded runtime: module tabledossier.quality
-# Source: src/tabledossier/quality.py (sha256:5f728d2906f91e8477c5a690f2bb5b9f0c5532aaa029548c03952af89c45dcd2)
+# Source: src/tabledossier/quality.py (sha256:26d3334873b0eaf75782b2bcfad2b548f60233ab9f7646e6b6d5977f33ca510f)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -5893,14 +6165,20 @@ def suggest_rules(table: Mapping[str, Any], thresholds: Mapping[str, Any]) -> li
                             )
                         )
                     continue
+                distinct = find_metric(metrics, "approx_distinct_count") or {}
                 rules.append(
                     _q_rule(
                         table_key,
                         column,
                         "unique",
                         {},
-                        "Approximate distinct count close to non-null count; confirm with an exact "
-                        "uniqueness check (deep.uniqueness) before adopting.",
+                        (
+                            "Exact distinct count close to non-null count in the analysed scope; "
+                            if distinct.get("accuracy") == "exact"
+                            else "Approximate distinct count close to non-null count; "
+                        )
+                        + "confirm with an exact uniqueness check (deep.uniqueness) before "
+                        "adopting.",
                         role["evidence"],
                     )
                 )
@@ -5990,7 +6268,7 @@ def suggested_rules_document(profile: Mapping[str, Any]) -> dict[str, Any]:
 
 # DBTITLE 1,Runtime: tabledossier.relationships
 # TableDossier 0.4.0 embedded runtime: module tabledossier.relationships
-# Source: src/tabledossier/relationships.py (sha256:9998a8aa06ce10bc19dd47628430431400b71458a46b4c2e8b7b7e264e5315ab)
+# Source: src/tabledossier/relationships.py (sha256:74d0f1ca64e969b16e782c1f2d5cda00a67892e7aeb48097c5e2d04ed4a9454e)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6006,8 +6284,9 @@ Relationships are never inferred from column names (a column ending in
 Cardinality is recorded only when a person provided it.
 
 Declared PRIMARY KEY, UNIQUE and FOREIGN KEY constraints are assembled here
-from ``information_schema`` rows (:func:`key_constraints_from_rows`); the
-Spark adapter only runs the parameterized queries that return those rows.
+from ``information_schema``-shaped rows (:func:`key_constraints_from_rows`);
+the engine adapter only runs the queries that return those rows. Notes follow
+the ``source`` and ``enforcement`` labels of each constraint.
 """
 
 from collections.abc import Iterable, Mapping
@@ -6017,6 +6296,15 @@ from typing import Any
 DECLARED_NOTE = (
     "Declared as a FOREIGN KEY constraint. Unity Catalog primary and foreign keys are "
     "informational (not enforced): the declaration alone does not prove the data."
+)
+ENFORCED_DECLARED_NOTE = (
+    "Declared as a FOREIGN KEY constraint that the database enforces for writes; the declaration "
+    "alone still does not prove every stored row (it can be bypassed, e.g. with "
+    "session_replication_role = replica, or added NOT VALID)."
+)
+NOT_ENFORCED_DECLARED_NOTE = (
+    "Declared as a FOREIGN KEY constraint that the database does not enforce: the declaration "
+    "alone does not prove the data."
 )
 PROVIDED_NOTE = "Provided by a person; the statement alone does not prove the data."
 INFORMATION_SCHEMA_KINDS = {
@@ -6032,6 +6320,14 @@ def _rel_text(value: Any) -> str:
 
 def _rel_fold(*parts: Any) -> tuple[str, ...]:
     return tuple(_rel_text(part).casefold() for part in parts)
+
+
+def _rel_identity(case_sensitive: bool, *parts: Any) -> tuple[str, ...]:
+    return tuple(_rel_text(part) for part in parts) if case_sensitive else _rel_fold(*parts)
+
+
+def _rel_catalog(source: str) -> str:
+    return "information_schema" if source == "information_schema" else "the catalog"
 
 
 def _rel_kind(value: Any) -> str | None:
@@ -6055,12 +6351,15 @@ def _rel_reference(row: Mapping[str, Any]) -> tuple[str, str, str] | None:
     )
 
 
-def referenced_constraint_keys(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, str, str]]:
+def referenced_constraint_keys(
+    rows: Iterable[Mapping[str, Any]], *, case_sensitive: bool = False
+) -> list[tuple[str, str, str]]:
     """Return ``(catalog, schema, name)`` of the constraints referenced by foreign keys.
 
     ``rows`` are the ``information_schema`` rows of one table (see
     :func:`key_constraints_from_rows`). Each referenced constraint is listed
-    once, compared case-insensitively, in the order of first appearance.
+    once, compared case-insensitively unless ``case_sensitive``, in the order
+    of first appearance.
     """
     seen: set[tuple[str, ...]] = set()
     out = []
@@ -6068,8 +6367,9 @@ def referenced_constraint_keys(rows: Iterable[Mapping[str, Any]]) -> list[tuple[
         reference = _rel_reference(row)
         if _rel_kind(row.get("constraint_type")) != "foreign_key" or reference is None:
             continue
-        if _rel_fold(*reference) not in seen:
-            seen.add(_rel_fold(*reference))
+        identity = _rel_identity(case_sensitive, *reference)
+        if identity not in seen:
+            seen.add(identity)
             out.append(reference)
     return out
 
@@ -6079,23 +6379,33 @@ def _rel_referenced(
     reference: tuple[str, str, str] | None,
     positions: list[int | None],
     targets: Mapping[tuple[str, ...], list[Mapping[str, Any]]],
+    *,
+    source: str,
+    case_sensitive: bool,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Resolve the referenced table and columns of one foreign key, or say why not."""
     if reference is None:
+        listing = (
+            "information_schema.referential_constraints"
+            if source == "information_schema"
+            else "the catalog"
+        )
         return None, (
-            f"Foreign key {name}: information_schema.referential_constraints lists no referenced "
+            f"Foreign key {name}: {listing} lists no referenced "
             "constraint, so the relationship is not documented."
         )
-    target_rows = targets.get(_rel_fold(*reference), [])
+    target_rows = targets.get(_rel_identity(case_sensitive, *reference), [])
     label = ".".join(reference)
     if not target_rows:
         return None, (
             f"Foreign key {name} references constraint {label}, whose columns are not visible in "
-            "information_schema (missing, or not readable with these permissions), so the "
+            f"{_rel_catalog(source)} (missing, or not readable with these permissions), so the "
             "relationship is not documented."
         )
     tables = {
-        _rel_fold(row.get("table_catalog"), row.get("table_schema"), row.get("table_name"))
+        _rel_identity(
+            case_sensitive, row.get("table_catalog"), row.get("table_schema"), row.get("table_name")
+        )
         for row in target_rows
     }
     by_position: dict[int, str] = {}
@@ -6126,7 +6436,11 @@ def _rel_referenced(
 
 
 def key_constraints_from_rows(
-    rows: Iterable[Mapping[str, Any]], referenced_rows: Iterable[Mapping[str, Any]]
+    rows: Iterable[Mapping[str, Any]],
+    referenced_rows: Iterable[Mapping[str, Any]],
+    *,
+    source: str = "information_schema",
+    case_sensitive: bool = False,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Assemble PRIMARY KEY, UNIQUE and FOREIGN KEY records from ``information_schema`` rows.
 
@@ -6142,19 +6456,27 @@ def key_constraints_from_rows(
     ``ordinal_position``).
 
     Catalog, schema and constraint names are compared case-insensitively, as
-    Unity Catalog does, and row order does not matter: constraints are sorted
-    by name and columns by ``ordinal_position``. Other constraint types (CHECK)
-    are ignored. Returns ``(constraints, notes)``; a foreign key whose
-    referenced columns cannot be resolved keeps ``referenced: None`` and a note
-    says why (it is then not documented as a relationship).
+    Unity Catalog does, unless ``case_sensitive`` (PostgreSQL names that differ
+    only by case are distinct), and row order does not matter: constraints are
+    sorted by name and columns by ``ordinal_position``. Other constraint types
+    (CHECK) are ignored. A row may also carry ``enforcement`` (default
+    ``not_enforced``, as in Unity Catalog) and ``notes`` (appended to the
+    returned notes once each). ``source`` labels every constraint.
+
+    Returns ``(constraints, notes)``; a foreign key whose referenced columns
+    cannot be resolved keeps ``referenced: None`` and a note says why (it is
+    then not documented as a relationship).
     """
     grouped: dict[tuple[str, ...], dict[str, Any]] = {}
     for row in rows:
         kind = _rel_kind(row.get("constraint_type"))
         if kind is None:
             continue
-        identity = _rel_fold(
-            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        identity = _rel_identity(
+            case_sensitive,
+            row.get("constraint_catalog"),
+            row.get("constraint_schema"),
+            row.get("constraint_name"),
         )
         entry = grouped.setdefault(
             identity,
@@ -6163,8 +6485,13 @@ def key_constraints_from_rows(
                 "kind": kind,
                 "columns": {},
                 "reference": None,
+                "enforcement": row.get("enforcement") or "not_enforced",
+                "notes": [],
             },
         )
+        for note in row.get("notes") or []:
+            if note not in entry["notes"]:
+                entry["notes"].append(str(note))
         position = _rel_position(row.get("ordinal_position"))
         order = position if position is not None else len(entry["columns"]) + 1
         entry["columns"].setdefault(
@@ -6177,8 +6504,11 @@ def key_constraints_from_rows(
         entry["reference"] = entry["reference"] or _rel_reference(row)
     targets: dict[tuple[str, ...], list[Mapping[str, Any]]] = {}
     for row in referenced_rows:
-        identity = _rel_fold(
-            row.get("constraint_catalog"), row.get("constraint_schema"), row.get("constraint_name")
+        identity = _rel_identity(
+            case_sensitive,
+            row.get("constraint_catalog"),
+            row.get("constraint_schema"),
+            row.get("constraint_name"),
         )
         targets.setdefault(identity, []).append(row)
     constraints = []
@@ -6189,9 +6519,17 @@ def key_constraints_from_rows(
         if entry["kind"] == "foreign_key":
             positions = [position for _, position in ordered]
             referenced, note = _rel_referenced(
-                entry["name"], entry["reference"], positions, targets
+                entry["name"],
+                entry["reference"],
+                positions,
+                targets,
+                source=source,
+                case_sensitive=case_sensitive,
             )
             if note:
+                notes.append(note)
+        for note in entry["notes"]:
+            if note not in notes:
                 notes.append(note)
         constraints.append(
             {
@@ -6200,8 +6538,8 @@ def key_constraints_from_rows(
                 "columns": [column for column, _ in ordered],
                 "expression": None,
                 "referenced": referenced,
-                "enforcement": "not_enforced",
-                "source": "information_schema",
+                "enforcement": entry["enforcement"],
+                "source": source,
             }
         )
     return constraints, notes
@@ -6213,6 +6551,15 @@ def _rel_table(text: str) -> str:
 
 def _rel_columns(columns: Iterable[Any]) -> list[str]:
     return [display_path(column_reference_segments(column)) for column in columns]
+
+
+def _rel_declared_note(constraint: Mapping[str, Any]) -> str:
+    """Return the note of a declared relationship, from the constraint's labels."""
+    if constraint.get("enforcement") == "enforced":
+        return ENFORCED_DECLARED_NOTE
+    if constraint.get("source", "information_schema") == "information_schema":
+        return DECLARED_NOTE
+    return NOT_ENFORCED_DECLARED_NOTE
 
 
 def declared_relationships(tables: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -6238,7 +6585,7 @@ def declared_relationships(tables: Iterable[Mapping[str, Any]]) -> list[dict[str
                     "validation": "not_validated",
                     "scope": "declared_metadata",
                     "description": None,
-                    "notes": [DECLARED_NOTE],
+                    "notes": [_rel_declared_note(constraint)],
                 }
             )
     return out
@@ -6290,7 +6637,7 @@ def merge_relationships(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, 
 
 # DBTITLE 1,Runtime: tabledossier.integrity
 # TableDossier 0.4.0 embedded runtime: module tabledossier.integrity
-# Source: src/tabledossier/integrity.py (sha256:ddf44175d564bcad100e53dae71972c75e9fbcbc7bb4aad12055482ef792934b)
+# Source: src/tabledossier/integrity.py (sha256:e55b60f0e0f8f626ac2e167e2aeed31f71540c99eb624e66a7f2dfb183c4a427)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6306,8 +6653,9 @@ how the counts become contract records.
 * **Referential validation** checks known relationships (declared FOREIGN
   KEYs, relationships in the configuration): source rows with a complete key
   whose key is absent from the target are *orphans*. Both tables are read at
-  the Delta versions recorded when they were profiled. A full-scope check can
-  validate or violate a relationship; a sample can only violate it.
+  the Delta versions recorded when they were profiled (or in the transaction
+  snapshot of the run). A full-scope check can validate or violate a
+  relationship; a sample can only violate it.
 * **Relationship hypotheses** are data-driven and kept apart from known
   relationships. Only single-column keys measured exactly unique are targets;
   source columns are chosen by type compatibility and by the value (or length)
@@ -6322,11 +6670,22 @@ from typing import Any
 
 
 HYPOTHESIS_KINDS = ("integer", "decimal", "string", "date")
+# Consistency modes in which every read of a table sees one fixed state of it.
+PINNED_CONSISTENCY_MODES = ("pinned_delta_version", "transaction_snapshot")
 TARGET_SCOPE_NOTE = (
     "The target is read in full at its recorded version (the target table's filters are not "
     "applied): a reference is valid when its key exists anywhere in the target table."
 )
+SNAPSHOT_TARGET_SCOPE_NOTE = (
+    "The target is read in full in the run's transaction snapshot (the target table's filters "
+    "are not applied): a reference is valid when its key exists anywhere in the target table."
+)
 _IG_EXACT_NUMERIC = ("integer", "decimal")
+
+
+def target_scope_note(mode: Any) -> str:
+    """Return the note on how the target of a check is read, by its consistency mode."""
+    return SNAPSHOT_TARGET_SCOPE_NOTE if mode == "transaction_snapshot" else TARGET_SCOPE_NOTE
 
 
 def _ig_scale(node: Mapping[str, Any]) -> int | None:
@@ -6539,7 +6898,7 @@ def validation_detail(
             denominator_unit="rows",
         ),
     ]
-    limitations = [TARGET_SCOPE_NOTE]
+    limitations = [target_scope_note(to_info.get("consistency_mode"))]
     reason = None
     if complete == 0:
         status = "not_validated"
@@ -6560,7 +6919,7 @@ def validation_detail(
             "counts describe the sample only."
         )
     for side in (from_info, to_info):
-        if side.get("consistency_mode") != "pinned_delta_version":
+        if side.get("consistency_mode") not in PINNED_CONSISTENCY_MODES:
             limitations.append(
                 f"{side['table']} is not pinned to a Delta version; it was read in its current "
                 "state."
@@ -6586,10 +6945,22 @@ def referential_summary(
     *,
     planned: int,
     limited: list[dict[str, str]],
+    target_mode: str | None = None,
 ) -> dict[str, Any]:
-    """Run-level record of referential validation (contract 1.2)."""
+    """Run-level record of referential validation (contract 1.2).
+
+    The note on how targets are read follows the consistency modes of the
+    targets that were checked; when none was checked it follows ``target_mode``
+    (the mode an engine reads targets with), or today's Delta wording.
+    """
     settings = config["deep"]["referential"]
     statuses = [rel["validation"] for rel in relationships]
+    target_notes: list[str] = []
+    for rel in relationships:
+        target = (rel.get("validation_detail") or {}).get("to") or {}
+        note = target_scope_note(target.get("consistency_mode"))
+        if target and note not in target_notes:
+            target_notes.append(note)
     return {
         "requested": {"configured": settings["configured"], "declared": settings["declared"]},
         "mode": settings["mode"],
@@ -6603,7 +6974,7 @@ def referential_summary(
         "not_validated": statuses.count("not_validated"),
         "limited": limited,
         "notes": [
-            TARGET_SCOPE_NOTE,
+            *(target_notes or [target_scope_note(target_mode)]),
             "Orphan values are never collected; only counts are recorded.",
         ],
     }
@@ -6856,7 +7227,7 @@ def hypotheses_record(
 
 # DBTITLE 1,Runtime: tabledossier.contract
 # TableDossier 0.4.0 embedded runtime: module tabledossier.contract
-# Source: src/tabledossier/contract.py (sha256:3bfbddb4e8b773682a366f74d6dc1e74976e1ce3d3f6c723067593c4ae0c19aa)
+# Source: src/tabledossier/contract.py (sha256:556833501e9f11ea35b272652a72fcd6e77e31b3d1246e353526393dbe95a723)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -6876,9 +7247,11 @@ from typing import Any
 PROFILE_KIND = "tabledossier.profile"
 # The notebook writes the latest version; readers (CLI, renderer) accept every listed one.
 # 1.1 only adds to 1.0 (deep level, element fields, JSON paths, deep coverage); 1.2 only adds
-# to 1.1 (exact uniqueness, referential validation evidence, relationship hypotheses).
-PROFILE_SCHEMA_VERSION = "1.2"
-SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1", "1.2")
+# to 1.1 (exact uniqueness, referential validation evidence, relationship hypotheses); 1.3 only
+# adds to 1.2 (PostgreSQL engine and local CLI context, server version, transaction snapshot
+# consistency, connect error stage, system_catalog constraint source).
+PROFILE_SCHEMA_VERSION = "1.3"
+SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1", "1.2", "1.3")
 ANNOTATIONS_KIND = "tabledossier.annotations"
 SUPPORTED_ANNOTATION_VERSIONS = ("1.0",)
 COUNT_METRICS_WITH_ROW_DENOMINATOR = ("null_count", "non_null_count")
@@ -6943,6 +7316,7 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
     """Return violations of cross-field invariants of a schema-valid profile."""
     errors: list[str] = []
     run = profile["run"]
+    engine = (run.get("environment") or {}).get("engine")
     if run["finished_at"] < run["started_at"]:
         errors.append("$.run: finished_at is earlier than started_at")
     statuses = [table["status"] for table in profile["tables"]]
@@ -6977,6 +7351,15 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
         table_ids.add(table["table_id"])
         if table["status"] == "failed" and not table["errors"]:
             errors.append(f"{where}: a failed table must report at least one error")
+        consistency = table.get("consistency") or {}
+        errors.extend(
+            _ct_consistency_errors(
+                consistency.get("mode"),
+                consistency.get("delta_version"),
+                engine,
+                f"{where}.consistency",
+            )
+        )
         schema_ids: set[str] = set()
         for node in _ct_nodes((table.get("schema") or {}).get("fields", [])):
             if node["field_id"] in schema_ids:
@@ -7033,9 +7416,50 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
                     relationship, detail, f"$.relationships[{r_index}]", planned_by_table
                 )
             )
+            errors.extend(
+                _ct_side_errors(detail, engine, f"$.relationships[{r_index}].validation_detail")
+            )
     hypotheses = profile.get("relationship_hypotheses")
     if hypotheses:
         errors.extend(_ct_hypothesis_errors(hypotheses, known, planned_by_table))
+        for h_index, item in enumerate(hypotheses["hypotheses"]):
+            errors.extend(
+                _ct_side_errors(
+                    item["evidence"],
+                    engine,
+                    f"$.relationship_hypotheses.hypotheses[{h_index}].evidence",
+                )
+            )
+    return errors
+
+
+def _ct_consistency_errors(mode: Any, delta_version: Any, engine: Any, where: str) -> list[str]:
+    """Check the consistency labels of a table or of one side of a check (1.3).
+
+    A transaction snapshot is a database transaction (PostgreSQL), and a Delta
+    version is recorded only when the reads were pinned to it.
+    """
+    errors: list[str] = []
+    if mode == "transaction_snapshot" and engine != "postgresql":
+        errors.append(f"{where}: transaction_snapshot requires run.environment.engine postgresql")
+    if delta_version is not None and mode != "pinned_delta_version":
+        errors.append(f"{where}: delta_version is recorded only for pinned_delta_version")
+    return errors
+
+
+def _ct_side_errors(record: Mapping[str, Any], engine: Any, where: str) -> list[str]:
+    errors: list[str] = []
+    for end in ("from", "to"):
+        side = record.get(end) or {}
+        if side:
+            errors.extend(
+                _ct_consistency_errors(
+                    side.get("consistency_mode"),
+                    side.get("delta_version"),
+                    engine,
+                    f"{where}.{end}",
+                )
+            )
     return errors
 
 
@@ -7238,7 +7662,7 @@ def validate_annotations(document: Any, schema: Mapping[str, Any]) -> list[str]:
 
 # DBTITLE 1,Runtime: tabledossier.render
 # TableDossier 0.4.0 embedded runtime: module tabledossier.render
-# Source: src/tabledossier/render.py (sha256:31bfca26a5cd3e269508a68bf8bc50415b7f1fd17430c4d18dcc7d211e2c4661)
+# Source: src/tabledossier/render.py (sha256:15e25e943eef0938291f6fa1706a017a9b7f0f2a25f720a24729dbd26259967c)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -7465,6 +7889,8 @@ def _r_scope_text(table: Mapping[str, Any]) -> str:
     parts = [SCOPE_LABELS.get(scope["scope_label"], scope["scope_label"])]
     if consistency.get("mode") == "pinned_delta_version":
         parts.append(f"Delta version {consistency.get('delta_version')}")
+    elif consistency.get("mode") == "transaction_snapshot":
+        parts.append("transaction snapshot")
     if scope.get("filters"):
         parts.append(f"{len(scope['filters'])} filter(s)")
     if scope.get("selected_columns") is not None:
@@ -7505,6 +7931,7 @@ def render_overview(
             f"Databricks Runtime {env['databricks_runtime_version']}"
             if env.get("databricks_runtime_version")
             else None,
+            f"PostgreSQL {env['postgresql_version']}" if env.get("postgresql_version") else None,
             f"Python {env.get('python_version')}",
         )
         if part
@@ -7524,7 +7951,9 @@ def render_overview(
         ["Configuration fingerprint", md_code(run["config_fingerprint"])],
         [
             "Generated notebook",
-            md_code(run["generation"]["generation_id"])
+            "not applicable (local CLI run)"
+            if env.get("execution_context") == "local_cli"
+            else md_code(run["generation"]["generation_id"])
             if run["generation"].get("generation_id")
             else "not recorded",
         ],
@@ -7717,7 +8146,9 @@ def _r_distinct(profile_field: Mapping[str, Any] | None) -> str:
         return "—"
     if metric.get("status") != "measured":
         return format_value(metric)
-    return "≈ " + format_count(metric["value"])
+    # The name is kept for compatibility; the accuracy label says whether the count is exact.
+    prefix = "≈ " if metric.get("accuracy") == "approximate" else ""
+    return prefix + format_count(metric["value"])
 
 
 def _r_format(profile_field: Mapping[str, Any] | None) -> str:
@@ -8285,7 +8716,14 @@ def render_quality_report(
     deep_tables = [table for table in profile["tables"] if table.get("deep")]
     deep_level = profile["run"].get("analysis_level") == "deep"
     if deep_level:
-        out += _r_deep_coverage(deep_tables)
+        out += _r_deep_coverage(
+            deep_tables,
+            unsupported=any(
+                item.get("capability") == "deep_elements"
+                for table in profile["tables"]
+                for item in table.get("unsupported", [])
+            ),
+        )
         out += _r_uniqueness(profile)
         out += _r_referential(profile)
     out += ["## 9. Limitations" if deep_level else "## 6. Limitations", ""]
@@ -8371,9 +8809,17 @@ def _r_referential(profile: Mapping[str, Any]) -> list[str]:
             "(`deep.referential`). See `relationships.md` for the reason of each relationship.",
             "",
         ]
+    target_modes = {
+        (rel["validation_detail"].get("to") or {}).get("consistency_mode") for rel in checked
+    }
+    target_read = (
+        "in the run's transaction snapshot"
+        if target_modes == {"transaction_snapshot"}
+        else "at its recorded version"
+    )
     out += [
         "Orphans are source rows with a complete key that no target row has. The source keeps its "
-        "analysed scope; the target is read in full at its recorded version. Only counts are "
+        f"analysed scope; the target is read in full {target_read}. Only counts are "
         "recorded: orphan values are never collected.",
         "",
     ]
@@ -8443,13 +8889,58 @@ def _r_versions(detail: Mapping[str, Any]) -> str:
     for side in ("from", "to"):
         info = detail.get(side) or {}
         version = info.get("delta_version")
-        label = f"v{version}" if version is not None else str(info.get("consistency_mode"))
+        mode = info.get("consistency_mode")
+        label = (
+            f"v{version}"
+            if version is not None
+            else "snapshot"
+            if mode == "transaction_snapshot"
+            else str(mode)
+        )
         parts.append(f"{side} {label}")
     return md_text(", ".join(parts))
 
 
+def _r_exact_distinct_counts(profile: Mapping[str, Any]) -> bool:
+    """Whether every measured column distinct count of the profile is labelled exact."""
+    accuracies = {
+        metric.get("accuracy")
+        for table in profile["tables"]
+        for field in table.get("field_profiles", [])
+        for metric in field.get("metrics", [])
+        if metric.get("name") == "approx_distinct_count" and metric.get("status") == "measured"
+    }
+    return accuracies == {"exact"}
+
+
 def _r_uniqueness_dimension(profile: Mapping[str, Any]) -> str:
-    if any(measured_keys(table) for table in profile["tables"]):
+    keys = any(measured_keys(table) for table in profile["tables"])
+    if _r_exact_distinct_counts(profile):
+        if keys:
+            return (
+                "- **Uniqueness** is established exactly over the analysed scope for the keys of "
+                "section 7; for other single columns, exact distinct counts show whether a value "
+                "repeats in the analysed scope (unique there when the distinct count equals the "
+                "non-null count)."
+            )
+        return (
+            "- **Uniqueness** is only measured per column: exact distinct counts show whether a "
+            "value repeats in the analysed scope (unique there when the distinct count equals "
+            "the non-null count); no key uniqueness check ran."
+        )
+    if profile["run"].get("environment", {}).get("engine") != "spark" and not any(
+        metric.get("name") == "approx_distinct_count" and metric.get("status") == "measured"
+        for table in profile["tables"]
+        for field in table["field_profiles"]
+        for metric in field["metrics"]
+    ):
+        # No distinct count was measured, and only Spark computes them with HyperLogLog.
+        return (
+            "- **Uniqueness**: no column distinct count was measured"
+            + ("; the keys of section 7 are checked exactly." if keys else ".")
+            + (" No exact uniqueness check ran." if not keys else "")
+        )
+    if keys:
         return (
             "- **Uniqueness** is established only for the keys of section 7, exactly and over "
             "their analysed scope; other columns only have approximate (HyperLogLog-based) "
@@ -8566,19 +9057,28 @@ def _r_uniqueness(profile: Mapping[str, Any]) -> list[str]:
     return out
 
 
-def _r_deep_coverage(tables: list[Mapping[str, Any]]) -> list[str]:
-    """Render what the deep level covered and what its budgets limited."""
-    out = [
-        "## 6. Deep analysis: coverage and budget",
-        "",
+def _r_deep_coverage(tables: list[Mapping[str, Any]], *, unsupported: bool) -> list[str]:
+    """Render what the deep level covered and what its budgets limited.
+
+    ``unsupported`` says that tables record the deep elements capability as
+    unsupported by the engine (which then covered no table).
+    """
+    out = ["## 6. Deep analysis: coverage and budget", ""]
+    if not tables:
+        return [
+            *out,
+            "Deep level part I (element and JSON path profiling) is not supported by this engine."
+            if unsupported
+            else "No table reached the deep analysis (see errors).",
+            "",
+        ]
+    out += [
         "Element metrics are exact over the analysed scope (higher-order functions inside the "
         "shared passes). Element distinct counts come from one explode pass, usually over a "
         "bounded sample. JSON paths are catalogued from the transient sample and are not a "
         "complete schema.",
         "",
     ]
-    if not tables:
-        return [*out, "No table reached the deep analysis (see errors).", ""]
     rows = []
     for table in tables:
         deep = table["deep"]
@@ -8788,15 +9288,50 @@ def render_relationships(
         if constraint_rows
         else "No declared constraints were visible."
     )
-    out += [
-        "",
-        "Declared PRIMARY KEY/FOREIGN KEY constraints in Unity Catalog are informational: they "
-        "document "
-        "intent and are not enforced, so they do not prove integrity of the data.",
-        "",
-        *_r_hypotheses(profile),
-    ]
+    out.append("")
+    for note in _r_constraint_notes(profile):
+        out += [note, ""]
+    out += _r_hypotheses(profile)
     return "\n".join(out)
+
+
+def _r_constraint_notes(profile: Mapping[str, Any]) -> list[str]:
+    """Say what declared constraints prove, from their ``source`` and ``enforcement`` labels.
+
+    Without any constraint record, the Unity Catalog statement is kept only for a
+    Spark run (``run.environment.engine``), whose key constraints come from there.
+    """
+    constraints = [item for table in profile["tables"] for item in table.get("constraints", [])]
+    catalog = [item for item in constraints if item.get("source") == "system_catalog"]
+    spark = profile["run"].get("environment", {}).get("engine") == "spark"
+    notes = []
+    if len(catalog) < len(constraints) or (not constraints and spark):
+        notes.append(
+            "Declared PRIMARY KEY/FOREIGN KEY constraints in Unity Catalog are informational: "
+            "they document intent and are not enforced, so they do not prove integrity of the "
+            "data."
+        )
+    if any(item.get("enforcement") == "enforced" for item in catalog):
+        notes.append(
+            "Constraints read from the database catalog (`system_catalog`) and marked `enforced` "
+            "are enforced by PostgreSQL for writes; a constraint added NOT VALID was never "
+            "checked against the rows that existed before it (see the limitations of the quality "
+            "report), and enforcement can be bypassed (e.g. session_replication_role = replica), "
+            "so a declaration alone does not prove the integrity of the data."
+        )
+    if any(item.get("enforcement") == "not_enforced" for item in catalog):
+        notes.append(
+            "Constraints read from the database catalog (`system_catalog`) and marked "
+            "`not_enforced` are declared but not checked by the database, so they do not prove "
+            "the integrity of the data."
+        )
+    if any(item.get("enforcement") not in ("enforced", "not_enforced") for item in catalog):
+        notes.append(
+            "For constraints read from the database catalog with enforcement `unknown`, whether "
+            "the database checks them was not determined; they do not prove the integrity of "
+            "the data."
+        )
+    return notes
 
 
 def _r_hypotheses(profile: Mapping[str, Any]) -> list[str]:
@@ -9005,7 +9540,7 @@ def render_all(
 
 # DBTITLE 1,Runtime: tabledossier.package
 # TableDossier 0.4.0 embedded runtime: module tabledossier.package
-# Source: src/tabledossier/package.py (sha256:e48bdbffc517ac1f7b374a0764c04b7ff4cb784948a745b7c3b32732a05ffa03)
+# Source: src/tabledossier/package.py (sha256:ff294925e07fbaf62fd124fca8569c595d18391f7076b6bf339e4ef4592e0627)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -9018,8 +9553,10 @@ full package after a run; ``tabledossier render`` regenerates the documents
 from a transferred ``profile.json`` with exactly the same functions.
 """
 
+import datetime
 import hashlib
 import os
+import secrets
 from collections.abc import Mapping
 from typing import Any
 
@@ -9132,6 +9669,12 @@ def job_summary(
     }
 
 
+def new_run_id(moment: datetime.datetime) -> str:
+    """Return a unique run identifier such as ``20260921T183000Z-1a2b3c4d``."""
+    utc = moment.astimezone(datetime.timezone.utc)
+    return utc.strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(4)
+
+
 def running_manifest(run_id: str, started_at: str, generation_id: str | None) -> dict[str, Any]:
     """Return the manifest written before analysis starts (destination probe)."""
     return {
@@ -9184,7 +9727,7 @@ def write_files(
 
 # DBTITLE 1,Runtime: tabledossier.assemble
 # TableDossier 0.4.0 embedded runtime: module tabledossier.assemble
-# Source: src/tabledossier/assemble.py (sha256:b868890b99e2be458e6d45f6fd6f0cae5f8a63a76906122de9d794e5647baf96)
+# Source: src/tabledossier/assemble.py (sha256:25209bcbe622f9daaf5d742b075b86bc3a71dad58ab66b919971ac50cbdf6ace)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -9198,7 +9741,7 @@ metrics (units, accuracy, method, denominators), derives ratios, attaches
 findings, checks and proposals, and builds the final profile document.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 
@@ -9302,6 +9845,17 @@ def _as_value_type(metric: str, kind: str, raw: Any) -> str | None:
     return None
 
 
+def _as_labelled(details: dict[str, Any], labels: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Merge the engine's ``details`` labels last; a key mapped to ``None`` is removed."""
+    merged = dict(details)
+    for key, value in (labels.get("details") or {}).items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = value
+    return merged or None
+
+
 def _as_insufficient(metric: str, kind: str, scope: str) -> dict[str, Any]:
     if metric == "stddev":
         reason = "fewer than two (finite) non-null values in scope"
@@ -9320,13 +9874,23 @@ def aggregate_metric(
     scope: str,
     denominators: Mapping[str, int | None],
 ) -> dict[str, Any]:
-    """Convert one raw aggregate result into a contract metric."""
+    """Convert one raw aggregate result into a contract metric.
+
+    ``spec["labels"]`` (optional) states how the engine computed the metric when
+    it differs from :data:`METRIC_INFO`: ``accuracy``, ``method``, ``unit`` and
+    ``details`` (merged last; a key mapped to ``None`` is removed, e.g. an exact
+    distinct count drops ``relative_standard_deviation``).
+    """
     name = spec["metric"]
     unit, accuracy, method = METRIC_INFO[name]
     if kind == "binary" and name in ("min_length", "max_length"):
         unit = "bytes"
     if kind == "map" and unit == "elements":
         unit = "entries"
+    labels = spec.get("labels") or {}
+    accuracy = labels.get("accuracy", accuracy)
+    method = labels.get("method", method)
+    unit = labels.get("unit", unit)
     details: dict[str, Any] = {}
     if spec["op"] == "approx_distinct":
         details["relative_standard_deviation"] = spec["params"]["rsd"]
@@ -9367,7 +9931,7 @@ def aggregate_metric(
             accuracy=accuracy,
             source="aggregate",
             method=method,
-            details=details,
+            details=_as_labelled(details, labels),
         )
     denominator = None
     denominator_unit = None
@@ -9391,7 +9955,7 @@ def aggregate_metric(
         method=method,
         denominator=denominator,
         denominator_unit=denominator_unit if denominator is not None else None,
-        details=details or None,
+        details=_as_labelled(details, labels),
     )
 
 
@@ -9518,6 +10082,62 @@ def field_profile(
         "element_context": None,
         "json_paths": None,
     }
+
+
+def omission_reason(
+    fid: str,
+    top_name: str,
+    reasons: Mapping[str, str],
+    parents: Mapping[str, Mapping[str, Any]],
+    selected: set[str] | None,
+) -> str:
+    """Return why a field is not profiled: its own or its nearest ancestor's recorded reason.
+
+    Without one, a field under an unselected top-level column is ``not_selected``
+    and any other is ``inside_collection``.
+    """
+    current: str | None = fid
+    while current is not None:
+        if current in reasons:
+            return reasons[current]
+        parent = parents.get(current)
+        current = parent["field_id"] if parent else None
+    if selected is not None and top_name not in selected:
+        return "not_selected"
+    return "inside_collection"
+
+
+def table_field_profiles(
+    tree: Mapping[str, Any],
+    profiled_ids: Collection[str],
+    omissions: Sequence[Mapping[str, Any]],
+    selected: Sequence[str] | None,
+    element_contexts: Mapping[str, Mapping[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Return one field profile per schema node, in schema order, with omission reasons.
+
+    A field is profiled when it is in ``profiled_ids`` or has an element
+    context (deep level), whose copy is attached to its record.
+    """
+    contexts = element_contexts or {}
+    reasons = {item["field_id"]: item["reason"] for item in omissions if item["field_id"]}
+    parents: dict[str, Any] = {}
+    for node in iter_nodes(tree["fields"]):
+        for child in node["children"]:
+            parents[child["field_id"]] = node
+    wanted = set(selected) if selected is not None else None
+    out = []
+    for node in iter_nodes(tree["fields"]):
+        fid = node["field_id"]
+        reason: str | None = None
+        is_profiled = fid in profiled_ids or fid in contexts
+        if not is_profiled:
+            reason = omission_reason(fid, node["path"][0]["name"], reasons, parents, wanted)
+        record = field_profile(node, profiled=is_profiled, omission_reason=reason)
+        if fid in contexts:
+            record["element_context"] = dict(contexts[fid])
+        out.append(record)
+    return out
 
 
 # metric name -> (unit or None for the element unit, method); element metrics are exact.
@@ -9728,6 +10348,97 @@ def policy_field_ids(config: Mapping[str, Any], table_lookup: str, list_name: st
         if table_lookup_key(parse_table_identifier(item["table"])) == table_lookup:
             ids.add(field_id(parse_display_path(item["column"])))
     return ids
+
+
+def assemble_field_results(
+    table: dict[str, Any],
+    agg_plan: Mapping[str, Any],
+    results: Mapping[str, Any],
+    failed: Mapping[str, str],
+    *,
+    scope: str,
+    nodes_by_id: Mapping[str, Mapping[str, Any]],
+    semantic_by_id: Mapping[str, Mapping[str, Any]],
+    extra_static: Sequence[Mapping[str, Any]] = (),
+    skip_field_ids: Collection[str] = (),
+) -> tuple[
+    int | None,
+    dict[str | None, list[dict[str, Any]]],
+    dict[str, list[dict[str, Any]]],
+    dict[str, int | None],
+]:
+    """Turn raw aggregate results into the table row count and field metrics.
+
+    Appends the ``row_count`` table metric (``not_measured`` when its alias
+    failed or returned nothing), then sets the metrics of every profiled field
+    not in ``skip_field_ids`` and attaches its sample semantics. JSON path specs
+    are left out of the per-field specs. Returns ``(row_count, specs by field,
+    static metrics by field, null counts by field)`` for the fields the caller
+    assembles itself.
+    """
+    specs_by_field: dict[str | None, list[dict[str, Any]]] = {}
+    for spec in agg_plan["specs"]:
+        if spec.get("group") != "json_path":
+            specs_by_field.setdefault(spec["field_id"], []).append(spec)
+    static_by_field: dict[str, list[dict[str, Any]]] = {}
+    for item in [*agg_plan["static_metrics"], *extra_static]:
+        static_by_field.setdefault(item["field_id"], []).append(item)
+    row_spec = specs_by_field[None][0]
+    row_count: int | None
+    if row_spec["alias"] in failed or results.get(row_spec["alias"]) is None:
+        row_count = None
+        table["table_metrics"].append(
+            not_measured(
+                "row_count",
+                "error",
+                failed.get(row_spec["alias"], "row count not returned"),
+                scope=scope,
+                source="aggregate",
+            )
+        )
+    else:
+        row_count = int(results[row_spec["alias"]])
+        table["table_metrics"].append(
+            measured(
+                "row_count",
+                row_count,
+                unit="rows",
+                scope=scope,
+                accuracy="exact",
+                source="aggregate",
+                method="count(*) over the analysed scope",
+            )
+        )
+    null_counts: dict[str, int | None] = {}
+    for spec in agg_plan["specs"]:
+        if spec["metric"] == "null_count" and spec["alias"] not in failed:
+            value = results.get(spec["alias"])
+            null_counts[spec["field_id"]] = int(value) if value is not None else None
+    for field in table["field_profiles"]:
+        if not field["profiled"] or field["field_id"] in skip_field_ids:
+            continue
+        node = nodes_by_id[field["field_id"]]
+        parent_id = node.get("parent_field_id")
+        field["metrics"] = field_metrics(
+            node,
+            specs_by_field.get(field["field_id"], []),
+            results,
+            failed,
+            scope=scope,
+            row_count=row_count,
+            parent_null_count=null_counts.get(parent_id) if parent_id else None,
+            static=static_by_field.get(field["field_id"], []),
+        )
+        inferred = semantic_by_id.get(field["field_id"])
+        if inferred is not None:
+            field["semantics"] = {
+                "observed_format": inferred["observed_format"],
+                "candidate_roles": [],
+            }
+            field["json_profile"] = inferred["json_profile"]
+            field["concentration"] = inferred["concentration"]
+            field["examples"] = inferred["examples"]
+    return row_count, specs_by_field, static_by_field, null_counts
 
 
 def new_table(
@@ -10028,7 +10739,7 @@ def build_profile(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.spark
 # TableDossier 0.4.0 embedded runtime: module tabledossier.runtime.spark
-# Source: src/tabledossier/runtime/spark.py (sha256:9db4efb3a0aceb16df1bf8fbf8b629f1d3f4108bf293f8d7f981649cb65c6cd5)
+# Source: src/tabledossier/runtime/spark.py (sha256:a899fa26839e5aa94c667fd5710a175cf4c18fabb547d4e78b3ad97202b94f07)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -10080,25 +10791,6 @@ _SP_CAST_TYPES = {
     "date": "date",
     "timestamp": "timestamp",
 }
-
-
-# --------------------------------------------------------------------------- timing
-
-
-def _sp_ms(start: float) -> int:
-    return max(0, int((time.perf_counter() - start) * 1000))
-
-
-def _sp_observed(
-    op_id: str, status: str, start: float | None, rows: int | None = None, detail: str | None = None
-) -> dict[str, Any]:
-    return {
-        "operation_id": op_id,
-        "status": status,
-        "duration_ms": _sp_ms(start) if start is not None else None,
-        "rows_returned": rows,
-        "detail": detail,
-    }
 
 
 # --------------------------------------------------------------------------- environment
@@ -10937,8 +11629,9 @@ def collect_sample(
 
     Values are cut server-side to ``max_value_chars`` (truncated values are
     flagged and excluded from inference). Rows are retained until the payload
-    budget ``max_bytes`` would be exceeded; iteration then stops. The payload
-    budget accounts for retained values, not total process memory.
+    budget ``max_bytes`` would be exceeded; iteration then stops (see
+    :func:`collect_sample_rows`). The payload budget accounts for retained
+    values, not total process memory.
     """
     max_chars = plan["max_value_chars"]
     expressions = []
@@ -10956,39 +11649,8 @@ def collect_sample(
         rows_iter: Any = limited.toLocalIterator()
     except (AttributeError, NotImplementedError):
         rows_iter = iter(limited.collect())
-    fields: dict[str, dict[str, Any]] = {
-        node["field_id"]: {"values": [], "nulls": 0, "truncated": 0} for node in nodes
-    }
-    rows = 0
-    used = 0
-    stopped = "exhausted"
-    for row in rows_iter:
-        pending = []
-        row_bytes = 0
-        for index, node in enumerate(nodes):
-            value = row[f"s{index}"]
-            if value is None:
-                pending.append((node["field_id"], "null", None))
-            elif row[f"t{index}"]:
-                pending.append((node["field_id"], "truncated", None))
-            else:
-                row_bytes += len(value.encode("utf-8"))
-                pending.append((node["field_id"], "value", value))
-        if used + row_bytes > plan["max_bytes"]:
-            stopped = "byte_budget"
-            break
-        used += row_bytes
-        rows += 1
-        for fid, status, value in pending:
-            if status == "null":
-                fields[fid]["nulls"] += 1
-            elif status == "truncated":
-                fields[fid]["truncated"] += 1
-            else:
-                fields[fid]["values"].append(value)
-    if stopped == "exhausted" and rows >= plan["max_rows"]:
-        stopped = "row_limit"
-    return {"rows": rows, "bytes": used, "stopped_reason": stopped, "fields": fields}
+    # Rows are tuples ordered like ``expressions``: (s0, t0, s1, t1, ...).
+    return collect_sample_rows(rows_iter, [node["field_id"] for node in nodes], plan)
 
 
 # --------------------------------------------------------------------------- aggregates
@@ -11024,7 +11686,9 @@ def run_aggregates(
         op_id = f"op_aggregate_{index + 1}"
         active = [alias for alias in aliases if alias in compiled]
         if not active:
-            observed.append(_sp_observed(op_id, "skipped", None, detail="no valid expressions"))
+            observed.append(
+                observed_operation(op_id, "skipped", None, detail="no valid expressions")
+            )
             continue
         start = time.perf_counter()
         try:
@@ -11045,13 +11709,15 @@ def run_aggregates(
                 active = valid
                 if not active:
                     observed.append(
-                        _sp_observed(op_id, "skipped", start, detail="all expressions rejected")
+                        observed_operation(
+                            op_id, "skipped", start, detail="all expressions rejected"
+                        )
                     )
                     continue
                 aggregated = frame.agg(*[compiled[alias] for alias in active])
             row = aggregated.collect()[0]
             results.update(row.asDict())
-            observed.append(_sp_observed(op_id, "succeeded", start, rows=1))
+            observed.append(observed_operation(op_id, "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "aggregate")
             errors.append(record)
@@ -11061,7 +11727,7 @@ def run_aggregates(
                     "aggregation pass failed: " + (record["condition"] or record["error_class"]),
                 )
             observed.append(
-                _sp_observed(
+                observed_operation(
                     op_id, "failed", start, detail=record["condition"] or record["error_class"]
                 )
             )
@@ -11165,24 +11831,6 @@ def _sp_statistics_row_count(extended: Mapping[str, str]) -> dict[str, Any]:
     )
 
 
-def _sp_omission_reason(
-    fid: str,
-    top_name: str,
-    reasons: Mapping[str, str],
-    parents: Mapping[str, Mapping[str, Any]],
-    selected: set[str] | None,
-) -> str:
-    current: str | None = fid
-    while current is not None:
-        if current in reasons:
-            return reasons[current]
-        parent = parents.get(current)
-        current = parent["field_id"] if parent else None
-    if selected is not None and top_name not in selected:
-        return "not_selected"
-    return "inside_collection"
-
-
 def profile_table(
     spark: Any,
     input_text: str,
@@ -11223,10 +11871,10 @@ def profile_table(
     )
     try:
         extended = read_describe_extended(spark, quoted)
-        observed.append(_sp_observed("op_describe", "succeeded", metadata_start))
+        observed.append(observed_operation("op_describe", "succeeded", metadata_start))
     except Exception as exc:  # noqa: BLE001
         observed.append(
-            _sp_observed(
+            observed_operation(
                 "op_describe", "failed", metadata_start, detail="table could not be resolved"
             )
         )
@@ -11235,7 +11883,7 @@ def profile_table(
             f"[tabledossier] {key}: could not be resolved "
             f"({table['errors'][-1]['condition'] or table['errors'][-1]['error_class']})"
         )
-        timings["total"] = _sp_ms(total_start)
+        timings["total"] = elapsed_ms(total_start)
         finalize_table(table, config)
         return table
     is_view = "VIEW" in (extended.get("Type") or "").upper()
@@ -11252,7 +11900,7 @@ def profile_table(
         start = time.perf_counter()
         try:
             detail = read_describe_detail(spark, quoted)
-            observed.append(_sp_observed("op_detail", "succeeded", start, rows=1))
+            observed.append(observed_operation("op_detail", "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
             cause = record["condition"] or record["error_class"]
@@ -11261,7 +11909,7 @@ def profile_table(
                 # Expected: engines without Delta (or Delta itself) may reject DESCRIBE DETAIL
                 # for other formats. Size and file count are then simply unavailable.
                 observed.append(
-                    _sp_observed(
+                    observed_operation(
                         "op_detail",
                         "skipped",
                         start,
@@ -11274,7 +11922,7 @@ def profile_table(
                     f"{provider}); size and file count are unavailable."
                 )
             else:
-                observed.append(_sp_observed("op_detail", "failed", start, detail=cause))
+                observed.append(observed_operation("op_detail", "failed", start, detail=cause))
                 table["notes"].append(
                     "DESCRIBE DETAIL failed for this source (not permitted or not supported)."
                 )
@@ -11297,11 +11945,11 @@ def profile_table(
         start = time.perf_counter()
         try:
             version, version_timestamp = read_latest_version(spark, quoted)
-            observed.append(_sp_observed("op_history", "succeeded", start, rows=1))
+            observed.append(observed_operation("op_history", "succeeded", start, rows=1))
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "snapshot")
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_history",
                     "failed",
                     start,
@@ -11339,7 +11987,7 @@ def profile_table(
             declared, notes, skipped = read_unity_constraints(spark, parts)
             constraints.extend(declared)
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_constraints", "skipped" if skipped else "succeeded", start, detail=skipped
                 )
             )
@@ -11349,7 +11997,7 @@ def profile_table(
         except Exception as exc:  # noqa: BLE001
             record = error_record(exc, "metadata")
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_constraints",
                     "failed",
                     start,
@@ -11369,8 +12017,8 @@ def profile_table(
         schema = base.schema
     except Exception as exc:  # noqa: BLE001
         table["errors"].append(error_record(exc, "resolve"))
-        timings["metadata"] = _sp_ms(metadata_start)
-        timings["total"] = _sp_ms(total_start)
+        timings["metadata"] = elapsed_ms(metadata_start)
+        timings["total"] = elapsed_ms(total_start)
         finalize_table(table, config)
         return table
     limits = config["limits"]
@@ -11379,7 +12027,7 @@ def profile_table(
     )
     tree["captured_from"] = "pinned_snapshot" if version is not None else "current_table"
     table["schema"] = tree
-    timings["metadata"] = _sp_ms(metadata_start)
+    timings["metadata"] = elapsed_ms(metadata_start)
 
     pinned = version is not None
     if level == "metadata":
@@ -11464,33 +12112,20 @@ def profile_table(
     element_contexts: dict[str, dict[str, Any]] = deep_plan["contexts"] if deep_plan else {}
     table["omissions"].extend(omissions)
     profiled_ids = {node["field_id"] for node in profiled}
-    reasons = {item["field_id"]: item["reason"] for item in omissions if item["field_id"]}
-    parents: dict[str, Any] = {}
-    for node in iter_nodes(tree["fields"]):
-        for child in node["children"]:
-            parents[child["field_id"]] = node
     nodes_by_id = {node["field_id"]: node for node in iter_nodes(tree["fields"])}
-    wanted = set(selected) if selected is not None else None
-    for node in iter_nodes(tree["fields"]):
-        fid = node["field_id"]
-        reason: str | None = None
-        is_profiled = fid in profiled_ids or fid in element_contexts
-        if not is_profiled:
-            reason = _sp_omission_reason(fid, node["path"][0]["name"], reasons, parents, wanted)
-        record = field_profile(node, profiled=is_profiled, omission_reason=reason)
-        if fid in element_contexts:
-            record["element_context"] = dict(element_contexts[fid])
-        table["field_profiles"].append(record)
+    table["field_profiles"].extend(
+        table_field_profiles(tree, profiled_ids, omissions, selected, element_contexts)
+    )
     if level == "metadata":
         for field in table["field_profiles"]:
             field["profiled"] = False
             field["omission_reason"] = "metadata_level"
         table["table_metrics"].append(_sp_statistics_row_count(extended))
-        timings["total"] = _sp_ms(total_start)
+        timings["total"] = elapsed_ms(total_start)
         finalize_table(table, config)
         return table
     if any(error["stage"] == "resolve" for error in table["errors"]):
-        timings["total"] = _sp_ms(total_start)
+        timings["total"] = elapsed_ms(total_start)
         table["schema"] = tree
         finalize_table(table, config)
         return table
@@ -11505,30 +12140,7 @@ def profile_table(
     # 2. transient sample ---------------------------------------------------------
     sample_plan = plan_sample(profiled, config)
     sample_nodes = [nodes_by_id[fid] for fid in sample_plan["field_ids"]]
-    sample_record: dict[str, Any] = {
-        "enabled": sample_plan["enabled"],
-        "method": sample_plan["method"]
-        if sample_plan["enabled"]
-        else ("none" if config["sampling"]["method"] == "none" else config["sampling"]["method"]),
-        "biased": True
-        if sample_plan["method"] == "prefix"
-        else (False if sample_plan["method"] == "random" else None),
-        "reads_full_source": True if sample_plan["method"] == "random" else None,
-        "max_rows": sample_plan["max_rows"],
-        "max_bytes": sample_plan["max_bytes"],
-        "max_value_chars": sample_plan["max_value_chars"],
-        "random_fraction": sample_plan["random_fraction"],
-        "seed": sample_plan["seed"],
-        "rows_collected": None,
-        "bytes_retained": None,
-        "values_truncated": None,
-        "stopped_reason": "disabled"
-        if config["sampling"]["method"] == "none"
-        else "not_applicable",
-        "fields_sampled": len(sample_nodes),
-        "fields_omitted": len(sample_plan["omitted_field_ids"]),
-        "notes": [sample_plan["reason"]] if sample_plan["reason"] else [],
-    }
+    sample_record = new_sample_record(sample_plan, config)
     table["sample"] = sample_record
     json_ids: set[str] = set()
     semantic_by_id: dict[str, dict[str, Any]] = {}
@@ -11536,16 +12148,7 @@ def profile_table(
     redacted_ids = policy_field_ids(config, table_lookup_key(parts), "redact_columns")
     sample_start = time.perf_counter()
     if sample_plan["enabled"]:
-        sample_record["notes"] = [
-            "Values are inspected transiently for format and JSON inference; they are not "
-            "persisted.",
-            "prefix: the first rows produced by the engine; potentially biased, not random."
-            if sample_plan["method"] == "prefix"
-            else (
-                "random: Bernoulli sampling may evaluate every row in scope; the fraction "
-                "does not reduce I/O proportionally."
-            ),
-        ]
+        sample_record["notes"] = sample_notes(sample_plan["method"])
         planned.append(
             operation(
                 "op_sample",
@@ -11561,7 +12164,7 @@ def profile_table(
         try:
             sample = collect_sample(frame, sample_nodes, sample_plan)
             observed.append(
-                _sp_observed("op_sample", "succeeded", sample_start, rows=sample["rows"])
+                observed_operation("op_sample", "succeeded", sample_start, rows=sample["rows"])
             )
             sample_record.update(
                 {
@@ -11578,46 +12181,16 @@ def profile_table(
                 if config["value_policy"]["persist_examples"]
                 else set()
             )
-            json_keys = config["value_policy"]["json_key_names"] == "include"
-            for node in sample_nodes:
-                data = sample["fields"][node["field_id"]]
-                fmt = infer_format(
-                    data["values"],
-                    sql_nulls=data["nulls"],
-                    truncated=data["truncated"],
-                    sample_method=sample_plan["method"],
-                    semantic_config=config["semantic"],
-                )
-                entry: dict[str, Any] = {
-                    "observed_format": fmt,
-                    "json_profile": None,
-                    "concentration": None,
-                    "examples": None,
-                }
-                if is_json_like(data["values"]) or fmt.get("format") in (
-                    "json_object",
-                    "json_array",
-                ):
-                    shape = json_shape(
-                        data["values"],
-                        sql_nulls=data["nulls"],
-                        truncated=data["truncated"],
-                        include_key_names=json_keys and node["field_id"] not in redacted_ids,
-                        sample_method=sample_plan["method"],
-                    )
-                    entry["json_profile"] = shape
-                    eligible = shape["eligible_observations"]
-                    structured = shape["counts"]["object"] + shape["counts"]["array"]
-                    if eligible and structured / eligible >= config["thresholds"]["json_min_ratio"]:
-                        json_ids.add(node["field_id"])
-                entry["concentration"] = value_concentration(data["values"])
-                if node["field_id"] in example_ids and node["field_id"] not in redacted_ids:
-                    entry["examples"] = value_examples(
-                        data["values"],
-                        max_examples=config["value_policy"]["max_examples_per_column"],
-                        max_chars=config["value_policy"]["max_example_chars"],
-                    )
-                semantic_by_id[node["field_id"]] = entry
+            sample_semantics(
+                sample,
+                sample_nodes,
+                sample_plan["method"],
+                config,
+                redacted_ids=redacted_ids,
+                example_ids=example_ids,
+                semantic_by_id=semantic_by_id,
+                json_ids=json_ids,
+            )
             if deep_plan is not None:
                 json_catalogs = _sp_json_catalogs(
                     deep_plan, sample, json_ids, config, redacted_ids, sample_plan["method"]
@@ -11628,14 +12201,14 @@ def profile_table(
             table["errors"].append(record)
             sample_record["stopped_reason"] = "error"
             observed.append(
-                _sp_observed(
+                observed_operation(
                     "op_sample",
                     "failed",
                     sample_start,
                     detail=record["condition"] or record["error_class"],
                 )
             )
-    timings["sample"] = _sp_ms(sample_start)
+    timings["sample"] = elapsed_ms(sample_start)
 
     # 3. shared aggregation passes (+ deep expressions) --------------------------
     redacted = set(redacted_ids)
@@ -11662,30 +12235,16 @@ def profile_table(
     )
     for omission in agg_plan["omissions"]:
         table["omissions"].append(omission)
-    for index, aliases in enumerate(agg_plan["passes"]):
-        specs = [spec for spec in agg_plan["specs"] if spec["alias"] in set(aliases)]
-        extra_pass = index >= agg_plan["standard_passes"]
-        details: dict[str, Any] = {
-            "expressions": sum(spec["cost"] for spec in specs),
-            "fields": len({spec["field_id"] for spec in specs if spec["field_id"]}),
-        }
-        if deep_plan is not None:
-            details["deep_expressions"] = sum(spec["cost"] for spec in specs if spec.get("group"))
-        planned.append(
-            operation(
-                f"op_aggregate_{index + 1}",
-                "deep_aggregate_pass" if extra_pass else "aggregate_pass",
-                (
-                    "extra aggregation for deep expressions that did not fit the standard passes "
-                    "(counts against deep.max_extra_passes; single agg call)"
-                    if extra_pass
-                    else "one shared aggregation over the analysed scope (single agg call; not a "
-                    "guarantee of a single physical scan)"
-                ),
-                reads_user_data=True,
-                **details,
-            )
+    planned.extend(
+        aggregate_operations(
+            agg_plan,
+            deep=deep_plan is not None,
+            standard_description="one shared aggregation over the analysed scope (single agg "
+            "call; not a guarantee of a single physical scan)",
+            extra_description="extra aggregation for deep expressions that did not fit the "
+            "standard passes (counts against deep.max_extra_passes; single agg call)",
         )
+    )
     distinct_plan = None
     if deep_plan is not None:
         distinct_plan = plan_element_distinct(deep_plan["element_nodes"], element_contexts, config)
@@ -11729,45 +12288,19 @@ def profile_table(
     aggregate_start = time.perf_counter()
     results, failed, agg_errors = run_aggregates(frame, agg_plan, nodes_by_id, ctx, observed)
     table["errors"].extend(agg_errors)
-    timings["aggregate"] = _sp_ms(aggregate_start)
+    timings["aggregate"] = elapsed_ms(aggregate_start)
 
-    specs_by_field: dict[str | None, list[dict[str, Any]]] = {}
-    for spec in agg_plan["specs"]:
-        if spec.get("group") != "json_path":
-            specs_by_field.setdefault(spec["field_id"], []).append(spec)
-    static_by_field: dict[str, list[dict[str, Any]]] = {}
-    for item in [*agg_plan["static_metrics"], *deep_static]:
-        static_by_field.setdefault(item["field_id"], []).append(item)
-    row_spec = specs_by_field[None][0]
-    if row_spec["alias"] in failed or results.get(row_spec["alias"]) is None:
-        row_count = None
-        table["table_metrics"].append(
-            not_measured(
-                "row_count",
-                "error",
-                failed.get(row_spec["alias"], "row count not returned"),
-                scope=scope,
-                source="aggregate",
-            )
-        )
-    else:
-        row_count = int(results[row_spec["alias"]])
-        table["table_metrics"].append(
-            measured(
-                "row_count",
-                row_count,
-                unit="rows",
-                scope=scope,
-                accuracy="exact",
-                source="aggregate",
-                method="count(*) over the analysed scope",
-            )
-        )
-    null_counts: dict[str, int | None] = {}
-    for spec in agg_plan["specs"]:
-        if spec["metric"] == "null_count" and spec["alias"] not in failed:
-            value = results.get(spec["alias"])
-            null_counts[spec["field_id"]] = int(value) if value is not None else None
+    _, specs_by_field, static_by_field, null_counts = assemble_field_results(
+        table,
+        agg_plan,
+        results,
+        failed,
+        scope=scope,
+        nodes_by_id=nodes_by_id,
+        semantic_by_id=semantic_by_id,
+        extra_static=deep_static,
+        skip_field_ids=set(element_contexts),
+    )
     distinct_metrics: dict[str, list[dict[str, Any]]] = {}
     if distinct_plan is not None:
         distinct_metrics = _sp_run_element_distinct(
@@ -11780,49 +12313,28 @@ def profile_table(
             timings=timings,
         )
     for field in table["field_profiles"]:
-        if not field["profiled"]:
+        context = element_contexts.get(field["field_id"])
+        if not field["profiled"] or context is None:
             continue
         node = nodes_by_id[field["field_id"]]
         parent_id = node.get("parent_field_id")
-        context = element_contexts.get(field["field_id"])
-        if context is not None:
-            totals = _sp_collection_totals(
-                {field["field_id"]: context}, specs_by_field, results, failed
-            )
-            field["metrics"] = element_field_metrics(
-                node,
-                context,
-                specs_by_field.get(field["field_id"], []),
-                results,
-                failed,
-                scope=scope,
-                element_total=totals.get(context["collection_field_id"]),
-                parent_null_count=null_counts.get(parent_id)
-                if parent_id and parent_id in element_contexts
-                else None,
-                static=static_by_field.get(field["field_id"], []),
-                extra=distinct_metrics.get(field["field_id"], []),
-            )
-            continue
-        field["metrics"] = field_metrics(
+        totals = _sp_collection_totals(
+            {field["field_id"]: context}, specs_by_field, results, failed
+        )
+        field["metrics"] = element_field_metrics(
             node,
+            context,
             specs_by_field.get(field["field_id"], []),
             results,
             failed,
             scope=scope,
-            row_count=row_count,
-            parent_null_count=null_counts.get(parent_id) if parent_id else None,
+            element_total=totals.get(context["collection_field_id"]),
+            parent_null_count=null_counts.get(parent_id)
+            if parent_id and parent_id in element_contexts
+            else None,
             static=static_by_field.get(field["field_id"], []),
+            extra=distinct_metrics.get(field["field_id"], []),
         )
-        inferred = semantic_by_id.get(field["field_id"])
-        if inferred is not None:
-            field["semantics"] = {
-                "observed_format": inferred["observed_format"],
-                "candidate_roles": [],
-            }
-            field["json_profile"] = inferred["json_profile"]
-            field["concentration"] = inferred["concentration"]
-            field["examples"] = inferred["examples"]
     if not capabilities.get("try_parse_json", {}).get("available") and json_ids:
         table["unsupported"].append(
             {
@@ -11853,7 +12365,7 @@ def profile_table(
             table["errors"].append(error_record(exc, "assemble"))
             table["uniqueness"] = None
             log(f"[tabledossier] {key}: uniqueness failed unexpectedly ({type(exc).__name__})")
-    timings["total"] = _sp_ms(total_start)
+    timings["total"] = elapsed_ms(total_start)
     finalize_table(table, config)
     extra = (
         f" (+{(table['deep'] or {}).get('extra_passes', {}).get('planned', 0)} deep extra pass(es))"
@@ -11935,13 +12447,13 @@ def _sp_uniqueness(
             cause = record["condition"] or record["error_class"]
             for member in members:
                 errors[member] = "uniqueness pass failed: " + cause
-            observed.append(_sp_observed(op_id, "failed", pass_start, detail=cause))
+            observed.append(observed_operation(op_id, "failed", pass_start, detail=cause))
             continue
         for index, member in enumerate(members):
             results[member] = raw.get(index, {})
-        observed.append(_sp_observed(op_id, "succeeded", pass_start, rows=len(raw)))
+        observed.append(observed_operation(op_id, "succeeded", pass_start, rows=len(raw)))
     if plan["passes"]:
-        table["timings_ms"]["uniqueness"] = _sp_ms(start)
+        table["timings_ms"]["uniqueness"] = elapsed_ms(start)
         log(
             f"[tabledossier] {table['table_key']}: {sum(len(m) for m in plan['passes'])} key(s) "
             f"checked for exact uniqueness in {len(plan['passes'])} pass(es)"
@@ -12072,7 +12584,7 @@ def _sp_run_element_distinct(
             )
             plan["skip_reason"] = reason
             plan["budget_limited"] = True
-            observed.append(_sp_observed("op_deep_elements", "skipped", start, detail=reason))
+            observed.append(observed_operation("op_deep_elements", "skipped", start, detail=reason))
             unmeasured("not_computed", reason)
             return {fid: [item["metric"] for item in items] for fid, items in out.items()}
     try:
@@ -12082,12 +12594,12 @@ def _sp_run_element_distinct(
         table["errors"].append(record)
         cause = record["condition"] or record["error_class"]
         plan["error"] = cause
-        observed.append(_sp_observed("op_deep_elements", "failed", start, detail=cause))
+        observed.append(observed_operation("op_deep_elements", "failed", start, detail=cause))
         unmeasured("error", "element distinct pass failed: " + cause)
-        timings["deep_elements"] = _sp_ms(start)
+        timings["deep_elements"] = elapsed_ms(start)
         return {fid: [item["metric"] for item in items] for fid, items in out.items()}
-    observed.append(_sp_observed("op_deep_elements", "succeeded", start, rows=1))
-    timings["deep_elements"] = _sp_ms(start)
+    observed.append(observed_operation("op_deep_elements", "succeeded", start, rows=1))
+    timings["deep_elements"] = elapsed_ms(start)
     plan["result"] = raw
     stopped = raw["n"] >= plan["max_elements"]
     method = (
@@ -12525,7 +13037,7 @@ def validate_relationships(
             record = error_record(exc, "aggregate")
             cause = record["condition"] or record["error_class"]
             source["operations"]["observed"].append(
-                _sp_observed(op_id, "failed", start, detail=cause)
+                observed_operation(op_id, "failed", start, detail=cause)
             )
             relationship["validation_detail"] = not_validated_detail(
                 f"the check could not read the data ({cause})",
@@ -12534,7 +13046,9 @@ def validate_relationships(
                 type_compatibility=compatibility,
             )
             continue
-        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        source["operations"]["observed"].append(
+            observed_operation(op_id, "succeeded", start, rows=1)
+        )
         detail = validation_detail(
             raw,
             mode=settings["mode"],
@@ -12660,11 +13174,13 @@ def evaluate_hypotheses(
             record = error_record(exc, "aggregate")
             cause = record["condition"] or record["error_class"]
             source["operations"]["observed"].append(
-                _sp_observed(op_id, "failed", start, detail=cause)
+                observed_operation(op_id, "failed", start, detail=cause)
             )
             rejected["check_failed"] += 1
             continue
-        source["operations"]["observed"].append(_sp_observed(op_id, "succeeded", start, rows=1))
+        source["operations"]["observed"].append(
+            observed_operation(op_id, "succeeded", start, rows=1)
+        )
         evaluated += 1
         scope = "sample" if sample else source["scope"]["scope_label"]
         metrics, inclusion = hypothesis_evidence(
@@ -12714,7 +13230,7 @@ def evaluate_hypotheses(
 
 # DBTITLE 1,Runtime: tabledossier.runtime.databricks
 # TableDossier 0.4.0 embedded runtime: module tabledossier.runtime.databricks
-# Source: src/tabledossier/runtime/databricks.py (sha256:182fdb119cd4985a036a9dddb7e162fe4e3e12a7500c92360a9d7202f9f811d8)
+# Source: src/tabledossier/runtime/databricks.py (sha256:abbefaea23e76945377884a29517c39e5296b43dc470b84f6df21d27196a2aef)
 # Copyright 2026 ruanpato and TableDossier contributors.
 # Licensed under the Apache License, Version 2.0; see https://www.apache.org/licenses/LICENSE-2.0
 # Intra-package imports were removed at generation time; the names they
@@ -12731,9 +13247,7 @@ per run under the configured ``output_dir``; existing files are never
 overwritten.
 """
 
-import datetime
 import os
-import secrets
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -12742,12 +13256,6 @@ from typing import Any
 
 class DestinationError(RuntimeError):
     """Raised when the output directory cannot be used."""
-
-
-def new_run_id(moment: datetime.datetime) -> str:
-    """Return a unique run identifier such as ``20260921T183000Z-1a2b3c4d``."""
-    utc = moment.astimezone(datetime.timezone.utc)
-    return utc.strftime("%Y%m%dT%H%M%SZ") + "-" + secrets.token_hex(4)
 
 
 def prepare_run(

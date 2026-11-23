@@ -8,8 +8,9 @@ how the counts become contract records.
 * **Referential validation** checks known relationships (declared FOREIGN
   KEYs, relationships in the configuration): source rows with a complete key
   whose key is absent from the target are *orphans*. Both tables are read at
-  the Delta versions recorded when they were profiled. A full-scope check can
-  validate or violate a relationship; a sample can only violate it.
+  the Delta versions recorded when they were profiled (or in the transaction
+  snapshot of the run). A full-scope check can validate or violate a
+  relationship; a sample can only violate it.
 * **Relationship hypotheses** are data-driven and kept apart from known
   relationships. Only single-column keys measured exactly unique are targets;
   source columns are chosen by type compatibility and by the value (or length)
@@ -27,11 +28,22 @@ from tabledossier.metrics import measured, metric_value, numeric_value, ratio
 from tabledossier.paths import parse_display_path, table_lookup_key
 
 HYPOTHESIS_KINDS = ("integer", "decimal", "string", "date")
+# Consistency modes in which every read of a table sees one fixed state of it.
+PINNED_CONSISTENCY_MODES = ("pinned_delta_version", "transaction_snapshot")
 TARGET_SCOPE_NOTE = (
     "The target is read in full at its recorded version (the target table's filters are not "
     "applied): a reference is valid when its key exists anywhere in the target table."
 )
+SNAPSHOT_TARGET_SCOPE_NOTE = (
+    "The target is read in full in the run's transaction snapshot (the target table's filters "
+    "are not applied): a reference is valid when its key exists anywhere in the target table."
+)
 _IG_EXACT_NUMERIC = ("integer", "decimal")
+
+
+def target_scope_note(mode: Any) -> str:
+    """Return the note on how the target of a check is read, by its consistency mode."""
+    return SNAPSHOT_TARGET_SCOPE_NOTE if mode == "transaction_snapshot" else TARGET_SCOPE_NOTE
 
 
 def _ig_scale(node: Mapping[str, Any]) -> int | None:
@@ -244,7 +256,7 @@ def validation_detail(
             denominator_unit="rows",
         ),
     ]
-    limitations = [TARGET_SCOPE_NOTE]
+    limitations = [target_scope_note(to_info.get("consistency_mode"))]
     reason = None
     if complete == 0:
         status = "not_validated"
@@ -265,7 +277,7 @@ def validation_detail(
             "counts describe the sample only."
         )
     for side in (from_info, to_info):
-        if side.get("consistency_mode") != "pinned_delta_version":
+        if side.get("consistency_mode") not in PINNED_CONSISTENCY_MODES:
             limitations.append(
                 f"{side['table']} is not pinned to a Delta version; it was read in its current "
                 "state."
@@ -291,10 +303,22 @@ def referential_summary(
     *,
     planned: int,
     limited: list[dict[str, str]],
+    target_mode: str | None = None,
 ) -> dict[str, Any]:
-    """Run-level record of referential validation (contract 1.2)."""
+    """Run-level record of referential validation (contract 1.2).
+
+    The note on how targets are read follows the consistency modes of the
+    targets that were checked; when none was checked it follows ``target_mode``
+    (the mode an engine reads targets with), or today's Delta wording.
+    """
     settings = config["deep"]["referential"]
     statuses = [rel["validation"] for rel in relationships]
+    target_notes: list[str] = []
+    for rel in relationships:
+        target = (rel.get("validation_detail") or {}).get("to") or {}
+        note = target_scope_note(target.get("consistency_mode"))
+        if target and note not in target_notes:
+            target_notes.append(note)
     return {
         "requested": {"configured": settings["configured"], "declared": settings["declared"]},
         "mode": settings["mode"],
@@ -308,7 +332,7 @@ def referential_summary(
         "not_validated": statuses.count("not_validated"),
         "limited": limited,
         "notes": [
-            TARGET_SCOPE_NOTE,
+            *(target_notes or [target_scope_note(target_mode)]),
             "Orphan values are never collected; only counts are recorded.",
         ],
     }

@@ -51,7 +51,7 @@ catalog or path names of a private environment.
      `measured` (40) when available, otherwise `unsupported`;
    - no `SECRET`/sample values appear anywhere; errors are sanitized.
 9. **Deep level** (0.2.0): set `analysis_level` to `deep` (keep `config_json` = `{}`), run again. *Expected*:
-   - `run.analysis_level` is `deep`, `schema_version` is `1.2`, and `tabledossier validate` passes locally;
+   - `run.analysis_level` is `deep`, `schema_version` is `1.3`, and `tabledossier validate` passes locally;
    - `run.environment.spark_connect` is `true` on shared access mode and serverless, `false` on single-user compute;
    - `orders` has profiled element fields (`items[]`, `items[].sku`, `items[].qty`, `items[].price`,
      `attributes{key}`, `attributes{value}`, `tags[]`) whose denominators are `elements` or `entries`; for

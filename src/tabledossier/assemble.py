@@ -6,7 +6,7 @@ metrics (units, accuracy, method, denominators), derives ratios, attaches
 findings, checks and proposals, and builds the final profile document.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 from tabledossier._version import __version__
@@ -136,6 +136,17 @@ def _as_value_type(metric: str, kind: str, raw: Any) -> str | None:
     return None
 
 
+def _as_labelled(details: dict[str, Any], labels: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Merge the engine's ``details`` labels last; a key mapped to ``None`` is removed."""
+    merged = dict(details)
+    for key, value in (labels.get("details") or {}).items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = value
+    return merged or None
+
+
 def _as_insufficient(metric: str, kind: str, scope: str) -> dict[str, Any]:
     if metric == "stddev":
         reason = "fewer than two (finite) non-null values in scope"
@@ -154,13 +165,23 @@ def aggregate_metric(
     scope: str,
     denominators: Mapping[str, int | None],
 ) -> dict[str, Any]:
-    """Convert one raw aggregate result into a contract metric."""
+    """Convert one raw aggregate result into a contract metric.
+
+    ``spec["labels"]`` (optional) states how the engine computed the metric when
+    it differs from :data:`METRIC_INFO`: ``accuracy``, ``method``, ``unit`` and
+    ``details`` (merged last; a key mapped to ``None`` is removed, e.g. an exact
+    distinct count drops ``relative_standard_deviation``).
+    """
     name = spec["metric"]
     unit, accuracy, method = METRIC_INFO[name]
     if kind == "binary" and name in ("min_length", "max_length"):
         unit = "bytes"
     if kind == "map" and unit == "elements":
         unit = "entries"
+    labels = spec.get("labels") or {}
+    accuracy = labels.get("accuracy", accuracy)
+    method = labels.get("method", method)
+    unit = labels.get("unit", unit)
     details: dict[str, Any] = {}
     if spec["op"] == "approx_distinct":
         details["relative_standard_deviation"] = spec["params"]["rsd"]
@@ -201,7 +222,7 @@ def aggregate_metric(
             accuracy=accuracy,
             source="aggregate",
             method=method,
-            details=details,
+            details=_as_labelled(details, labels),
         )
     denominator = None
     denominator_unit = None
@@ -225,7 +246,7 @@ def aggregate_metric(
         method=method,
         denominator=denominator,
         denominator_unit=denominator_unit if denominator is not None else None,
-        details=details or None,
+        details=_as_labelled(details, labels),
     )
 
 
@@ -352,6 +373,62 @@ def field_profile(
         "element_context": None,
         "json_paths": None,
     }
+
+
+def omission_reason(
+    fid: str,
+    top_name: str,
+    reasons: Mapping[str, str],
+    parents: Mapping[str, Mapping[str, Any]],
+    selected: set[str] | None,
+) -> str:
+    """Return why a field is not profiled: its own or its nearest ancestor's recorded reason.
+
+    Without one, a field under an unselected top-level column is ``not_selected``
+    and any other is ``inside_collection``.
+    """
+    current: str | None = fid
+    while current is not None:
+        if current in reasons:
+            return reasons[current]
+        parent = parents.get(current)
+        current = parent["field_id"] if parent else None
+    if selected is not None and top_name not in selected:
+        return "not_selected"
+    return "inside_collection"
+
+
+def table_field_profiles(
+    tree: Mapping[str, Any],
+    profiled_ids: Collection[str],
+    omissions: Sequence[Mapping[str, Any]],
+    selected: Sequence[str] | None,
+    element_contexts: Mapping[str, Mapping[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Return one field profile per schema node, in schema order, with omission reasons.
+
+    A field is profiled when it is in ``profiled_ids`` or has an element
+    context (deep level), whose copy is attached to its record.
+    """
+    contexts = element_contexts or {}
+    reasons = {item["field_id"]: item["reason"] for item in omissions if item["field_id"]}
+    parents: dict[str, Any] = {}
+    for node in iter_nodes(tree["fields"]):
+        for child in node["children"]:
+            parents[child["field_id"]] = node
+    wanted = set(selected) if selected is not None else None
+    out = []
+    for node in iter_nodes(tree["fields"]):
+        fid = node["field_id"]
+        reason: str | None = None
+        is_profiled = fid in profiled_ids or fid in contexts
+        if not is_profiled:
+            reason = omission_reason(fid, node["path"][0]["name"], reasons, parents, wanted)
+        record = field_profile(node, profiled=is_profiled, omission_reason=reason)
+        if fid in contexts:
+            record["element_context"] = dict(contexts[fid])
+        out.append(record)
+    return out
 
 
 # metric name -> (unit or None for the element unit, method); element metrics are exact.
@@ -562,6 +639,97 @@ def policy_field_ids(config: Mapping[str, Any], table_lookup: str, list_name: st
         if table_lookup_key(parse_table_identifier(item["table"])) == table_lookup:
             ids.add(field_id(parse_display_path(item["column"])))
     return ids
+
+
+def assemble_field_results(
+    table: dict[str, Any],
+    agg_plan: Mapping[str, Any],
+    results: Mapping[str, Any],
+    failed: Mapping[str, str],
+    *,
+    scope: str,
+    nodes_by_id: Mapping[str, Mapping[str, Any]],
+    semantic_by_id: Mapping[str, Mapping[str, Any]],
+    extra_static: Sequence[Mapping[str, Any]] = (),
+    skip_field_ids: Collection[str] = (),
+) -> tuple[
+    int | None,
+    dict[str | None, list[dict[str, Any]]],
+    dict[str, list[dict[str, Any]]],
+    dict[str, int | None],
+]:
+    """Turn raw aggregate results into the table row count and field metrics.
+
+    Appends the ``row_count`` table metric (``not_measured`` when its alias
+    failed or returned nothing), then sets the metrics of every profiled field
+    not in ``skip_field_ids`` and attaches its sample semantics. JSON path specs
+    are left out of the per-field specs. Returns ``(row_count, specs by field,
+    static metrics by field, null counts by field)`` for the fields the caller
+    assembles itself.
+    """
+    specs_by_field: dict[str | None, list[dict[str, Any]]] = {}
+    for spec in agg_plan["specs"]:
+        if spec.get("group") != "json_path":
+            specs_by_field.setdefault(spec["field_id"], []).append(spec)
+    static_by_field: dict[str, list[dict[str, Any]]] = {}
+    for item in [*agg_plan["static_metrics"], *extra_static]:
+        static_by_field.setdefault(item["field_id"], []).append(item)
+    row_spec = specs_by_field[None][0]
+    row_count: int | None
+    if row_spec["alias"] in failed or results.get(row_spec["alias"]) is None:
+        row_count = None
+        table["table_metrics"].append(
+            not_measured(
+                "row_count",
+                "error",
+                failed.get(row_spec["alias"], "row count not returned"),
+                scope=scope,
+                source="aggregate",
+            )
+        )
+    else:
+        row_count = int(results[row_spec["alias"]])
+        table["table_metrics"].append(
+            measured(
+                "row_count",
+                row_count,
+                unit="rows",
+                scope=scope,
+                accuracy="exact",
+                source="aggregate",
+                method="count(*) over the analysed scope",
+            )
+        )
+    null_counts: dict[str, int | None] = {}
+    for spec in agg_plan["specs"]:
+        if spec["metric"] == "null_count" and spec["alias"] not in failed:
+            value = results.get(spec["alias"])
+            null_counts[spec["field_id"]] = int(value) if value is not None else None
+    for field in table["field_profiles"]:
+        if not field["profiled"] or field["field_id"] in skip_field_ids:
+            continue
+        node = nodes_by_id[field["field_id"]]
+        parent_id = node.get("parent_field_id")
+        field["metrics"] = field_metrics(
+            node,
+            specs_by_field.get(field["field_id"], []),
+            results,
+            failed,
+            scope=scope,
+            row_count=row_count,
+            parent_null_count=null_counts.get(parent_id) if parent_id else None,
+            static=static_by_field.get(field["field_id"], []),
+        )
+        inferred = semantic_by_id.get(field["field_id"])
+        if inferred is not None:
+            field["semantics"] = {
+                "observed_format": inferred["observed_format"],
+                "candidate_roles": [],
+            }
+            field["json_profile"] = inferred["json_profile"]
+            field["concentration"] = inferred["concentration"]
+            field["examples"] = inferred["examples"]
+    return row_count, specs_by_field, static_by_field, null_counts
 
 
 def new_table(

@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Profile contract 1.3 (additive): `postgresql` as `environment.engine`, `local_cli` as `execution_context`,
+  `environment.postgresql_version`, the consistency mode `transaction_snapshot` (tables and validation sides), the
+  error stage `connect` and the constraint source `system_catalog`. The notebook writes 1.3; the CLI reads 1.0, 1.1,
+  1.2 (frozen schema, `tabledossier schema profile-1.2`) and 1.3. Invariants tie `transaction_snapshot` to the
+  `postgresql` engine and allow a `delta_version` only for `pinned_delta_version`. Spark profiles are unchanged apart
+  from `schema_version`; Spark documents change only as listed under Changed.
 - `AGENTS.md`: rules for coding agents and new contributors (principles, what to check before changing anything, the
   minimum evidence per type of change, git and review conventions), with `CLAUDE.md` importing it.
 - `docs/status.md`: the state of the repository, the releases and the pending evidence, reviewed on 2026-09-26.
@@ -18,6 +24,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
   of each document; `docs/compatibility.md` is dated for the review (no new measurement).
 - `docs/compatibility.md` records the first real run of the release workflow (tag `v0.4.0`), which created the draft
   release with its three files.
+- Shared wording follows the labels of the record it describes instead of assuming Spark, so the text stays true for
+  other engines while Spark texts are unchanged: findings, candidate roles, proposed rules, `≈` in the data
+  dictionary and the uniqueness dimension of the quality report follow the `accuracy` of the distinct count or
+  quantiles; declared-constraint and relationship notes follow `source` and `enforcement`; referential notes, scope
+  and versions follow the consistency mode; the overview shows the PostgreSQL version and local CLI runs. A
+  deep-level report in which no table reached the deep analysis no longer describes the deep passes, and says when
+  the engine does not support deep part I. `aggregate_metric` accepts per-spec `labels` (accuracy, method, unit,
+  details), `plan_aggregates` the engine's JSON-validation reason, `referential_summary` the mode targets are read
+  with, and `key_constraints_from_rows` per-row `enforcement` and `notes`, a `source` and case-sensitive names.
+
+### Fixed
+
+- The aggregate plan could use more passes than `limits.max_aggregate_passes`: an expression is never split across
+  passes, so each cost-2 `all_values_equal` that did not fit the last slot of a pass opened a new one (one or more
+  passes over the budget). The planner now lowers the budget until the kept expressions fit the passes; the
+  expressions left out are reported as `expression_budget` omissions, as before. The deep extra passes get the same
+  guard against `deep.max_extra_passes` (today every deep expression costs 1, so they never exceeded it).
 
 ## [0.4.0] - 2026-09-22
 

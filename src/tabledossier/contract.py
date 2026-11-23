@@ -14,9 +14,11 @@ from tabledossier.schemacheck import schema_errors
 PROFILE_KIND = "tabledossier.profile"
 # The notebook writes the latest version; readers (CLI, renderer) accept every listed one.
 # 1.1 only adds to 1.0 (deep level, element fields, JSON paths, deep coverage); 1.2 only adds
-# to 1.1 (exact uniqueness, referential validation evidence, relationship hypotheses).
-PROFILE_SCHEMA_VERSION = "1.2"
-SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1", "1.2")
+# to 1.1 (exact uniqueness, referential validation evidence, relationship hypotheses); 1.3 only
+# adds to 1.2 (PostgreSQL engine and local CLI context, server version, transaction snapshot
+# consistency, connect error stage, system_catalog constraint source).
+PROFILE_SCHEMA_VERSION = "1.3"
+SUPPORTED_PROFILE_VERSIONS = ("1.0", "1.1", "1.2", "1.3")
 ANNOTATIONS_KIND = "tabledossier.annotations"
 SUPPORTED_ANNOTATION_VERSIONS = ("1.0",)
 COUNT_METRICS_WITH_ROW_DENOMINATOR = ("null_count", "non_null_count")
@@ -81,6 +83,7 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
     """Return violations of cross-field invariants of a schema-valid profile."""
     errors: list[str] = []
     run = profile["run"]
+    engine = (run.get("environment") or {}).get("engine")
     if run["finished_at"] < run["started_at"]:
         errors.append("$.run: finished_at is earlier than started_at")
     statuses = [table["status"] for table in profile["tables"]]
@@ -115,6 +118,15 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
         table_ids.add(table["table_id"])
         if table["status"] == "failed" and not table["errors"]:
             errors.append(f"{where}: a failed table must report at least one error")
+        consistency = table.get("consistency") or {}
+        errors.extend(
+            _ct_consistency_errors(
+                consistency.get("mode"),
+                consistency.get("delta_version"),
+                engine,
+                f"{where}.consistency",
+            )
+        )
         schema_ids: set[str] = set()
         for node in _ct_nodes((table.get("schema") or {}).get("fields", [])):
             if node["field_id"] in schema_ids:
@@ -171,9 +183,50 @@ def profile_invariant_errors(profile: Mapping[str, Any]) -> list[str]:
                     relationship, detail, f"$.relationships[{r_index}]", planned_by_table
                 )
             )
+            errors.extend(
+                _ct_side_errors(detail, engine, f"$.relationships[{r_index}].validation_detail")
+            )
     hypotheses = profile.get("relationship_hypotheses")
     if hypotheses:
         errors.extend(_ct_hypothesis_errors(hypotheses, known, planned_by_table))
+        for h_index, item in enumerate(hypotheses["hypotheses"]):
+            errors.extend(
+                _ct_side_errors(
+                    item["evidence"],
+                    engine,
+                    f"$.relationship_hypotheses.hypotheses[{h_index}].evidence",
+                )
+            )
+    return errors
+
+
+def _ct_consistency_errors(mode: Any, delta_version: Any, engine: Any, where: str) -> list[str]:
+    """Check the consistency labels of a table or of one side of a check (1.3).
+
+    A transaction snapshot is a database transaction (PostgreSQL), and a Delta
+    version is recorded only when the reads were pinned to it.
+    """
+    errors: list[str] = []
+    if mode == "transaction_snapshot" and engine != "postgresql":
+        errors.append(f"{where}: transaction_snapshot requires run.environment.engine postgresql")
+    if delta_version is not None and mode != "pinned_delta_version":
+        errors.append(f"{where}: delta_version is recorded only for pinned_delta_version")
+    return errors
+
+
+def _ct_side_errors(record: Mapping[str, Any], engine: Any, where: str) -> list[str]:
+    errors: list[str] = []
+    for end in ("from", "to"):
+        side = record.get(end) or {}
+        if side:
+            errors.extend(
+                _ct_consistency_errors(
+                    side.get("consistency_mode"),
+                    side.get("delta_version"),
+                    engine,
+                    f"{where}.{end}",
+                )
+            )
     return errors
 
 

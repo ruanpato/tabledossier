@@ -11,9 +11,10 @@ SCHEMA_FILES = {
     "config": "config.schema.json",
     "profile": "profile.schema.json",
     # Frozen schemas of earlier profile contracts, still accepted by readers:
-    # 1.0 (TableDossier 0.1.x) and 1.1 (TableDossier 0.2.x).
+    # 1.0 (TableDossier 0.1.x), 1.1 (TableDossier 0.2.x) and 1.2 (TableDossier 0.3.x and 0.4.x).
     "profile-1.0": "profile-1.0.schema.json",
     "profile-1.1": "profile-1.1.schema.json",
+    "profile-1.2": "profile-1.2.schema.json",
     "annotations": "annotations.schema.json",
     "suggested_rules": "suggested_rules.schema.json",
     "manifest": "manifest.schema.json",

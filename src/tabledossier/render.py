@@ -224,6 +224,8 @@ def _r_scope_text(table: Mapping[str, Any]) -> str:
     parts = [SCOPE_LABELS.get(scope["scope_label"], scope["scope_label"])]
     if consistency.get("mode") == "pinned_delta_version":
         parts.append(f"Delta version {consistency.get('delta_version')}")
+    elif consistency.get("mode") == "transaction_snapshot":
+        parts.append("transaction snapshot")
     if scope.get("filters"):
         parts.append(f"{len(scope['filters'])} filter(s)")
     if scope.get("selected_columns") is not None:
@@ -264,6 +266,7 @@ def render_overview(
             f"Databricks Runtime {env['databricks_runtime_version']}"
             if env.get("databricks_runtime_version")
             else None,
+            f"PostgreSQL {env['postgresql_version']}" if env.get("postgresql_version") else None,
             f"Python {env.get('python_version')}",
         )
         if part
@@ -283,7 +286,9 @@ def render_overview(
         ["Configuration fingerprint", md_code(run["config_fingerprint"])],
         [
             "Generated notebook",
-            md_code(run["generation"]["generation_id"])
+            "not applicable (local CLI run)"
+            if env.get("execution_context") == "local_cli"
+            else md_code(run["generation"]["generation_id"])
             if run["generation"].get("generation_id")
             else "not recorded",
         ],
@@ -476,7 +481,9 @@ def _r_distinct(profile_field: Mapping[str, Any] | None) -> str:
         return "—"
     if metric.get("status") != "measured":
         return format_value(metric)
-    return "≈ " + format_count(metric["value"])
+    # The name is kept for compatibility; the accuracy label says whether the count is exact.
+    prefix = "≈ " if metric.get("accuracy") == "approximate" else ""
+    return prefix + format_count(metric["value"])
 
 
 def _r_format(profile_field: Mapping[str, Any] | None) -> str:
@@ -1044,7 +1051,14 @@ def render_quality_report(
     deep_tables = [table for table in profile["tables"] if table.get("deep")]
     deep_level = profile["run"].get("analysis_level") == "deep"
     if deep_level:
-        out += _r_deep_coverage(deep_tables)
+        out += _r_deep_coverage(
+            deep_tables,
+            unsupported=any(
+                item.get("capability") == "deep_elements"
+                for table in profile["tables"]
+                for item in table.get("unsupported", [])
+            ),
+        )
         out += _r_uniqueness(profile)
         out += _r_referential(profile)
     out += ["## 9. Limitations" if deep_level else "## 6. Limitations", ""]
@@ -1130,9 +1144,17 @@ def _r_referential(profile: Mapping[str, Any]) -> list[str]:
             "(`deep.referential`). See `relationships.md` for the reason of each relationship.",
             "",
         ]
+    target_modes = {
+        (rel["validation_detail"].get("to") or {}).get("consistency_mode") for rel in checked
+    }
+    target_read = (
+        "in the run's transaction snapshot"
+        if target_modes == {"transaction_snapshot"}
+        else "at its recorded version"
+    )
     out += [
         "Orphans are source rows with a complete key that no target row has. The source keeps its "
-        "analysed scope; the target is read in full at its recorded version. Only counts are "
+        f"analysed scope; the target is read in full {target_read}. Only counts are "
         "recorded: orphan values are never collected.",
         "",
     ]
@@ -1202,13 +1224,58 @@ def _r_versions(detail: Mapping[str, Any]) -> str:
     for side in ("from", "to"):
         info = detail.get(side) or {}
         version = info.get("delta_version")
-        label = f"v{version}" if version is not None else str(info.get("consistency_mode"))
+        mode = info.get("consistency_mode")
+        label = (
+            f"v{version}"
+            if version is not None
+            else "snapshot"
+            if mode == "transaction_snapshot"
+            else str(mode)
+        )
         parts.append(f"{side} {label}")
     return md_text(", ".join(parts))
 
 
+def _r_exact_distinct_counts(profile: Mapping[str, Any]) -> bool:
+    """Whether every measured column distinct count of the profile is labelled exact."""
+    accuracies = {
+        metric.get("accuracy")
+        for table in profile["tables"]
+        for field in table.get("field_profiles", [])
+        for metric in field.get("metrics", [])
+        if metric.get("name") == "approx_distinct_count" and metric.get("status") == "measured"
+    }
+    return accuracies == {"exact"}
+
+
 def _r_uniqueness_dimension(profile: Mapping[str, Any]) -> str:
-    if any(measured_keys(table) for table in profile["tables"]):
+    keys = any(measured_keys(table) for table in profile["tables"])
+    if _r_exact_distinct_counts(profile):
+        if keys:
+            return (
+                "- **Uniqueness** is established exactly over the analysed scope for the keys of "
+                "section 7; for other single columns, exact distinct counts show whether a value "
+                "repeats in the analysed scope (unique there when the distinct count equals the "
+                "non-null count)."
+            )
+        return (
+            "- **Uniqueness** is only measured per column: exact distinct counts show whether a "
+            "value repeats in the analysed scope (unique there when the distinct count equals "
+            "the non-null count); no key uniqueness check ran."
+        )
+    if profile["run"].get("environment", {}).get("engine") != "spark" and not any(
+        metric.get("name") == "approx_distinct_count" and metric.get("status") == "measured"
+        for table in profile["tables"]
+        for field in table["field_profiles"]
+        for metric in field["metrics"]
+    ):
+        # No distinct count was measured, and only Spark computes them with HyperLogLog.
+        return (
+            "- **Uniqueness**: no column distinct count was measured"
+            + ("; the keys of section 7 are checked exactly." if keys else ".")
+            + (" No exact uniqueness check ran." if not keys else "")
+        )
+    if keys:
         return (
             "- **Uniqueness** is established only for the keys of section 7, exactly and over "
             "their analysed scope; other columns only have approximate (HyperLogLog-based) "
@@ -1325,19 +1392,28 @@ def _r_uniqueness(profile: Mapping[str, Any]) -> list[str]:
     return out
 
 
-def _r_deep_coverage(tables: list[Mapping[str, Any]]) -> list[str]:
-    """Render what the deep level covered and what its budgets limited."""
-    out = [
-        "## 6. Deep analysis: coverage and budget",
-        "",
+def _r_deep_coverage(tables: list[Mapping[str, Any]], *, unsupported: bool) -> list[str]:
+    """Render what the deep level covered and what its budgets limited.
+
+    ``unsupported`` says that tables record the deep elements capability as
+    unsupported by the engine (which then covered no table).
+    """
+    out = ["## 6. Deep analysis: coverage and budget", ""]
+    if not tables:
+        return [
+            *out,
+            "Deep level part I (element and JSON path profiling) is not supported by this engine."
+            if unsupported
+            else "No table reached the deep analysis (see errors).",
+            "",
+        ]
+    out += [
         "Element metrics are exact over the analysed scope (higher-order functions inside the "
         "shared passes). Element distinct counts come from one explode pass, usually over a "
         "bounded sample. JSON paths are catalogued from the transient sample and are not a "
         "complete schema.",
         "",
     ]
-    if not tables:
-        return [*out, "No table reached the deep analysis (see errors).", ""]
     rows = []
     for table in tables:
         deep = table["deep"]
@@ -1547,15 +1623,50 @@ def render_relationships(
         if constraint_rows
         else "No declared constraints were visible."
     )
-    out += [
-        "",
-        "Declared PRIMARY KEY/FOREIGN KEY constraints in Unity Catalog are informational: they "
-        "document "
-        "intent and are not enforced, so they do not prove integrity of the data.",
-        "",
-        *_r_hypotheses(profile),
-    ]
+    out.append("")
+    for note in _r_constraint_notes(profile):
+        out += [note, ""]
+    out += _r_hypotheses(profile)
     return "\n".join(out)
+
+
+def _r_constraint_notes(profile: Mapping[str, Any]) -> list[str]:
+    """Say what declared constraints prove, from their ``source`` and ``enforcement`` labels.
+
+    Without any constraint record, the Unity Catalog statement is kept only for a
+    Spark run (``run.environment.engine``), whose key constraints come from there.
+    """
+    constraints = [item for table in profile["tables"] for item in table.get("constraints", [])]
+    catalog = [item for item in constraints if item.get("source") == "system_catalog"]
+    spark = profile["run"].get("environment", {}).get("engine") == "spark"
+    notes = []
+    if len(catalog) < len(constraints) or (not constraints and spark):
+        notes.append(
+            "Declared PRIMARY KEY/FOREIGN KEY constraints in Unity Catalog are informational: "
+            "they document intent and are not enforced, so they do not prove integrity of the "
+            "data."
+        )
+    if any(item.get("enforcement") == "enforced" for item in catalog):
+        notes.append(
+            "Constraints read from the database catalog (`system_catalog`) and marked `enforced` "
+            "are enforced by PostgreSQL for writes; a constraint added NOT VALID was never "
+            "checked against the rows that existed before it (see the limitations of the quality "
+            "report), and enforcement can be bypassed (e.g. session_replication_role = replica), "
+            "so a declaration alone does not prove the integrity of the data."
+        )
+    if any(item.get("enforcement") == "not_enforced" for item in catalog):
+        notes.append(
+            "Constraints read from the database catalog (`system_catalog`) and marked "
+            "`not_enforced` are declared but not checked by the database, so they do not prove "
+            "the integrity of the data."
+        )
+    if any(item.get("enforcement") not in ("enforced", "not_enforced") for item in catalog):
+        notes.append(
+            "For constraints read from the database catalog with enforcement `unknown`, whether "
+            "the database checks them was not determined; they do not prove the integrity of "
+            "the data."
+        )
+    return notes
 
 
 def _r_hypotheses(profile: Mapping[str, Any]) -> list[str]:
